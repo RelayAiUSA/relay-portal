@@ -1,0 +1,17 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="rg" x1="82" y1="455" x2="447" y2="62" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#3838d4"/>
+      <stop offset="50%" stop-color="#5e72ee"/>
+      <stop offset="100%" stop-color="#92d2f8"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="#060c1c"/>
+  <!-- R stem + bowl (outer), minus counter (inner) using evenodd -->
+  <path fill-rule="evenodd" fill="url(#rg)" d="
+    M 84,64 L 312,64 A 105,105 0 0 1 312,274 L 162,274 L 162,452 L 84,452 Z
+    M 262,90 A 84,77 0 1 0 262,244 A 84,77 0 1 0 262,90 Z
+  "/>
+  <!-- Diagonal leg -->
+  <polygon fill="url(#rg)" points="162,274 316,274 448,452 294,452"/>
+</svg>

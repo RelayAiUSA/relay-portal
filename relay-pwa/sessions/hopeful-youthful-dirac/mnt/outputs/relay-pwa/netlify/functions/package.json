@@ -1,0 +1,8 @@
+{
+  "name": "relay-ai-functions",
+  "version": "1.0.0",
+  "description": "Relay Ai serverless backend functions",
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "firebase-admin": "^12.1.0",
+    "
