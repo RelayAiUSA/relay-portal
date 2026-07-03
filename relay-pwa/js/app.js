@@ -1,6 +1,6 @@
 'use strict';
 
-// ── FIREBASE SDK GUARD ────────────────────────────────────────────────────
+// ââ FIREBASE SDK GUARD ââââââââââââââââââââââââââââââââââââââââââââââââââââ
 // If Firebase CDN fails to load, show a friendly error instead of blank page
 
 if (typeof firebase === 'undefined') {
@@ -19,13 +19,13 @@ if (typeof firebase === 'undefined') {
       <button onclick="location.reload()"
               style="padding:12px 24px;background:#1a2f5e;color:#fff;border:none;
                      border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;">
-        Retry →
+        Retry â
       </button>
     </div>`;
-  throw new Error('Firebase SDK not loaded — CDN may be blocked or offline.');
+  throw new Error('Firebase SDK not loaded â CDN may be blocked or offline.');
 }
 
-// ── FIREBASE ──────────────────────────────────────────────────────────────
+// ââ FIREBASE ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 const firebaseConfig = {
   apiKey: "AIzaSyAG6yO3waIb6MvdQPZDIGWu_hC8yo5Tfw8",
@@ -42,16 +42,16 @@ const db   = firebase.firestore();
 
 const ADMIN_EMAIL = 'pryorpropertysolutions269@gmail.com';
 
-// ── STRIPE PAYMENT LINKS ──────────────────────────────────────────────────
+// ââ STRIPE PAYMENT LINKS ââââââââââââââââââââââââââââââââââââââââââââââââââ
 // Replace these with your real links from stripe.com/payment-links
-const STRIPE_STARTER  = 'https://buy.stripe.com/REPLACE_STARTER_LINK';
+const STRIPE_ESSENTIAL  = 'https://buy.stripe.com/REPLACE_STARTER_LINK';
 const STRIPE_PRO      = 'https://buy.stripe.com/REPLACE_PRO_LINK';
 const STRIPE_BILLING  = 'https://billing.stripe.com/p/login/REPLACE_PORTAL_LINK';
 
-// Protected screens — require active subscription
+// Protected screens â require active subscription
 const PROTECTED = new Set(['dashboard','submit','invoices','customers','profile']);
 
-// ── STATE ─────────────────────────────────────────────────────────────────
+// ââ STATE âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 const S = {
   screen:   'loading',
@@ -67,7 +67,7 @@ const S = {
   queue:    [],
 };
 
-// ── SVG ICONS ─────────────────────────────────────────────────────────────
+// ââ SVG ICONS âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 const I = {
   home:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
@@ -89,7 +89,7 @@ const I = {
   logout:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>`,
 };
 
-// ── HELPERS ───────────────────────────────────────────────────────────────
+// ââ HELPERS âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 const $ = id => document.getElementById(id);
 const fmt = n => '$' + Number(n).toLocaleString();
@@ -142,7 +142,7 @@ function friendlyAuthError(code) {
     'auth/invalid-email':        'Please enter a valid email address.',
     'auth/too-many-requests':    'Too many attempts. Please try again later.',
     'auth/popup-closed-by-user': 'Google sign-in was cancelled.',
-    'auth/network-request-failed': 'Network error — check your connection.',
+    'auth/network-request-failed': 'Network error â check your connection.',
   };
   return map[code] || 'Something went wrong. Please try again.';
 }
@@ -158,10 +158,10 @@ function setBtn(id, loading, label) {
   const el = $(id);
   if (!el) return;
   el.disabled = loading;
-  el.textContent = loading ? 'Please wait…' : label;
+  el.textContent = loading ? 'Please waitâ¦' : label;
 }
 
-// ── FIREBASE DATA ─────────────────────────────────────────────────────────
+// ââ FIREBASE DATA âââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 async function loadUserData(uid) {
   try {
@@ -187,7 +187,7 @@ async function loadUserData(uid) {
     S.customers = cxSnap.docs.map(d => ({docId: d.id, ...d.data()}));
   } catch(e) {
     console.error('loadUserData:', e);
-    if (!S.profile) S.profile = {companyName: 'My Company', plan: 'Starter', platform: 'quickbooks'};
+    if (!S.profile) S.profile = {companyName: 'My Company', plan: 'Essential+', platform: 'quickbooks'};
     S.invoices  = S.invoices  || [];
     S.customers = S.customers || [];
   }
@@ -205,7 +205,7 @@ async function loadDispatchQueue() {
   }
 }
 
-// ── COMPONENTS ───────────────────────────────────────────────────────────
+// ââ COMPONENTS âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 function tabs(active) {
   const t = [
@@ -231,7 +231,7 @@ function topbar({title, sub='', back='', light=false, right=''}) {
   </header>`;
 }
 
-// ── SCREENS ───────────────────────────────────────────────────────────────
+// ââ SCREENS âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 function sLoading() {
   return `<div class="loading-wrap">
@@ -252,7 +252,7 @@ function sLogin() {
     </div>
     <div class="form-group">
       <label class="form-lbl" for="lg-pw">Password</label>
-      <input id="lg-pw" type="password" class="input" placeholder="••••••••" autocomplete="current-password">
+      <input id="lg-pw" type="password" class="input" placeholder="â¢â¢â¢â¢â¢â¢â¢â¢" autocomplete="current-password">
     </div>
     <button id="lg-btn" class="btn btn-primary" data-action="login" style="margin-bottom:8px">Sign in to Relay</button>
     <div class="divider"><span class="divider-line"></span><span class="divider-text">or</span><span class="divider-line"></span></div>
@@ -260,7 +260,7 @@ function sLogin() {
       ${I.google} Continue with Google
     </button>
     <div style="margin-top:auto;padding-top:28px;text-align:center">
-      <button class="link-btn" data-nav="signup">New to Relay? Create an account →</button>
+      <button class="link-btn" data-nav="signup">New to Relay? Create an account â</button>
     </div>
   </main>`;
 }
@@ -301,7 +301,7 @@ function sSignup() {
       ${I.google} Sign up with Google
     </button>
     <div style="margin-top:auto;padding-top:28px;text-align:center">
-      <button class="link-btn" data-nav="login">Already have an account? Sign in →</button>
+      <button class="link-btn" data-nav="login">Already have an account? Sign in â</button>
     </div>
   </main>`;
 }
@@ -311,46 +311,46 @@ function sLocked() {
   const name    = S.profile?.companyName || 'there';
   const paid    = S._paymentReceived;
 
-  // ── banner copy per status ──────────────────────────────────────────────
+  // ââ banner copy per status ââââââââââââââââââââââââââââââââââââââââââââââ
   const BANNERS = {
     unpaid: {
-      icon:  '🚀',
+      icon:  'ð',
       accent: 'var(--brand)',
       title: "You're one step away from going live",
-      msg:   `Hey ${name} — your Relay portal is built and ready. Add your subscription to start submitting jobs, dispatching invoices, and building your customer registry.`,
-      perks: ['100 invoices created, dispatched & tracked monthly','SMS job submission via +1 (844) 729-1376','Auto payment reminders at 72 hrs overdue','Client portal with live invoice status','QuickBooks & Zoho Books sync'],
-      cta:   'Activate — Starter $49/mo',
-      ctaHref: STRIPE_STARTER,
-      alt:   'Need more? See Pro at $99/mo →',
+      msg:   `Hey ${name} â your Relay portal is built and ready. Add your subscription to start submitting jobs, dispatching invoices, and building your customer registry.`,
+      perks: ['100 invoices created, dispatched & tracked monthly','SMS Text to Invoice & Quote Creation','Automated Account Logging to Accounting Software','Client portal access at portal-relay.com','AI-Powered Dispatch Management'],
+      cta:   'Activate â Starter $49/mo',
+      ctaHref: STRIPE_ESSENTIAL,
+      alt:   'Need more? See Pro at $99/mo â',
       altHref: STRIPE_PRO,
     },
     past_due: {
-      icon:  '⚠️',
+      icon:  'â ï¸',
       accent: '#b45309',
       title: 'Your account is temporarily on hold',
-      msg:   "We weren't able to process your last payment. Your invoices, customers, and history are all safe — update your payment method to restore full access in seconds.",
+      msg:   "We weren't able to process your last payment. Your invoices, customers, and history are all safe â update your payment method to restore full access in seconds.",
       perks: [],
-      cta:   'Update payment method →',
+      cta:   'Update payment method â',
       ctaHref: STRIPE_BILLING,
       alt:   'Questions? Text us at +1 (844) 729-1376',
       altHref: null,
     },
     canceled: {
-      icon:  '📋',
+      icon:  'ð',
       accent: '#dc2626',
       title: 'Your Relay subscription has ended',
-      msg:   'Your dispatch portal is currently inactive. Reactivate your subscription to get back online — every invoice, customer record, and job history is saved and waiting for you.',
+      msg:   'Your dispatch portal is currently inactive. Reactivate your subscription to get back online â every invoice, customer record, and job history is saved and waiting for you.',
       perks: [],
-      cta:   'Reactivate — Starter $49/mo',
-      ctaHref: STRIPE_STARTER,
-      alt:   'See Pro plan ($99/mo) →',
+      cta:   'Reactivate â Starter $49/mo',
+      ctaHref: STRIPE_ESSENTIAL,
+      alt:   'See Pro plan ($99/mo) â',
       altHref: STRIPE_PRO,
     },
     suspended: {
-      icon:  '🔒',
+      icon:  'ð',
       accent: '#dc2626',
       title: 'Your account has been suspended',
-      msg:   'Access to your Relay portal has been suspended. Please contact Relay support to resolve this — your data is safe.',
+      msg:   'Access to your Relay portal has been suspended. Please contact Relay support to resolve this â your data is safe.',
       perks: [],
       cta:   'Contact Relay support',
       ctaHref: 'mailto:support@relay.io',
@@ -368,9 +368,9 @@ function sLocked() {
     </div>
 
     ${paid ? `<div class="payment-received-banner">
-      <span style="font-size:18px">✅</span>
+      <span style="font-size:18px">â</span>
       <div>
-        <div style="font-weight:600;font-size:14px">Payment received — thank you!</div>
+        <div style="font-weight:600;font-size:14px">Payment received â thank you!</div>
         <div style="font-size:12px;opacity:.85;margin-top:2px">Your account will be activated shortly. Refresh this page in a minute.</div>
       </div>
     </div>` : ''}
@@ -396,7 +396,7 @@ function sLocked() {
 
     <div class="locked-footer">
       <p style="font-size:12px;color:#9ca3af;text-align:center;line-height:1.6">
-        Billed securely via Stripe · Cancel anytime<br>
+        Billed securely via Stripe Â· Cancel anytime<br>
         Questions? Text <strong>+1 (844) 729-1376</strong>
       </p>
     </div>
@@ -405,13 +405,11 @@ function sLocked() {
 
 function sPlans() {
   const plans = [
-    {name:'Starter',price:'$49',per:'/mo',feats:['100 invoices created, dispatched, and tracked monthly','SMS job submission via text','Auto customer reminders','72-hr overdue alerts','Client portal access'],cta:'Get started',featured:false},
-    {name:'Pro',price:'$99',per:'/mo',feats:['Everything in Starter','Receipt & expense tracking','Google review follow-ups','Prism analytics dashboard','Priority dispatch queue','QuickBooks + Zoho sync'],cta:'Start free trial',featured:true},
-    {name:'Enterprise',price:'Custom',per:'',feats:['Multiple operators & crews','White-label portal','Dedicated account manager','API access','Custom integrations'],cta:'Contact sales',featured:false},
+    {name:'Essential+',price:'$99',per:'/mo',feats:['SMS Text to Invoice & Quote Creation','Automated Account Logging to Bound Accounting Software','Client portal access at portal-relay.com','AI-Powered Dispatch Management'],cta:'Get started',featured:true},
   ];
   return topbar({title:'Choose your plan', back:'signup'}) +
     `<div class="scroll">
-      <p style="font-size:13px;color:#6b7280;margin-bottom:14px">Billed directly via Stripe — no app store cut. Cancel anytime.</p>
+      <p style="font-size:13px;color:#6b7280;margin-bottom:14px">Billed directly via Stripe â no app store cut. Cancel anytime.</p>
       ${plans.map(p=>`
         <div class="plan-card${p.featured?' featured':''}">
           ${p.featured?`<div style="margin-bottom:8px"><span class="badge paid">Most popular</span></div>`:''}
@@ -449,18 +447,29 @@ function sDashboard() {
   const subStatus = S.profile?.subscriptionStatus || 'unpaid';
   const trialBanner = (!isAdmin && subStatus === 'trialing') ? `
     <div class="trial-banner">
-      <span style="font-size:18px">⏳</span>
+      <span style="font-size:18px">â³</span>
       <div style="flex:1">
         <div class="trial-banner-title">Your free trial is active</div>
-        <div class="trial-banner-sub">Subscribe before your trial ends to keep full access — no interruption.</div>
+        <div class="trial-banner-sub">Subscribe before your trial ends to keep full access â no interruption.</div>
       </div>
-      <a href="${STRIPE_STARTER}" target="_blank" rel="noopener" class="trial-banner-btn">Subscribe →</a>
+      <a href="${STRIPE_ESSENTIAL}" target="_blank" rel="noopener" class="trial-banner-btn">Subscribe â</a>
     </div>` : '';
 
-  return topbar({title: name, sub: `${plan} Plan · Active`, right:`
+  // ── PAST DUE WARNING BANNER (Days 1–7 grace period) ──
+  const pastDueBanner = (!isAdmin && subStatus === 'past_due') ? `
+<div class="past-due-banner">
+<span style="font-size:20px">⚠️</span>
+<div style="flex:1">
+<div class="past-due-banner-title">⚠️ ACTION REQUIRED — Payment Past Due</div>
+<div class="past-due-banner-sub">Update your payment method within 7 days or your portal access will be suspended. Your data is safe.</div>
+</div>
+<a href="${STRIPE_BILLING}" target="_blank" rel="noopener" class="past-due-banner-btn">Update Payment →</a>
+</div>` : '';
+
+  return topbar({title: name, sub: `${plan} Plan Â· Active`, right:`
     ${isAdmin ? `<button class="topbar-btn" data-action="goAdmin" title="Admin view">${I.shield}</button>` : ''}
     <button class="topbar-btn" title="Notifications">${I.bell}</button>`}) +
-  `<div class="scroll">${trialBanner}
+  `<div class="scroll">${trialBanner}${pastDueBanner}
     <p class="sh">This month</p>
     <div class="stats-grid">
       <div class="stat-card"><div class="stat-lbl">Revenue collected</div><div class="stat-val g">${fmt(revenue)}</div></div>
@@ -472,7 +481,7 @@ function sDashboard() {
     <div class="dispatch-number">
       <div class="dispatch-number-label">Relay SMS dispatch line</div>
       <div class="dispatch-number-val">+1 (844) 729-1376</div>
-      <div class="dispatch-number-sub">Text job info to this number anytime — Invoice or Quote, customer name &amp; phone, address, work done, amount.</div>
+      <div class="dispatch-number-sub">Text job info to this number anytime â Invoice or Quote, customer name &amp; phone, address, work done, amount.</div>
     </div>
     <p class="sh">Quick actions</p>
     <div class="actions-grid">
@@ -491,13 +500,13 @@ function sDashboard() {
             return `<div class="act-item">
               <div class="act-dot" style="background:${dot}"></div>
               <div>
-                <div class="act-title">${inv.type==='quote'?'Quote':'Invoice'} ${badge(inv.status)} — ${fmt(inv.amount||0)}</div>
-                <div class="act-sub">${inv.customer} · ${fmtDate(inv.createdAt)}</div>
+                <div class="act-title">${inv.type==='quote'?'Quote':'Invoice'} ${badge(inv.status)} â ${fmt(inv.amount||0)}</div>
+                <div class="act-sub">${inv.customer} Â· ${fmtDate(inv.createdAt)}</div>
               </div>
             </div>`;
           }).join('')
         : `<div style="padding:28px;text-align:center;color:#9ca3af;font-size:14px">
-            <div style="font-size:32px;margin-bottom:10px">🚀</div>
+            <div style="font-size:32px;margin-bottom:10px">ð</div>
             <div style="font-weight:600;color:#374151;margin-bottom:4px">You're all set!</div>
             <div>Submit your first job to get started.</div>
           </div>`
@@ -518,10 +527,10 @@ function sSubmit() {
     <p class="sh">Customer info</p>
     <div class="form-group"><label class="form-lbl" for="f-name">Customer name <span class="req">*</span></label><input id="f-name" type="text" class="input" placeholder="e.g. Jeff Smith" autocomplete="off"></div>
     <div class="form-group"><label class="form-lbl" for="f-phone">Customer phone <span class="req">*</span></label><input id="f-phone" type="tel" class="input" placeholder="(616) 248-1977"></div>
-    <div class="form-group"><label class="form-lbl" for="f-email">Customer email</label><input id="f-email" type="email" class="input" placeholder="optional — for invoice delivery"></div>
+    <div class="form-group"><label class="form-lbl" for="f-email">Customer email</label><input id="f-email" type="email" class="input" placeholder="optional â for invoice delivery"></div>
     <p class="sh">Job details</p>
     <div class="form-group"><label class="form-lbl" for="f-addr">Job address <span class="req">*</span></label><input id="f-addr" type="text" class="input" placeholder="412 Oak St, Grand Rapids MI" autocomplete="off"></div>
-    <div class="form-group"><label class="form-lbl" for="f-work">Work description <span class="req">*</span></label><textarea id="f-work" class="input" placeholder="Describe what was done in 2–3 sentences.&#10;e.g. Removed and replaced water heater, installed new supply valve."></textarea></div>
+    <div class="form-group"><label class="form-lbl" for="f-work">Work description <span class="req">*</span></label><textarea id="f-work" class="input" placeholder="Describe what was done in 2â3 sentences.&#10;e.g. Removed and replaced water heater, installed new supply valve."></textarea></div>
     <p class="sh">Pricing</p>
     <div class="toggle-g">
       <button class="toggle-btn${S.formPrice==='flat'?' on':''}" data-toggle="price" data-val="flat">Flat rate</button>
@@ -550,12 +559,12 @@ function sConfirm() {
     <h2 class="confirm-title">Job submitted!</h2>
     <p class="confirm-sub">Relay is processing your ${j.type}. Your customer will receive it by email and text shortly.</p>
     <div class="confirm-card">
-      <div style="font-size:11px;color:#6b7280;margin-bottom:5px;text-transform:uppercase;letter-spacing:.3px">${j.type} · ${j.customer}</div>
+      <div style="font-size:11px;color:#6b7280;margin-bottom:5px;text-transform:uppercase;letter-spacing:.3px">${j.type} Â· ${j.customer}</div>
       <div style="font-size:28px;font-weight:700;color:#111827">${j.amount}</div>
       <div style="font-size:12px;color:#6b7280;margin-top:8px;line-height:1.7">
-        Sent to Relay dispatch ✓<br>
-        Auto-reminder after 72 hrs if unpaid ✓<br>
-        Google review request sent after payment ✓
+        Sent to Relay dispatch â<br>
+        Auto-reminder after 72 hrs if unpaid â<br>
+        Google review request sent after payment â
       </div>
     </div>
     <button class="btn btn-primary" data-nav="dashboard" style="margin-bottom:10px">Back to dashboard</button>
@@ -582,7 +591,7 @@ function sInvoices() {
               <div class="inv-av">${ini}</div>
               <div class="inv-info">
                 <div class="inv-name">${inv.customer || 'Unknown'}</div>
-                <div class="inv-meta">${work}${(inv.work||'').length > 34 ? '…' : ''} · ${fmtDate(inv.createdAt)}</div>
+                <div class="inv-meta">${work}${(inv.work||'').length > 34 ? 'â¦' : ''} Â· ${fmtDate(inv.createdAt)}</div>
               </div>
               <div class="inv-right">
                 <div class="inv-amt">${fmt(inv.amount || 0)}</div>
@@ -591,4 +600,4 @@ function sInvoices() {
             </div>`;
           }).join('')
         : `<div style="padding:32px;text-align:center;color:#9ca3af;font-size:14px">
-            ${S.filter==='all' ? 'No invoices yet — submit your first job!' : 
+            ${S.filter==='all' ? 'No invoices yet â submit your first job!' : 
