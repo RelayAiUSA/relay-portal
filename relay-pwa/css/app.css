@@ -358,3 +358,42 @@ select.input { cursor: pointer; }
 .payment-received-banner {
   display: flex; gap: 12px; align-items: flex-start;
   background: var(--green-bg); border: 1px soli
+
+/* ── PAST DUE WARNING BANNER ── */
+.past-due-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fef2f2;
+  border: 1.5px solid #fca5a5;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+.past-due-banner-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #dc2626;
+}
+.past-due-banner-sub {
+  font-size: 12px;
+  color: #991b1b;
+  margin-top: 2px;
+  line-height: 1.5;
+}
+.past-due-banner-btn {
+  background: #dc2626;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration: none;
+  display: inline-block;
+}
+.past-due-banner-btn:hover {
+  background: #b91c1c;
+}
