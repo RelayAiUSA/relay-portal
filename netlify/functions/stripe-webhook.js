@@ -1,10 +1,10 @@
 // netlify/functions/stripe-webhook.js
-// Handles Stripe subscription events â updates Firestore user subscriptionStatus
+// Handles Stripe subscription events — updates Firestore user subscriptionStatus
 
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const admin  = require('firebase-admin');
 
-// ââ Firebase Admin init (once) ââââââââââââââââââââââââââââââââââââââââââââââââ
+// — Firebase Admin init (once) ——————————————————————————————————————————————
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert({
@@ -16,21 +16,31 @@ if (!admin.apps.length) {
 }
 const db = admin.firestore();
 
-// ââ Handler âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// — Handler ———————————————————————————————————————————————————————————————————
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }
 
-  // Verify Stripe signature
+  // Verify Stripe signature — try snapshot secret then thin-payload secret
   const sig = event.headers['stripe-signature'];
   let stripeEvent;
   try {
-    stripeEvent = stripe.webhooks.constructEvent(
-      event.body,
-      sig,
-      process.env.STRIPE_WEBHOOK_SECRET
-    );
+    const secrets = [
+      process.env.STRIPE_WEBHOOK_SECRET,       // snapshot payload destination
+      process.env.STRIPE_WEBHOOK_SECRET_THIN,  // thin payload destination
+    ].filter(Boolean);
+
+    let lastErr;
+    for (const secret of secrets) {
+      try {
+        stripeEvent = stripe.webhooks.constructEvent(event.body, sig, secret);
+        break; // verified — stop trying
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+    if (!stripeEvent) throw lastErr;
   } catch (err) {
     console.error('Stripe signature verification failed:', err.message);
     return { statusCode: 400, body: `Webhook Error: ${err.message}` };
@@ -43,22 +53,20 @@ exports.handler = async (event) => {
 
   try {
     switch (type) {
-      // Subscription created or updated â sync status directly
+      // Subscription created or updated — sync status directly
       case 'customer.subscription.created':
       case 'customer.subscription.updated': {
-        // Stripe status: active | trialing | past_due | canceled | unpaid | incomplete
-        const status = obj.status;
-        await updateUser(obj.customer, { subscriptionStatus: status });
+        await updateUser(obj.customer, { subscriptionStatus: obj.status });
         break;
       }
 
-      // Subscription deleted â mark canceled
+      // Subscription deleted — mark canceled
       case 'customer.subscription.deleted': {
         await updateUser(obj.customer, { subscriptionStatus: 'canceled' });
         break;
       }
 
-      // Successful invoice payment â ensure status is active
+      // Successful invoice payment — ensure status is active
       case 'invoice.payment_succeeded': {
         if (obj.subscription) {
           await updateUser(obj.customer, { subscriptionStatus: 'active' });
@@ -66,7 +74,7 @@ exports.handler = async (event) => {
         break;
       }
 
-      // Failed invoice payment â log; subscription.updated will set past_due/unpaid
+      // Failed invoice payment — log; subscription.updated will set past_due/unpaid
       case 'invoice.payment_failed': {
         console.log(`Payment failed for customer: ${obj.customer}`);
         break;
@@ -83,7 +91,7 @@ exports.handler = async (event) => {
   return { statusCode: 200, body: JSON.stringify({ received: true }) };
 };
 
-// ââ Helper: find Firestore user by Stripe customer ID, update fields ââââââââââ
+// — Helper: find Firestore user by Stripe customer ID, update fields ————————
 async function updateUser(customerId, updates) {
   // 1. Fast path: look up cached stripeCustomerId in Firestore
   const snap = await db.collection('users')
@@ -101,7 +109,7 @@ async function updateUser(customerId, updates) {
   const customer = await stripe.customers.retrieve(customerId);
   const email = customer.email;
   if (!email) {
-    console.error(`No email on Stripe customer ${customerId} â cannot update Firestore`);
+    console.error(`No email on Stripe customer ${customerId} — cannot update Firestore`);
     return;
   }
 
