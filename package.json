@@ -1,0 +1,11 @@
+{
+  "name": "relay-portal",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Relay AI USA – dispatch portal backend functions",
+  "engines": { "node": "18" },
+  "dependencies": {
+    "firebase-admin": "^11.11.1",
+    "stripe": "^14.25.0"
+  }
+}
