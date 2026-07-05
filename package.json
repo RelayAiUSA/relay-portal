@@ -5,7 +5,9 @@
   "description": "Relay AI USA – dispatch portal backend functions",
   "engines": { "node": "18" },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.27.0",
     "firebase-admin": "^11.11.1",
-    "stripe": "^14.25.0"
+    "stripe": "^14.25.0",
+    "twilio": "^5.3.0"
   }
 }
