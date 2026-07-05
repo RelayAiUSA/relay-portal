@@ -601,3 +601,292 @@ function sInvoices() {
           }).join('')
         : `<div style="padding:32px;text-align:center;color:#9ca3af;font-size:14px">
             ${S.filter==='all' ? 'No invoices yet â submit your first job!' : 
+            ${S.filter==='all' ? 'No invoices yet Ã¢ÂÂ submit your first job!' : 
+            `No ${S.filter} invoices found.`}
+          </div>`
+      }
+    </div>
+  </div>
+  ${tabs('invoices')}`;
+}
+
+function sCustomers() {
+  const cxs = S.customers || [];
+  return topbar({title:'Customers', sub:`${cxs.length} total`, right:`<button class="topbar-btn">${I.bell}</button>`}) +
+  `<div class="scroll" style="padding:12px 16px">
+    <div class="card">
+      ${cxs.length
+        ? cxs.map(cx => {
+            const ini = getInitials(cx.name || '?');
+            const col = avatarColor(cx.name || '');
+            return `<div class="inv-item">
+              <div class="inv-av" style="background:${col.bg};color:${col.fg}">${ini}</div>
+              <div class="inv-info">
+                <div class="inv-name">${cx.name || 'Unknown'}</div>
+                <div class="inv-meta">${cx.phone || ''}${cx.email ? ' Â· ' + cx.email : ''}</div>
+              </div>
+            </div>`;
+          }).join('')
+        : `<div style="padding:32px;text-align:center;color:#9ca3af;font-size:14px">
+            No customers yet â submit your first job to add one!
+          </div>`
+      }
+    </div>
+  </div>
+  ${tabs('customers')}`;
+}
+
+function sProfile() {
+  const p   = S.profile || {};
+  const u   = S.user    || {};
+  const ini = getInitials(p.companyName || u.displayName || '?');
+  const col = avatarColor(p.companyName || '');
+  const status = p.subscriptionStatus || 'unpaid';
+  return topbar({title:'Profile & Settings', back:'dashboard'}) +
+  `<div class="scroll" style="padding:16px">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
+      <div class="inv-av" style="width:54px;height:54px;font-size:20px;background:${col.bg};color:${col.fg}">${ini}</div>
+      <div>
+        <div style="font-weight:700;font-size:17px;color:#111827">${p.companyName || 'My Company'}</div>
+        <div style="font-size:13px;color:#6b7280">${u.email || ''}</div>
+        <div style="margin-top:4px">${platBadge(p.platform)}</div>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:16px">
+      <div class="inv-item" style="border-bottom:1px solid #f3f4f6">
+        <div class="inv-info">
+          <div class="inv-name">Subscription</div>
+          <div class="inv-meta">Essential+ Â· $99/mo Â· <span style="text-transform:capitalize">${status}</span></div>
+        </div>
+        <a href="${STRIPE_BILLING}" target="_blank" rel="noopener" class="link-btn" style="font-size:12px;white-space:nowrap">Manage â</a>
+      </div>
+      <div class="inv-item" style="border-bottom:1px solid #f3f4f6">
+        <div class="inv-info"><div class="inv-name">Dispatch line</div><div class="inv-meta">+1 (844) 729-1376</div></div>
+      </div>
+      <div class="inv-item">
+        <div class="inv-info"><div class="inv-name">Accounting platform</div><div class="inv-meta">${p.platform === 'quickbooks' ? 'QuickBooks Online' : p.platform === 'zoho' ? 'Zoho Books' : 'Not set'}</div></div>
+      </div>
+    </div>
+    <button class="btn btn-outline" data-action="signOut" style="color:#dc2626;border-color:#fecaca;margin-bottom:12px">Sign out of Relay</button>
+    <div style="height:24px"></div>
+  </div>
+  ${tabs('profile')}`;
+}
+
+// ââ ROUTER ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+
+const SCREENS = {
+  loading:   sLoading,
+  login:     sLogin,
+  signup:    sSignup,
+  locked:    sLocked,
+  plans:     sPlans,
+  dashboard: sDashboard,
+  submit:    sSubmit,
+  confirm:   sConfirm,
+  invoices:  sInvoices,
+  customers: sCustomers,
+  profile:   sProfile,
+};
+
+function render() {
+  const fn = SCREENS[S.screen] || sLoading;
+  $('app').innerHTML = fn();
+}
+
+function nav(screen) {
+  const user    = S.user;
+  const isAdmin = user?.email === ADMIN_EMAIL;
+  const status  = S.profile?.subscriptionStatus;
+
+  // Guard protected screens
+  if (PROTECTED.has(screen) && !isAdmin) {
+    const canAccess = ['active', 'trialing', 'past_due'].includes(status);
+    if (!canAccess) {
+      S.screen = 'locked';
+      render();
+      return;
+    }
+  }
+
+  S.screen = screen;
+  render();
+  window.scrollTo(0, 0);
+}
+
+// ââ EVENT DELEGATION ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+
+document.addEventListener('click', async e => {
+  const navEl    = e.target.closest('[data-nav]');
+  const actionEl = e.target.closest('[data-action]');
+  const toggleEl = e.target.closest('[data-toggle]');
+  const filterEl = e.target.closest('[data-filter]');
+
+  if (navEl)    { e.preventDefault(); nav(navEl.dataset.nav); return; }
+  if (filterEl) { S.filter = filterEl.dataset.filter; render(); return; }
+  if (toggleEl) {
+    const { toggle, val } = toggleEl.dataset;
+    if (toggle === 'type')  S.formType  = val;
+    if (toggle === 'price') S.formPrice = val;
+    render();
+    return;
+  }
+  if (!actionEl) return;
+
+  const action = actionEl.dataset.action;
+
+  // ââ LOGIN ââ
+  if (action === 'login') {
+    const email = $('lg-email')?.value?.trim();
+    const pw    = $('lg-pw')?.value;
+    if (!email || !pw) { showErr('lg-err', 'Please enter your email and password.'); return; }
+    setBtn('lg-btn', true, 'Sign in to Relay');
+    try {
+      await auth.signInWithEmailAndPassword(email, pw);
+    } catch(err) {
+      showErr('lg-err', friendlyAuthError(err.code));
+      setBtn('lg-btn', false, 'Sign in to Relay');
+    }
+    return;
+  }
+
+  // ââ GOOGLE LOGIN ââ
+  if (action === 'googleLogin') {
+    try {
+      await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+    } catch(err) {
+      showErr(S.screen === 'signup' ? 'sg-err' : 'lg-err', friendlyAuthError(err.code));
+    }
+    return;
+  }
+
+  // ââ SIGN UP ââ
+  if (action === 'signup') {
+    const co    = $('sg-co')?.value?.trim();
+    const email = $('sg-email')?.value?.trim();
+    const pw    = $('sg-pw')?.value;
+    const pw2   = $('sg-pw2')?.value;
+    const plat  = $('sg-platform')?.value || 'quickbooks';
+    if (!co)          { showErr('sg-err', 'Please enter your company name.'); return; }
+    if (!email)       { showErr('sg-err', 'Please enter your email.'); return; }
+    if (pw !== pw2)   { showErr('sg-err', 'Passwords do not match.'); return; }
+    setBtn('sg-btn', true, 'Create my Relay account');
+    try {
+      const cred = await auth.createUserWithEmailAndPassword(email, pw);
+      await db.collection('users').doc(cred.user.uid).set({
+        companyName:        co,
+        platform:           plat,
+        plan:               'Essential+',
+        subscriptionStatus: 'unpaid',
+        createdAt:          firebase.firestore.FieldValue.serverTimestamp(),
+      });
+    } catch(err) {
+      showErr('sg-err', friendlyAuthError(err.code));
+      setBtn('sg-btn', false, 'Create my Relay account');
+    }
+    return;
+  }
+
+  // ââ SIGN OUT ââ
+  if (action === 'signOut') {
+    await auth.signOut();
+    S.user = null; S.profile = null; S.invoices = []; S.customers = [];
+    nav('login');
+    return;
+  }
+
+  // ââ SUBMIT JOB ââ
+  if (action === 'submitJob') {
+    const name  = $('f-name')?.value?.trim();
+    const phone = $('f-phone')?.value?.trim();
+    const addr  = $('f-addr')?.value?.trim();
+    const work  = $('f-work')?.value?.trim();
+    if (!name || !phone || !addr || !work) {
+      showErr('sub-err', 'Please fill in all required fields (*).');
+      return;
+    }
+    let amount = 0;
+    if (S.formPrice === 'flat') {
+      amount = parseFloat(($('f-total')?.value || '0').replace(/[^0-9.]/g, '')) || 0;
+    } else {
+      const mat = parseFloat(($('f-mat')?.value || '0').replace(/[^0-9.]/g, '')) || 0;
+      const lab = parseFloat(($('f-lab')?.value || '0').replace(/[^0-9.]/g, '')) || 0;
+      amount = mat + lab;
+    }
+    setBtn('sub-btn', true, 'Send to Relay dispatch');
+    try {
+      const uid = S.user.uid;
+      const invRef = await db.collection('users').doc(uid).collection('invoices').add({
+        customer:  name,
+        phone,
+        email:     $('f-email')?.value?.trim() || '',
+        address:   addr,
+        work,
+        amount,
+        type:      S.formType,
+        status:    'pending',
+        notes:     $('f-notes')?.value?.trim() || '',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        platform:  S.profile?.platform || 'quickbooks',
+      });
+      await db.collection('dispatch').add({
+        userId:      uid,
+        invoiceId:   invRef.id,
+        customer:    name,
+        phone,
+        address:     addr,
+        work,
+        amount,
+        type:        S.formType,
+        status:      'pending',
+        submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      S.lastJob = { type: S.formType, customer: name, amount: fmt(amount) };
+      await loadUserData(uid);
+      nav('confirm');
+    } catch(err) {
+      console.error('submitJob:', err);
+      showErr('sub-err', 'Submission failed â please try again.');
+      setBtn('sub-btn', false, 'Send to Relay dispatch');
+    }
+    return;
+  }
+});
+
+// ââ BOOT âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+
+// Check for Stripe payment redirect signal
+if (location.search.includes('payment=success') || location.hash.includes('payment=success')) {
+  S._paymentReceived = true;
+}
+
+// Show loading immediately
+$('app').innerHTML = sLoading();
+
+// Firebase auth state â single source of truth for routing
+auth.onAuthStateChanged(async user => {
+  if (!user) {
+    S.user    = null;
+    S.profile = null;
+    nav('login');
+    return;
+  }
+
+  S.user = user;
+  await loadUserData(user.uid);
+
+  const isAdmin = user.email === ADMIN_EMAIL;
+  const status  = S.profile?.subscriptionStatus;
+
+  if (isAdmin) { nav('dashboard'); return; }
+
+  // Active statuses that can access the portal
+  const OPEN = new Set(['active', 'trialing', 'past_due']);
+
+  if (OPEN.has(status)) {
+    nav('dashboard');
+  } else {
+    // unpaid, canceled, suspended â locked screen
+    nav('locked');
+  }
+});
