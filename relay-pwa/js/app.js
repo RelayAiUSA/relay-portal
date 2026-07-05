@@ -44,9 +44,9 @@ const ADMIN_EMAIL = 'pryorpropertysolutions269@gmail.com';
 
 // ââ STRIPE PAYMENT LINKS ââââââââââââââââââââââââââââââââââââââââââââââââââ
 // Replace these with your real links from stripe.com/payment-links
-const STRIPE_ESSENTIAL  = 'https://buy.stripe.com/REPLACE_STARTER_LINK';
+const STRIPE_ESSENTIAL  = 'https://buy.stripe.com/6oU6oJdy82a0aW59LG6g800';
 const STRIPE_PRO      = 'https://buy.stripe.com/REPLACE_PRO_LINK';
-const STRIPE_BILLING  = 'https://billing.stripe.com/p/login/REPLACE_PORTAL_LINK';
+const STRIPE_BILLING  = 'https://billing.stripe.com/p/login/6oU6oJdy82a0aW59LG6g800';
 
 // Protected screens â require active subscription
 const PROTECTED = new Set(['dashboard','submit','invoices','customers','profile']);
