@@ -640,6 +640,7 @@ function sConfirm() {
         Google review request sent after payment â
       </div>
     </div>
+    ${j.docId ? `<button class="btn btn-outline" onclick="(function(){navigator.clipboard.writeText('https://portal-relay.com/doc/'+j.docId);this.textContent='✓ Link copied!';setTimeout(()=>this.textContent='📋 Copy customer link',2000)}).call(this)" style="margin-bottom:10px">📋 Copy customer link</button>` : ''}
     <button class="btn btn-primary" data-nav="dashboard" style="margin-bottom:10px">Back to dashboard</button>
     <button class="btn btn-outline" data-nav="submit">Submit another job</button>
   </div>`;
@@ -669,6 +670,7 @@ function sInvoices() {
               <div class="inv-right">
                 <div class="inv-amt">${fmt(inv.amount || 0)}</div>
                 <div style="margin-top:4px">${badge(inv.status || 'pending')}</div>
+                ${inv.docId ? `<button onclick="(function(){navigator.clipboard.writeText('https://portal-relay.com/doc/${inv.docId}');this.textContent='✓ Copied';setTimeout(()=>this.textContent='Share',1800)}).call(this)" style="margin-top:5px;font-size:11px;padding:3px 8px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer;color:#374151">Share</button>` : ''}
               </div>
             </div>`;
           }).join('')
@@ -1059,7 +1061,28 @@ document.addEventListener('click', async e => {
         submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
       });
 
-      S.lastJob = { type: S.formType, customer: name, amount: fmt(amount) };
+      await db.collection('publicDocs').doc(invRef.id).set({
+        companyName:        S.profile?.companyName   || '',
+        businessType:       S.profile?.businessType  || '',
+        licenseNumber:      S.profile?.licenseNumber || '',
+        invoicePrefix:      S.profile?.invoicePrefix || '',
+        paymentMethods:     S.profile?.paymentMethods    || [],
+        paymentMethodOther: S.profile?.paymentMethodOther|| '',
+        invoiceFooter:      S.profile?.invoiceFooter  || '',
+        paymentTerms:       S.profile?.paymentTerms   || 'Due on receipt',
+        estimateValidity:   S.profile?.estimateValidity|| '',
+        taxRate:            S.profile?.taxRate         || 0,
+        minCallFee:         S.profile?.minCallFee      || 0,
+        customer:  name,
+        email:     $('f-email')?.value?.trim() || '',
+        address:   addr,
+        work,
+        amount,
+        type:      S.formType,
+        status:    'pending',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      S.lastJob = { type: S.formType, customer: name, amount: fmt(amount), docId: invRef.id };
       await loadUserData(uid);
       nav('confirm');
     } catch(err) {
