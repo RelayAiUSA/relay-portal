@@ -44,9 +44,23 @@ const ADMIN_EMAIL = 'pryorpropertysolutions269@gmail.com';
 
 // ââ STRIPE PAYMENT LINKS ââââââââââââââââââââââââââââââââââââââââââââââââââ
 // Replace these with your real links from stripe.com/payment-links
-const STRIPE_ESSENTIAL  = 'https://buy.stripe.com/6oU6oJdy82a0aW59LG6g800';
-const STRIPE_PRO      = 'https://buy.stripe.com/REPLACE_PRO_LINK';
-const STRIPE_BILLING  = 'https://billing.stripe.com/p/login/6oU6oJdy82a0aW59LG6g800';
+const const STRIPE_STARTER        = 'https://buy.stripe.com/7sYaEZ51C4i8aW58HC6g801';
+const STRIPE_ESSENTIAL      = 'https://buy.stripe.com/00w4gB79K9CsaW59LG6g802';
+const STRIPE_ESSENTIAL_PLUS = 'https://buy.stripe.com/6oU6oJdy82a0aW59LG6g800';
+const STRIPE_BILLING        = 'https://billing.stripe.com/p/login/REPLACE_PORTAL_LINK';
+
+// Plan tier constants
+const PLAN_STARTER       = 'starter';
+const PLAN_ESSENTIAL     = 'essential';
+const PLAN_ESSENTIAL_PLUS = 'essential_plus';
+
+// Feature gate helpers — checked server-side in twilio-sms.js AND client-side in portal
+function canSMSDispatch(plan) {
+  return ['essential','essential_plus'].includes((plan||'').toLowerCase());
+}
+function canAutoForward(plan) { return (plan||'').toLowerCase() === 'essential_plus'; }
+function canReviewRequest(plan) { return (plan||'').toLowerCase() === 'essential_plus'; }
+function docLimit(plan) { return (plan||'').toLowerCase() === 'essential_plus' ? 500 : 250; }
 
 // Protected screens â require active subscription
 const PROTECTED = new Set(['dashboard','submit','invoices','customers','profile']);
@@ -306,124 +320,134 @@ function sSignup() {
   </main>`;
 }
 
-function sLocked() {
-  const status  = S.profile?.subscriptionStatus || 'unpaid';
-  const name    = S.profile?.companyName || 'there';
-  const paid    = S._paymentReceived;
-
-  // ââ banner copy per status ââââââââââââââââââââââââââââââââââââââââââââââ
-  const BANNERS = {
-    unpaid: {
-      icon:  'ð',
-      accent: 'var(--brand)',
-      title: "You're one step away from going live",
-      msg:   `Hey ${name} â your Relay portal is built and ready. Add your subscription to start submitting jobs, dispatching invoices, and building your customer registry.`,
-      perks: ['100 invoices created, dispatched & tracked monthly','SMS Text to Invoice & Quote Creation','Automated Account Logging to Accounting Software','Client portal access at portal-relay.com','AI-Powered Dispatch Management'],
-      cta:   'Activate â Starter $49/mo',
-      ctaHref: STRIPE_ESSENTIAL,
-      alt:   'Need more? See Pro at $99/mo â',
-      altHref: STRIPE_PRO,
-    },
-    past_due: {
-      icon:  'â ï¸',
-      accent: '#b45309',
-      title: 'Your account is temporarily on hold',
-      msg:   "We weren't able to process your last payment. Your invoices, customers, and history are all safe â update your payment method to restore full access in seconds.",
-      perks: [],
-      cta:   'Update payment method â',
-      ctaHref: STRIPE_BILLING,
-      alt:   'Questions? Text us at +1 (844) 729-1376',
-      altHref: null,
-    },
-    canceled: {
-      icon:  'ð',
-      accent: '#dc2626',
-      title: 'Your Relay subscription has ended',
-      msg:   'Your dispatch portal is currently inactive. Reactivate your subscription to get back online â every invoice, customer record, and job history is saved and waiting for you.',
-      perks: [],
-      cta:   'Reactivate â Starter $49/mo',
-      ctaHref: STRIPE_ESSENTIAL,
-      alt:   'See Pro plan ($99/mo) â',
-      altHref: STRIPE_PRO,
-    },
-    suspended: {
-      icon:  'ð',
-      accent: '#dc2626',
-      title: 'Your account has been suspended',
-      msg:   'Access to your Relay portal has been suspended. Please contact Relay support to resolve this â your data is safe.',
-      perks: [],
-      cta:   'Contact Relay support',
-      ctaHref: 'mailto:support@relay.io',
-      alt:   null,
-      altHref: null,
-    },
-  };
-
-  const b = BANNERS[status] || BANNERS.unpaid;
-
-  return `<div class="locked-wrap">
-    <div class="locked-top">
-      <div class="relay-mark"><span>R</span></div>
-      <button class="link-btn" data-action="signOut" style="font-size:13px;color:#9ca3af">Sign out</button>
-    </div>
-
-    ${paid ? `<div class="payment-received-banner">
-      <span style="font-size:18px">â</span>
-      <div>
-        <div style="font-weight:600;font-size:14px">Payment received â thank you!</div>
-        <div style="font-size:12px;opacity:.85;margin-top:2px">Your account will be activated shortly. Refresh this page in a minute.</div>
+function sLocked(featureName) {
+  return topbar({title:'Upgrade Required'}) +
+    `<div class="scroll" style="padding:24px 16px">
+      <div style="text-align:center;margin-bottom:24px">
+        <div style="font-size:48px;margin-bottom:12px">🔒</div>
+        <h2 style="font-size:20px;font-weight:700;margin-bottom:8px">Unlock ${featureName}</h2>
+        <p style="font-size:14px;color:#6b7280">This feature requires an upgraded plan. Choose a plan below to get started.</p>
       </div>
-    </div>` : ''}
-
-    <div class="locked-icon">${b.icon}</div>
-    <h2 class="locked-title">${b.title}</h2>
-    <p class="locked-msg">${b.msg}</p>
-
-    ${b.perks.length ? `<div class="locked-perks">
-      ${b.perks.map(p=>`<div class="locked-perk">${I.check}<span>${p}</span></div>`).join('')}
-    </div>` : ''}
-
-    <a href="${b.ctaHref}" target="_blank" rel="noopener"
-       class="btn btn-primary locked-cta"
-       style="background:${b.accent};margin-bottom:10px">
-      ${b.cta}
-    </a>
-
-    ${b.alt ? (b.altHref
-      ? `<a href="${b.altHref}" target="_blank" rel="noopener" class="link-btn" style="display:block;text-align:center;font-size:13px;color:#6b7280">${b.alt}</a>`
-      : `<p style="text-align:center;font-size:13px;color:#9ca3af;margin-top:4px">${b.alt}</p>`)
-    : ''}
-
-    <div class="locked-footer">
-      <p style="font-size:12px;color:#9ca3af;text-align:center;line-height:1.6">
-        Billed securely via Stripe Â· Cancel anytime<br>
-        Questions? Text <strong>+1 (844) 729-1376</strong>
-      </p>
-    </div>
-  </div>`;
-}
-
-function sPlans() {
-  const plans = [
-    {name:'Essential+',price:'$99',per:'/mo',feats:['SMS Text to Invoice & Quote Creation','Automated Account Logging to Bound Accounting Software','Client portal access at portal-relay.com','AI-Powered Dispatch Management'],cta:'Get started',featured:true},
-  ];
-  return topbar({title:'Choose your plan', back:'signup'}) +
-    `<div class="scroll">
-      <p style="font-size:13px;color:#6b7280;margin-bottom:14px">Billed directly via Stripe â no app store cut. Cancel anytime.</p>
-      ${plans.map(p=>`
-        <div class="plan-card${p.featured?' featured':''}">
-          ${p.featured?`<div style="margin-bottom:8px"><span class="badge paid">Most popular</span></div>`:''}
-          <div class="plan-name">${p.name}</div>
-          <div class="plan-price">${p.price}<span>${p.per}</span></div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="plan-card">
+          <div class="plan-name">Starter</div>
+          <div class="plan-price">$19<span>/mo</span></div>
           <div class="plan-feat">
-            ${p.feats.map(f=>`<div class="plan-feat-item">${I.check}${f}</div>`).join('')}
+            <div class="plan-feat-item">${I.check}Portal access &amp; manual doc creation</div>
+            <div class="plan-feat-item">${I.check}Up to 250 documents/month</div>
+            <div class="plan-feat-item">${I.check}QuickBooks &amp; Zoho Books sync</div>
           </div>
-          <button class="btn btn-primary${p.featured?'':' btn-outline'}" style="margin-top:12px" data-nav="signup">${p.cta}</button>
-        </div>`).join('')}
+          <a href="${STRIPE_STARTER}" target="_blank" rel="noopener"
+             class="btn btn-outline" style="margin-top:12px;display:block;text-align:center">
+            Get Starter
+          </a>
+        </div>
+        <div class="plan-card featured">
+          <div style="margin-bottom:8px"><span class="badge paid">Most popular</span></div>
+          <div class="plan-name">Essential</div>
+          <div class="plan-price">$59<span>/mo</span></div>
+          <div class="plan-feat">
+            <div class="plan-feat-item">${I.check}Everything in Starter</div>
+            <div class="plan-feat-item">${I.check}AI SMS Dispatch</div>
+            <div class="plan-feat-item">${I.check}Up to 250 documents/month</div>
+          </div>
+          <a href="${STRIPE_ESSENTIAL}" target="_blank" rel="noopener"
+             class="btn btn-primary" style="margin-top:12px;display:block;text-align:center">
+            Get Essential
+          </a>
+        </div>
+        <div class="plan-card">
+          <div class="plan-name">Essential+</div>
+          <div class="plan-price">$99<span>/mo</span></div>
+          <div class="plan-feat">
+            <div class="plan-feat-item">${I.check}Everything in Essential</div>
+            <div class="plan-feat-item">${I.check}500 documents/month</div>
+            <div class="plan-feat-item">${I.check}Auto-forward docs to customers</div>
+            <div class="plan-feat-item">${I.check}Automated review request SMS</div>
+          </div>
+          <a href="${STRIPE_ESSENTIAL_PLUS}" target="_blank" rel="noopener"
+             class="btn btn-outline" style="margin-top:12px;display:block;text-align:center">
+            Get Essential+
+          </a>
+        </div>
+      </div>
       <div style="height:16px"></div>
     </div>`;
 }
+function sPlans() {
+  const plans = [
+    {
+      name: 'Starter',
+      price: '$19',
+      per: '/mo',
+      planKey: 'starter',
+      link: STRIPE_STARTER,
+      featured: false,
+      feats: [
+        'Client portal access at portal-relay.com',
+        'Manual invoice & quote creation',
+        'Document storage & tracking',
+        'Up to 250 documents/month',
+        'QuickBooks & Zoho Books sync',
+      ],
+      cta: 'Get started',
+    },
+    {
+      name: 'Essential',
+      price: '$59',
+      per: '/mo',
+      planKey: 'essential',
+      link: STRIPE_ESSENTIAL,
+      featured: true,
+      feats: [
+        'Everything in Starter',
+        'AI SMS Dispatch — text the job, AI writes the invoice',
+        'Professional document generation via Claude AI',
+        'Up to 250 documents/month',
+        'Auto-log to QuickBooks or Zoho Books',
+      ],
+      cta: 'Start dispatching',
+    },
+    {
+      name: 'Essential+',
+      price: '$99',
+      per: '/mo',
+      planKey: 'essential_plus',
+      link: STRIPE_ESSENTIAL_PLUS,
+      featured: false,
+      feats: [
+        'Everything in Essential',
+        'Up to 500 documents/month',
+        'Auto-forward invoice/quote to customer via SMS',
+        'Automated SMS review request after job completion',
+        'Priority support',
+      ],
+      cta: 'Go all-in',
+    },
+  ];
 
+  return topbar({title:'Choose your plan', back:'signup'}) +
+    `<div class="scroll">
+      <p style="font-size:13px;color:#6b7280;margin-bottom:14px">Billed securely via Stripe · Cancel anytime. Less than a cup of coffee a day.</p>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        ${plans.map(p=>`
+          <div class="plan-card${p.featured?' featured':''}">
+            ${p.featured?'<div style="margin-bottom:8px"><span class="badge paid">Most popular</span></div>':''}
+            <div class="plan-name">${p.name}</div>
+            <div class="plan-price">${p.price}<span>${p.per}</span></div>
+            <div class="plan-feat">
+              ${p.feats.map(f=>`<div class="plan-feat-item">${I.check}${f}</div>`).join('')}
+            </div>
+            <a href="${p.link}" target="_blank" rel="noopener"
+               class="btn btn-primary${p.featured?'':' btn-outline'}"
+               style="margin-top:12px;display:block;text-align:center;${p.featured?'':''}">
+              ${p.cta}
+            </a>
+          </div>`).join('')}
+      </div>
+      <div style="height:16px"></div>
+    </div>`;
+}
 function sDashboard() {
   const name = S.profile?.companyName || 'My Company';
   const plan = S.profile?.plan        || 'Starter';
@@ -637,58 +661,108 @@ function sCustomers() {
 }
 
 function sProfile() {
-  const p   = S.profile || {};
-  const u   = S.user    || {};
-  const ini = getInitials(p.companyName || u.displayName || '?');
-  const col = avatarColor(p.companyName || '');
-  const status = p.subscriptionStatus || 'unpaid';
-  return topbar({title:'Profile & Settings', back:'dashboard'}) +
-  `<div class="scroll" style="padding:16px">
-    <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
-      <div class="inv-av" style="width:54px;height:54px;font-size:20px;background:${col.bg};color:${col.fg}">${ini}</div>
-      <div>
-        <div style="font-weight:700;font-size:17px;color:#111827">${p.companyName || 'My Company'}</div>
-        <div style="font-size:13px;color:#6b7280">${u.email || ''}</div>
-        <div style="margin-top:4px">${platBadge(p.platform)}</div>
-      </div>
-    </div>
-    <div class="card" style="margin-bottom:16px">
-      <div class="inv-item" style="border-bottom:1px solid #f3f4f6">
-        <div class="inv-info">
-          <div class="inv-name">Subscription</div>
-          <div class="inv-meta">Essential+ Â· $99/mo Â· <span style="text-transform:capitalize">${status}</span></div>
+  const p    = S.profile || {};
+  const plan = (p.plan || 'starter').toLowerCase();
+  const sub  = p.subscriptionStatus || 'unpaid';
+  const isEssentialPlus = canAutoForward(plan);
+  const canSMS = canSMSDispatch(plan);
+  const isAdmin = S.user?.email === ADMIN_EMAIL;
+
+  const billingRow = (isAdmin || sub === 'active' || sub === 'trialing') ? `
+    <a href="${STRIPE_BILLING}" target="_blank" rel="noopener"
+       class="btn btn-outline" style="margin-bottom:8px;display:block;text-align:center">
+      ${I.card} Manage billing &amp; subscription
+    </a>` : '';
+
+  const planBadge = isAdmin
+    ? `<span class="badge paid">Admin</span>`
+    : sub === 'active' || sub === 'trialing'
+      ? `<span class="badge paid">${p.plan || 'Starter'} Plan · Active</span>`
+      : `<span class="badge overdue">No active plan</span>`;
+
+  return topbar({title:'Profile &amp; Settings', back:'dashboard'}) +
+    `<div class="scroll">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+        <div style="width:48px;height:48px;border-radius:12px;background:#1a2f5e;display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;font-weight:800;flex-shrink:0">
+          ${getInitials(p.companyName||'?')}
         </div>
-        <a href="${STRIPE_BILLING}" target="_blank" rel="noopener" class="link-btn" style="font-size:12px;white-space:nowrap">Manage â</a>
+        <div>
+          <div style="font-weight:700;font-size:16px;color:#111827">${p.companyName||'My Company'}</div>
+          <div style="margin-top:4px">${planBadge}</div>
+        </div>
       </div>
-      <div class="inv-item" style="border-bottom:1px solid #f3f4f6">
-        <div class="inv-info"><div class="inv-name">Dispatch line</div><div class="inv-meta">+1 (844) 729-1376</div></div>
+
+      <p class="sh">Business info</p>
+      <div class="form-group">
+        <label class="form-lbl" for="pf-co">Company / DBA name</label>
+        <input id="pf-co" type="text" class="input" value="${p.companyName||''}" placeholder="Your business name">
       </div>
-      <div class="inv-item">
-        <div class="inv-info"><div class="inv-name">Accounting platform</div><div class="inv-meta">${p.platform === 'quickbooks' ? 'QuickBooks Online' : p.platform === 'zoho' ? 'Zoho Books' : 'Not set'}</div></div>
+      <div class="form-group">
+        <label class="form-lbl">Accounting platform</label>
+        <select id="pf-platform" class="input">
+          <option value="quickbooks"${p.platform==='quickbooks'?' selected':''}>QuickBooks Online</option>
+          <option value="zoho"${p.platform==='zoho'?' selected':''}>Zoho Books</option>
+          <option value="none"${p.platform==='none'?' selected':''}>Not connected</option>
+        </select>
       </div>
+
+      <p class="sh">Pricing defaults</p>
+      <div class="input-row">
+        <div class="form-group">
+          <label class="form-lbl" for="pf-rate">Labor rate ($/hr)</label>
+          <input id="pf-rate" type="number" class="input" value="${p.laborRate||100}" min="0" step="5">
+        </div>
+        <div class="form-group">
+          <label class="form-lbl" for="pf-markup">Material markup (%)</label>
+          <input id="pf-markup" type="number" class="input" value="${p.materialMarkup||15}" min="0" step="1">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-lbl">Default payment terms</label>
+        <select id="pf-terms" class="input">
+          <option${p.paymentTerms==='Due on receipt'?' selected':''}>Due on receipt</option>
+          <option${p.paymentTerms==='Net 7'?' selected':''}>Net 7</option>
+          <option${p.paymentTerms==='Net 15'?' selected':''}>Net 15</option>
+          <option${p.paymentTerms==='Net 30'?' selected':''}>Net 30</option>
+        </select>
+      </div>
+
+      ${canSMS ? `
+      <p class="sh">SMS Dispatch settings</p>
+      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#166534">
+        <strong>Relay dispatch line:</strong> +1 (844) 729-1376 — text job info to this number to generate invoices via AI.
+      </div>` : ''}
+
+      ${isEssentialPlus ? `
+      <p class="sh">Essential+ settings <span class="badge paid" style="font-size:11px">Essential+</span></p>
+      <div class="form-group">
+        <label class="form-lbl" for="pf-review-url">Google / Yelp review URL</label>
+        <input id="pf-review-url" type="url" class="input" value="${p.reviewUrl||''}"
+               placeholder="https://g.page/your-business/review">
+        <div style="font-size:12px;color:#6b7280;margin-top:4px">Customers receive this link via SMS after job completion.</div>
+      </div>
+      <div class="form-group">
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+          <input id="pf-autofwd" type="checkbox" ${p.autoForwardToCustomer?'checked':''} style="width:18px;height:18px;accent-color:#1a2f5e">
+          <div>
+            <div style="font-size:14px;font-weight:600;color:#111827">Auto-forward dispatch doc to customer</div>
+            <div style="font-size:12px;color:#6b7280;margin-top:2px">When enabled, the AI-generated invoice or quote is sent to the customer via SMS automatically after dispatch.</div>
+          </div>
+        </label>
+      </div>` : (canSMS ? `
+      <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:12px 14px;margin-bottom:14px">
+        <div style="font-size:13px;font-weight:600;color:#92400e;margin-bottom:4px">Essential+ features locked</div>
+        <div style="font-size:12px;color:#92400e">Upgrade to Essential+ to unlock auto-forward and review request SMS.</div>
+        <a href="${STRIPE_ESSENTIAL_PLUS}" target="_blank" rel="noopener"
+           style="font-size:12px;color:#1a2f5e;font-weight:600;text-decoration:underline">Upgrade now →</a>
+      </div>` : '')}
+
+      <button id="pf-save" class="btn btn-primary" data-action="saveProfile" style="margin-bottom:12px">Save changes</button>
+      ${billingRow}
+      <button class="btn btn-outline" data-action="signOut" style="margin-bottom:20px">${I.logout} Sign out</button>
     </div>
-    <button class="btn btn-outline" data-action="signOut" style="color:#dc2626;border-color:#fecaca;margin-bottom:12px">Sign out of Relay</button>
-    <div style="height:24px"></div>
-  </div>
-  ${tabs('profile')}`;
+    ${tabs('profile')}`;
 }
-
-// ââ ROUTER ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-
-const SCREENS = {
-  loading:   sLoading,
-  login:     sLogin,
-  signup:    sSignup,
-  locked:    sLocked,
-  plans:     sPlans,
-  dashboard: sDashboard,
-  submit:    sSubmit,
-  confirm:   sConfirm,
-  invoices:  sInvoices,
-  customers: sCustomers,
-  profile:   sProfile,
-};
-
 function render() {
   const fn = SCREENS[S.screen] || sLoading;
   $('app').innerHTML = fn();
@@ -849,6 +923,48 @@ document.addEventListener('click', async e => {
       showErr('sub-err', 'Submission failed â please try again.');
       setBtn('sub-btn', false, 'Send to Relay dispatch');
     }
+    return;
+  }
+
+  // ── SAVE PROFILE ──
+  if (action === 'saveProfile') {
+    const uid = S.user?.uid;
+    if (!uid) return;
+    const co      = document.getElementById('pf-co')?.value?.trim() || S.profile?.companyName || '';
+    const plat    = document.getElementById('pf-platform')?.value   || S.profile?.platform    || 'quickbooks';
+    const rate    = parseFloat(document.getElementById('pf-rate')?.value)   || 100;
+    const markup  = parseFloat(document.getElementById('pf-markup')?.value) || 15;
+    const terms   = document.getElementById('pf-terms')?.value              || 'Due on receipt';
+    const reviewUrl       = document.getElementById('pf-review-url')?.value?.trim() || '';
+    const autoForwardToCustomer = document.getElementById('pf-autofwd')?.checked || false;
+    const saveBtn = document.getElementById('pf-save');
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
+    try {
+      const updates = { companyName: co, platform: plat, laborRate: rate, materialMarkup: markup, paymentTerms: terms };
+      const plan = (S.profile?.plan || '').toLowerCase();
+      if (canAutoForward(plan)) {
+        updates.reviewUrl = reviewUrl;
+        updates.autoForwardToCustomer = autoForwardToCustomer;
+      }
+      await db.collection('users').doc(uid).update(updates);
+      S.profile = { ...S.profile, ...updates };
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Saved ✓'; setTimeout(() => { if (saveBtn) saveBtn.textContent = 'Save changes'; }, 2000); }
+    } catch(err) {
+      console.error('saveProfile:', err);
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save failed — retry'; }
+    }
+    return;
+  }
+
+  // ── SIGN OUT ──
+  if (action === 'signOut') {
+    await auth.signOut();
+    return;
+  }
+
+  // ── ADMIN ──
+  if (action === 'goAdmin') {
+    nav('admin');
     return;
   }
 });
