@@ -55,13 +55,13 @@ const PLAN_ESSENTIAL     = 'essential';
 const PLAN_ESSENTIAL_PLUS = 'essential_plus';
 
 // Feature gate helpers — checked server-side in twilio-sms.js AND client-side in portal
+function isAdminUser() { return S.user?.email === ADMIN_EMAIL; }
 function canSMSDispatch(plan) {
-  return ['essential','essential_plus'].includes((plan||'').toLowerCase());
+  return isAdminUser() || ['essential','essential+','essential_plus'].includes((plan||'').toLowerCase());
 }
-function canAutoForward(plan) { return (plan||'').toLowerCase() === 'essential_plus'; }
-function canReviewRequest(plan) { return (plan||'').toLowerCase() === 'essential_plus'; }
-function docLimit(plan) { return (plan||'').toLowerCase() === 'essential_plus' ? 500 : 250; }
-
+function canAutoForward(plan) { return isAdminUser() || ['essential+','essential_plus'].includes((plan||'').toLowerCase()); }
+function canReviewRequest(plan) { return isAdminUser() || ['essential+','essential_plus'].includes((plan||'').toLowerCase()); }
+function docLimit(plan) { return (isAdminUser() || ['essential+','essential_plus'].includes((plan||'').toLowerCase())) ? 500 : 250; }
 // Protected screens â require active subscription
 const PROTECTED = new Set(['dashboard','submit','invoices','customers','profile']);
 
@@ -193,6 +193,17 @@ async function loadUserData(uid) {
       materialMarkup: 15,
       paymentTerms: 'Due on receipt',
     };
+
+    // Admin always gets Essential+ regardless of Firestore plan field
+    if (S.user?.email === ADMIN_EMAIL) {
+      S.profile = {
+        ...S.profile,
+        plan: 'Essential+',
+        subscriptionStatus: 'active',
+        autoForwardToCustomer: S.profile?.autoForwardToCustomer ?? false,
+        reviewUrl: S.profile?.reviewUrl || '',
+      };
+    }
 
     S.invoices = invSnap.docs
       .map(d => ({docId: d.id, ...d.data()}))
