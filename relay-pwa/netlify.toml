@@ -1,3 +1,9 @@
+[build]
+  publish = "."
+
+[functions]
+  directory = "../netlify/functions"
+
 [[redirects]]
   from = "/doc/*"
   to = "/doc.html"
@@ -7,9 +13,6 @@
   from = "/*"
   to = "/index.html"
   status = 200
-
-[build]
-  publish = "."
 
 [[headers]]
   for = "/sw.js"
