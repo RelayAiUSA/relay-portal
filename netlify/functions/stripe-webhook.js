@@ -23,7 +23,9 @@ const PRICE_TO_PLAN = {
   'price_1TpxTORB4QYF5HZ4oIJxr8jN': 'Essential+',
 };
 
-function planFromSubscription(sub) {
+
+
+const ADMIN_EMAIL = 'pryorpropertysolutions269@gmail.com';function planFromSubscription(sub) {
   const priceId = sub?.items?.data?.[0]?.price?.id || '';
   return PRICE_TO_PLAN[priceId] || 'Starter';
 }
@@ -89,6 +91,12 @@ exports.handler = async (event) => {
   }
 
   const newStatus = STATUS_MAP[type];
+
+  // Admin account is never modified by webhooks
+  if (email === ADMIN_EMAIL) {
+    console.log('Skipping webhook update for admin account');
+    return { statusCode: 200, body: JSON.stringify({ received: true, adminSkipped: true }) };
+  }
 
   try {
     const userRef = await findUserDoc(customerId, email);
