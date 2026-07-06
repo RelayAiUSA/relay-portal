@@ -47,7 +47,7 @@ const ADMIN_EMAIL = 'pryorpropertysolutions269@gmail.com';
 const STRIPE_STARTER        = 'https://buy.stripe.com/7sYaEZ51C4i8aW58HC6g801';
 const STRIPE_ESSENTIAL      = 'https://buy.stripe.com/00w4gB79K9CsaW59LG6g802';
 const STRIPE_ESSENTIAL_PLUS = 'https://buy.stripe.com/6oU6oJdy82a0aW59LG6g800';
-const STRIPE_BILLING        = 'https://billing.stripe.com/p/login/REPLACE_PORTAL_LINK';
+const STRIPE_BILLING        = 'https://billing.stripe.com/p/login/test_7sY7sL7q23tz0Sr7jI4AU00';
 
 // ── ACCOUNTING INTEGRATION OAUTH ─────────────────────────────────────────────
 // Register at developer.intuit.com (QuickBooks) and
@@ -316,7 +316,7 @@ function sLogin() {
 function sSignup() {
   return `<main class="login-wrap">
     <div class="relay-mark"><span>R</span></div>
-    <h1 class="login-title">Create your account</h1>
+    <h1 class="login-title">Create Your Account</h1>
     <p class="login-sub">Join the Relay network. Your portal is ready immediately.</p>
     <div id="sg-err" class="auth-error" style="display:none"></div>
     <div class="form-group">
@@ -336,7 +336,7 @@ function sSignup() {
       <input id="sg-pw2" type="password" class="input" placeholder="Re-enter password" autocomplete="new-password">
     </div>
     <div class="form-group">
-      <label class="form-lbl">Accounting software</label>
+      <label class="form-lbl">Accounting Software</label>
       <select id="sg-platform" class="input">
         <option value="quickbooks">QuickBooks Online</option>
         <option value="zoho">Zoho Books</option>
@@ -409,75 +409,42 @@ function sLocked(featureName) {
     </div>`;
 }
 function sPlans() {
-  const plans = [
-    {
-      name: 'Starter',
-      price: '$19',
-      per: '/mo',
-      planKey: 'starter',
-      link: STRIPE_STARTER,
-      featured: false,
-      feats: [
-        'Client portal access at portal-relay.com',
-        'Manual invoice & quote creation',
-        'Document storage & tracking',
-        'Up to 250 documents/month',
-        'QuickBooks & Zoho Books sync',
-      ],
-      cta: 'Get started',
-    },
-    {
-      name: 'Essential',
-      price: '$59',
-      per: '/mo',
-      planKey: 'essential',
-      link: STRIPE_ESSENTIAL,
-      featured: true,
-      feats: [
-        'Everything in Starter',
-        'AI SMS Dispatch — text the job, AI writes the invoice',
-        'Professional document generation via Claude AI',
-        'Up to 250 documents/month',
-        'Auto-log to QuickBooks or Zoho Books',
-      ],
-      cta: 'Start dispatching',
-    },
-    {
-      name: 'Essential+',
-      price: '$99',
-      per: '/mo',
-      planKey: 'essential_plus',
-      link: STRIPE_ESSENTIAL_PLUS,
-      featured: false,
-      feats: [
-        'Everything in Essential',
-        'Up to 500 documents/month',
-        'Auto-forward invoice/quote to customer via SMS',
-        'Automated SMS review request after job completion',
-        'Priority support',
-      ],
-      cta: 'Go all-in',
-    },
-  ];
-
-  return topbar({title:'Choose your plan', back:'signup'}) +
+  return topbar({title:'Choose Your Plan', back:'signup'}) +
     `<div class="scroll">
-      <p style="font-size:13px;color:#6b7280;margin-bottom:14px">Billed securely via Stripe · Cancel anytime. Less than a cup of coffee a day.</p>
-      <div style="display:flex;flex-direction:column;gap:12px">
-        ${plans.map(p=>`
-          <div class="plan-card${p.featured?' featured':''}">
-            ${p.featured?'<div style="margin-bottom:8px"><span class="badge paid">Most popular</span></div>':''}
-            <div class="plan-name">${p.name}</div>
-            <div class="plan-price">${p.price}<span>${p.per}</span></div>
-            <div class="plan-feat">
-              ${p.feats.map(f=>`<div class="plan-feat-item">${I.check}${f}</div>`).join('')}
-            </div>
-            <a href="${p.link}" target="_blank" rel="noopener"
-               class="btn btn-primary${p.featured?'':' btn-outline'}"
-               style="margin-top:12px;display:block;text-align:center;${p.featured?'':''}">
-              ${p.cta}
-            </a>
-          </div>`).join('')}
+      <p style="font-size:13px;color:#6b7280;margin-bottom:14px">Billed directly via Stripe — no app store cut. Cancel anytime.</p>
+      <div class="plan-card">
+        <div class="plan-name">Starter</div>
+        <div class="plan-price">$19<span>/mo</span></div>
+        <div class="plan-feat">
+          <div class="plan-feat-item">${I.check}Job submissions &amp; customer portal</div>
+          <div class="plan-feat-item">${I.check}Invoice creation and tracking</div>
+          <div class="plan-feat-item">${I.check}Customer registry</div>
+          <div class="plan-feat-item">${I.check}Basic dispatch management</div>
+        </div>
+        <a href="${STRIPE_STARTER}" target="_blank" rel="noopener" class="btn btn-outline" style="margin-top:12px;display:block;text-align:center;text-decoration:none">Get started</a>
+      </div>
+      <div class="plan-card featured">
+        <div style="margin-bottom:8px"><span class="badge paid">Most popular</span></div>
+        <div class="plan-name">Essential+</div>
+        <div class="plan-price">$49<span>/mo</span></div>
+        <div class="plan-feat">
+          <div class="plan-feat-item">${I.check}Everything in Starter</div>
+          <div class="plan-feat-item">${I.check}AI writes your invoices, estimates &amp; documents</div>
+          <div class="plan-feat-item">${I.check}Connect QuickBooks or Zoho — no double entry ever</div>
+          <div class="plan-feat-item">${I.check}14-day free trial included</div>
+        </div>
+        <a href="${STRIPE_ESSENTIAL}" target="_blank" rel="noopener" class="btn btn-primary" style="margin-top:12px;display:block;text-align:center;text-decoration:none">Start free trial</a>
+      </div>
+      <div class="plan-card">
+        <div class="plan-name">Relay Pro</div>
+        <div class="plan-price">$99<span>/mo</span></div>
+        <div class="plan-feat">
+          <div class="plan-feat-item">${I.check}Everything in Essential+</div>
+          <div class="plan-feat-item">${I.check}Full AI automation — proposals, dispatch &amp; follow-ups</div>
+          <div class="plan-feat-item">${I.check}Multi-user access &amp; advanced reporting</div>
+          <div class="plan-feat-item">${I.check}14-day free trial included</div>
+        </div>
+        <a href="${STRIPE_PRO}" target="_blank" rel="noopener" class="btn btn-outline" style="margin-top:12px;display:block;text-align:center;text-decoration:none">Start free trial</a>
       </div>
       <div style="height:16px"></div>
     </div>`;
@@ -494,10 +461,10 @@ function sDashboard() {
     <div class="trial-banner">
       <span style="font-size:18px">⏳</span>
       <div style="flex:1">
-        <div class="trial-banner-title">Your free trial is active</div>
-        <div class="trial-banner-sub">Subscribe before your trial ends to keep full access — no interruption.</div>
+        <div class="trial-banner-title">Your 14-day free trial is active</div>
+        <div class="trial-banner-sub">Your card will be charged automatically when the trial ends. Cancel any time before then — no charge.</div>
       </div>
-      <a href="${STRIPE_ESSENTIAL}" target="_blank" rel="noopener" class="trial-banner-btn">Subscribe →</a>
+      <a href="${STRIPE_BILLING}" target="_blank" rel="noopener" class="trial-banner-btn">Manage trial →</a>
     </div>` : '';
 
   const pastDueBanner = (!isAdmin && subStatus === 'past_due') ? `
@@ -598,18 +565,18 @@ function sDashboard() {
 }
 
 function sSubmit() {
-  return topbar({title: 'New job submission', back: 'dashboard'}) +
+  return topbar({title: 'New Job Submission', back: 'dashboard'}) +
   `<div class="scroll">
-    <p class="sh">Job type <span class="req">*</span></p>
+    <p class="sh">Job Type <span class="req">*</span></p>
     <div class="toggle-g">
       <button class="toggle-btn${S.formType==='invoice'?' on':''}" data-toggle="type" data-val="invoice">${I.file} Invoice</button>
       <button class="toggle-btn${S.formType==='quote'?' on':''}" data-toggle="type" data-val="quote">${I.file} Quote</button>
     </div>
-    <p class="sh">Customer info</p>
+    <p class="sh">Customer Info</p>
     <div class="form-group"><label class="form-lbl" for="f-name">Customer name <span class="req">*</span></label><input id="f-name" type="text" class="input" placeholder="e.g. Jeff Smith" autocomplete="off"></div>
     <div class="form-group"><label class="form-lbl" for="f-phone">Customer phone <span class="req">*</span></label><input id="f-phone" type="tel" class="input" placeholder="(616) 248-1977"></div>
     <div class="form-group"><label class="form-lbl" for="f-email">Customer email</label><input id="f-email" type="email" class="input" placeholder="optional â for invoice delivery"></div>
-    <p class="sh">Job details</p>
+    <p class="sh">Job Details</p>
     <div class="form-group"><label class="form-lbl" for="f-addr">Job address <span class="req">*</span></label><input id="f-addr" type="text" class="input" placeholder="412 Oak St, Grand Rapids MI" autocomplete="off"></div>
     <div class="form-group"><label class="form-lbl" for="f-work">Work description <span class="req">*</span></label><textarea id="f-work" class="input" placeholder="Describe what was done in 2â3 sentences.&#10;e.g. Removed and replaced water heater, installed new supply valve."></textarea></div>
     <p class="sh">Pricing</p>
@@ -623,8 +590,8 @@ function sSubmit() {
           <div class="form-group"><label class="form-lbl" for="f-mat">Materials</label><input id="f-mat" type="text" class="input" placeholder="$0.00"></div>
           <div class="form-group"><label class="form-lbl" for="f-lab">Labor</label><input id="f-lab" type="text" class="input" placeholder="3 hrs @ $100"></div>
         </div>`}
-    <div class="form-group"><label class="form-lbl" for="f-notes">Special notes</label><input id="f-notes" type="text" class="input" placeholder="e.g. Address invoice to property manager"></div>
-    <p class="sh">Photos (optional)</p>
+    <div class="form-group"><label class="form-lbl" for="f-notes">Special Notes</label><input id="f-notes" type="text" class="input" placeholder="e.g. Address invoice to property manager"></div>
+    <p class="sh">Photos (Optional)</p>
     <div class="upload-area">${I.camera}<div style="font-size:13px;color:#6b7280">Tap to add photos</div><div style="font-size:11px;color:#9ca3af;margin-top:3px">Before/after work</div></div>
     <div id="sub-err" class="auth-error" style="display:none;margin-bottom:10px"></div>
     <button id="sub-btn" class="btn btn-primary" data-action="submitJob">Send to Relay dispatch</button>
@@ -637,7 +604,7 @@ function sConfirm() {
   const j = S.lastJob || {type:'invoice', customer:'Customer', amount:'$0'};
   return `<div class="confirm-wrap">
     <div class="confirm-icon">${I.check}</div>
-    <h2 class="confirm-title">Job submitted!</h2>
+    <h2 class="confirm-title">Job Submitted!</h2>
     <p class="confirm-sub">Relay is processing your ${j.type}. Your customer will receive it by email and text shortly.</p>
     <div class="confirm-card">
       <div style="font-size:11px;color:#6b7280;margin-bottom:5px;text-transform:uppercase;letter-spacing:.3px">${j.type} Â· ${j.customer}</div>
@@ -824,7 +791,7 @@ function sProfile() {
       </div>
 
       <!-- ── Business Info ── -->
-      <p class="sh">Business info</p>
+      <p class="sh">Business Info</p>
       <div class="form-group">
         <label class="form-lbl" for="pf-co">Company / DBA name</label>
         <input id="pf-co" type="text" class="input" value="${p.companyName||''}" placeholder="Your business name">
@@ -847,7 +814,7 @@ function sProfile() {
       <input type="hidden" id="pf-platform" value="${p.platform||'none'}">
 
       <!-- ── Pricing Defaults ── -->
-      <p class="sh">Pricing defaults</p>
+      <p class="sh">Pricing Defaults</p>
       <div class="input-row">
         <div class="form-group">
           <label class="form-lbl" for="pf-callFee">Min. service call fee ($)</label>
@@ -876,7 +843,7 @@ function sProfile() {
       </div>
 
       <!-- ── Payment Methods ── -->
-      <p class="sh">Payment methods accepted</p>
+      <p class="sh">Payment Methods Accepted</p>
       <p style="font-size:12px;color:#6b7280;margin:-8px 0 10px">Select every method you accept. For digital payments, enter your handle so customers know exactly where to send money.</p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
         ${payMethodCheckboxes}
@@ -892,7 +859,7 @@ function sProfile() {
       </div>
 
       <!-- ── Invoice Defaults ── -->
-      <p class="sh">Invoice defaults</p>
+      <p class="sh">Invoice Defaults</p>
       <div class="form-group">
         <label class="form-lbl" for="pf-footer">Default invoice footer / notes</label>
         <textarea id="pf-footer" class="input" placeholder="e.g. Thank you for choosing us! Payment appreciated within stated terms.">${p.invoiceFooter||''}</textarea>
@@ -900,7 +867,7 @@ function sProfile() {
       </div>
 
       ${canSMS ? `
-      <p class="sh">SMS dispatch</p>
+      <p class="sh">SMS Dispatch</p>
       <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#166534">
         <strong>Relay dispatch line:</strong> +1 (844) 729-1376 — text job info to generate invoices via AI.
       </div>` : ''}
