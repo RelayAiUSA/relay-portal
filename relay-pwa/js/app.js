@@ -1,4 +1,4 @@
-'use strict';
+app.js v4.1: set Intuit and Zoho OAuth client IDs'use strict';
 
 // ââ FIREBASE SDK GUARD ââââââââââââââââââââââââââââââââââââââââââââââââââââ
 // If Firebase CDN fails to load, show a friendly error instead of blank page
@@ -53,8 +53,8 @@ const STRIPE_BILLING        = 'https://billing.stripe.com/p/login/REPLACE_PORTAL
 // Register at developer.intuit.com (QuickBooks) and
 // accounts.zoho.com/developerconsole (Zoho Books).
 // Set redirect URI to: https://portal-relay.com/oauth-callback.html
-const INTUIT_CLIENT_ID = 'YOUR_INTUIT_CLIENT_ID_HERE';
-const ZOHO_CLIENT_ID   = 'YOUR_ZOHO_CLIENT_ID_HERE';
+const INTUIT_CLIENT_ID = 'AB1iFjPkATxEZB6AjRd4i8SEdSW9GMCH7FCPzYHb2jOzLRyOxr';
+const ZOHO_CLIENT_ID   = '1000.HPTPX3D50HAMNOOBYEV4LWZJ045Z7L';
 const OAUTH_REDIRECT   = 'https://portal-relay.com/oauth-callback.html';
 
 // Plan tier constants
