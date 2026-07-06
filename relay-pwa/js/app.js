@@ -49,6 +49,14 @@ const STRIPE_ESSENTIAL      = 'https://buy.stripe.com/00w4gB79K9CsaW59LG6g802';
 const STRIPE_ESSENTIAL_PLUS = 'https://buy.stripe.com/6oU6oJdy82a0aW59LG6g800';
 const STRIPE_BILLING        = 'https://billing.stripe.com/p/login/REPLACE_PORTAL_LINK';
 
+// ── ACCOUNTING INTEGRATION OAUTH ─────────────────────────────────────────────
+// Register at developer.intuit.com (QuickBooks) and
+// accounts.zoho.com/developerconsole (Zoho Books).
+// Set redirect URI to: https://portal-relay.com/oauth-callback.html
+const INTUIT_CLIENT_ID = 'YOUR_INTUIT_CLIENT_ID_HERE';
+const ZOHO_CLIENT_ID   = 'YOUR_ZOHO_CLIENT_ID_HERE';
+const OAUTH_REDIRECT   = 'https://portal-relay.com/oauth-callback.html';
+
 // Plan tier constants
 const PLAN_STARTER       = 'starter';
 const PLAN_ESSENTIAL     = 'essential';
@@ -738,6 +746,56 @@ function sProfile() {
 
   const validityOpts = ['7 days','14 days','30 days','60 days','90 days'];
 
+  const _umDefs = [
+    {m:'Zelle',              id:'zelle',          label:'Zelle phone or email',      ph:'e.g. (555) 867-5309 or you@email.com'},
+    {m:'Venmo',              id:'venmo',           label:'Venmo @username',            ph:'e.g. @JohnSmithPlumbing'},
+    {m:'CashApp',            id:'cashapp',         label:'CashApp $cashtag',           ph:'e.g. $SmithHVAC'},
+    {m:'Credit / Debit Card',id:'creditdebitcard', label:'Payment link or processor',  ph:'e.g. Square, PayPal.me/yourname'},
+  ];
+  const savedUsernames = p.paymentUsernames || {};
+  const payMethodCheckboxes = payMethods.map(m => {
+    const id = m.replace(/[^a-z]/gi,'').toLowerCase();
+    const checked = savedMethods.includes(m);
+    const needsUser = _umDefs.find(u => u.m === m);
+    const chg = needsUser
+      ? `onchange="(function(el){var w=document.getElementById('pf-pay-user-wrap-${id}');if(w)w.style.display=el.checked?'block':'none';el.closest('label').style.background=el.checked?'#eff6ff':'#fff';})(this)"`
+      : `onchange="this.closest('label').style.background=this.checked?'#eff6ff':'#fff'"`;
+    return `<label style="display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid #e5e7eb;border-radius:9px;cursor:pointer;font-size:13px;font-weight:500;color:#374151;background:${checked?'#eff6ff':'#fff'}">`
+      + `<input type="checkbox" id="pf-pay-${id}" value="${m}" ${checked?'checked':''} style="accent-color:#1d4ed8;width:15px;height:15px" ${chg}>`
+      + `${m}</label>`;
+  }).join('');
+  const usernameFields = _umDefs.map(({m, id, label, ph}) => {
+    const checked = savedMethods.includes(m);
+    const val = savedUsernames[m] || '';
+    return `<div id="pf-pay-user-wrap-${id}" style="display:${checked?'block':'none'};margin-bottom:8px;padding:10px 12px;background:#f0f7ff;border:1px solid #bfdbfe;border-radius:9px">`
+      + `<label class="form-lbl" style="font-size:11px;margin-bottom:4px">${label} <span style="color:#dc2626">*</span></label>`
+      + `<input id="pf-pay-user-${id}" type="text" class="input" value="${val}" placeholder="${ph}" style="margin-bottom:0;font-size:13px">`
+      + `<div style="font-size:10px;color:#6b7280;margin-top:3px">Shown to your customer so they know where to send payment.</div>`
+      + `</div>`;
+  }).join('');
+  const _plat = p.platform || 'none';
+  const _uid  = S.user?.uid || '';
+  const _iqUrl = `https://appcenter.intuit.com/connect/oauth2?client_id=${INTUIT_CLIENT_ID}&redirect_uri=${encodeURIComponent(OAUTH_REDIRECT)}&scope=com.intuit.quickbooks.accounting&response_type=code&state=qb_${_uid}`;
+  const _zhUrl = `https://accounts.zoho.com/oauth/v2/auth?client_id=${ZOHO_CLIENT_ID}&redirect_uri=${encodeURIComponent(OAUTH_REDIRECT)}&scope=ZohoBooks.fullaccess.all&response_type=code&access_type=offline&state=zoho_${_uid}`;
+  const acctSoftwareHtml = `<div style="display:flex;flex-direction:column;gap:8px">
+      <button type="button" class="acct-plat-btn" onclick="(function(b){document.getElementById('pf-platform').value='quickbooks';document.querySelectorAll('.acct-plat-btn').forEach(x=>x.removeAttribute('data-sel'));b.setAttribute('data-sel','1');if('${INTUIT_CLIENT_ID}'!=='YOUR_INTUIT_CLIENT_ID_HERE')window.open('${_iqUrl}','_blank');})(this)"
+        style="display:flex;align-items:center;gap:12px;padding:13px 14px;border:2px solid ${_plat==='quickbooks'?'#2ca01c':'#e5e7eb'};border-radius:11px;background:${_plat==='quickbooks'?'#f0fdf4':'#fff'};cursor:pointer;text-align:left">
+        <div style="width:32px;height:32px;background:#2ca01c;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="color:#fff;font-size:13px;font-weight:800">QB</span></div>
+        <div style="flex:1"><div style="font-size:13px;font-weight:700;color:#111827">QuickBooks Online</div><div style="font-size:11px;color:#6b7280;margin-top:1px">Intuit — automatic invoice sync</div></div>
+        ${_plat==='quickbooks'?'<span style="font-size:11px;font-weight:700;color:#16a34a;background:#dcfce7;padding:3px 8px;border-radius:20px">● Connected</span>':'<span style="font-size:11px;color:#9ca3af">Connect →</span>'}
+      </button>
+      <button type="button" class="acct-plat-btn" onclick="(function(b){document.getElementById('pf-platform').value='zoho';document.querySelectorAll('.acct-plat-btn').forEach(x=>x.removeAttribute('data-sel'));b.setAttribute('data-sel','1');if('${ZOHO_CLIENT_ID}'!=='YOUR_ZOHO_CLIENT_ID_HERE')window.open('${_zhUrl}','_blank');})(this)"
+        style="display:flex;align-items:center;gap:12px;padding:13px 14px;border:2px solid ${_plat==='zoho'?'#e07b39':'#e5e7eb'};border-radius:11px;background:${_plat==='zoho'?'#fff7ed':'#fff'};cursor:pointer;text-align:left">
+        <div style="width:32px;height:32px;background:#e07b39;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="color:#fff;font-size:13px;font-weight:800">Z</span></div>
+        <div style="flex:1"><div style="font-size:13px;font-weight:700;color:#111827">Zoho Books</div><div style="font-size:11px;color:#6b7280;margin-top:1px">Zoho — automatic invoice sync</div></div>
+        ${_plat==='zoho'?'<span style="font-size:11px;font-weight:700;color:#e07b39;background:#fff7ed;border:1px solid #fed7aa;padding:3px 8px;border-radius:20px">● Connected</span>':'<span style="font-size:11px;color:#9ca3af">Connect →</span>'}
+      </button>
+      <button type="button" class="acct-plat-btn" onclick="(function(b){document.getElementById('pf-platform').value='none';document.querySelectorAll('.acct-plat-btn').forEach(x=>x.removeAttribute('data-sel'));b.setAttribute('data-sel','1');})(this)"
+        style="padding:11px 14px;border:2px solid ${(_plat==='none'||!_plat)?'#6b7280':'#e5e7eb'};border-radius:11px;background:${(_plat==='none'||!_plat)?'#f9fafb':'#fff'};cursor:pointer;font-size:13px;font-weight:500;color:#6b7280;text-align:center">
+        ${(_plat==='none'||!_plat)?'✓ Not connecting software':'Do not connect software'}
+      </button>
+    </div>`;
+
   return topbar({title:'Account Settings', back:'dashboard'}) +
     `<div class="scroll">
 
@@ -786,14 +844,7 @@ function sProfile() {
         <label class="form-lbl" for="pf-license">Business license / contractor #</label>
         <input id="pf-license" type="text" class="input" value="${p.licenseNumber||''}" placeholder="e.g. LIC-12345 (optional — prints on invoices)">
       </div>
-      <div class="form-group">
-        <label class="form-lbl">Accounting platform</label>
-        <select id="pf-platform" class="input">
-          <option value="quickbooks"${p.platform==='quickbooks'?' selected':''}>QuickBooks Online</option>
-          <option value="zoho"${p.platform==='zoho'?' selected':''}>Zoho Books</option>
-          <option value="none"${(!p.platform||p.platform==='none')?' selected':''}>Not connected</option>
-        </select>
-      </div>
+      <input type="hidden" id="pf-platform" value="${p.platform||'none'}">
 
       <!-- ── Pricing Defaults ── -->
       <p class="sh">Pricing defaults</p>
@@ -826,18 +877,16 @@ function sProfile() {
 
       <!-- ── Payment Methods ── -->
       <p class="sh">Payment methods accepted</p>
+      <p style="font-size:12px;color:#6b7280;margin:-8px 0 10px">Select every method you accept. For digital payments, enter your handle so customers know exactly where to send money.</p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
-        ${payMethods.map(m => `
-        <label style="display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid #e5e7eb;border-radius:9px;cursor:pointer;font-size:13px;font-weight:500;color:#374151;background:${savedMethods.includes(m)?'#eff6ff':'#fff'}">
-          <input type="checkbox" id="pf-pay-${m.replace(/[^a-z]/gi,'').toLowerCase()}" value="${m}" ${savedMethods.includes(m)?'checked':''} style="accent-color:#1d4ed8;width:15px;height:15px">
-          ${m}
-        </label>`).join('')}
+        ${payMethodCheckboxes}
         <label style="display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid #e5e7eb;border-radius:9px;cursor:pointer;font-size:13px;font-weight:500;color:#374151;background:${savedMethodOther?'#eff6ff':'#fff'}">
           <input type="checkbox" id="pf-pay-other-chk" ${savedMethodOther?'checked':''} style="accent-color:#1d4ed8;width:15px;height:15px"
-            onchange="document.getElementById('pf-pay-other-wrap').style.display=this.checked?'block':'none'">
+            onchange="document.getElementById('pf-pay-other-wrap').style.display=this.checked?'block':'none';this.closest('label').style.background=this.checked?'#eff6ff':'#fff'">
           Other
         </label>
       </div>
+      ${usernameFields}
       <div id="pf-pay-other-wrap" style="display:${savedMethodOther?'block':'none'};margin-bottom:14px">
         <input id="pf-pay-other" type="text" class="input" value="${savedMethodOther}" placeholder="Describe other payment method...">
       </div>
@@ -875,6 +924,13 @@ function sProfile() {
         <div style="font-size:12px;color:#92400e">Upgrade to unlock auto-forward and review SMS.</div>
         <a href="${STRIPE_ESSENTIAL_PLUS}" target="_blank" rel="noopener" style="font-size:12px;color:#1a2f5e;font-weight:600;text-decoration:underline">Upgrade now →</a>
       </div>` : '')}
+
+      <!-- ── Connect Invoicing Software ── -->
+      <p class="sh" style="margin-top:4px">Connect your invoicing software</p>
+      <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:14px;padding:14px;margin-bottom:16px">
+        <p style="font-size:12px;color:#6b7280;margin-bottom:12px;line-height:1.5">Connect QuickBooks or Zoho Books and Relay will automatically log every invoice into your accounting software on your behalf — no double entry.</p>
+        ${acctSoftwareHtml}
+      </div>
 
       <button id="pf-save" class="btn btn-primary" data-action="saveProfile" style="margin-bottom:12px">Save changes</button>
       ${billingRow}
@@ -1068,6 +1124,7 @@ document.addEventListener('click', async e => {
         invoicePrefix:      S.profile?.invoicePrefix || '',
         paymentMethods:     S.profile?.paymentMethods    || [],
         paymentMethodOther: S.profile?.paymentMethodOther|| '',
+       paymentUsernames:    S.profile?.paymentUsernames   || {},
         invoiceFooter:      S.profile?.invoiceFooter  || '',
         paymentTerms:       S.profile?.paymentTerms   || 'Due on receipt',
         estimateValidity:   S.profile?.estimateValidity|| '',
@@ -1112,6 +1169,11 @@ document.addEventListener('click', async e => {
       ? (document.getElementById('pf-pay-other')?.value?.trim() || '') : '';
     const payMethods  = ['Cash','Check','Zelle','Venmo','CashApp','Credit / Debit Card']
       .filter(m => document.getElementById('pf-pay-'+m.replace(/[^a-z]/gi,'').toLowerCase())?.checked);
+    const paymentUsernames = {};
+    [['Zelle','zelle'],['Venmo','venmo'],['CashApp','cashapp'],['Credit / Debit Card','creditdebitcard']].forEach(([m,id]) => {
+      const v = document.getElementById('pf-pay-user-'+id)?.value?.trim();
+      if (v) paymentUsernames[m] = v;
+    });
     const reviewUrl   = document.getElementById('pf-review-url')?.value?.trim() || '';
     const autoForwardToCustomer = document.getElementById('pf-autofwd')?.checked || false;
     const saveBtn = document.getElementById('pf-save');
@@ -1122,6 +1184,7 @@ document.addEventListener('click', async e => {
         licenseNumber: license, minCallFee: callFee, taxRate: taxRate,
         paymentTerms: terms, estimateValidity: validity, invoicePrefix: invPrefix,
         invoiceFooter: footer, paymentMethods: payMethods, paymentMethodOther: payMethodOther,
+        paymentUsernames,
       };
       const plan = (S.profile?.plan || '').toLowerCase();
       if (canAutoForward(plan)) {
