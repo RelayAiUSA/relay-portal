@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connecting your software | RelayAI</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #0f1f45 0%, #1d4ed8 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+    }
+    .card {
+      background: rgba(255,255,255,0.08);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 20px;
+      padding: 48px 40px;
+      text-align: center;
+      max-width: 420px;
+      width: 90%;
+    }
+    .logo { font-size: 28px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 28px; }
+    .spinner {
+      width: 48px; height: 48px;
+      border: 4px solid rgba(255,255,255,0.2);
+      border-top-color: #fff;
+      border-radius: 50%;
+      margin: 0 auto 24px;
+      animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    h2 { font-size: 20px; font-weight: 600; margin-bottom: 10px; }
+    p  { font-size: 14px; opacity: 0.7; line-height: 1.5; }
+    .success-icon { font-size: 48px; margin-bottom: 16px; }
+    .error-icon   { font-size: 48px; margin-bottom: 16px; }
+    .btn {
+      display: inline-block;
+      margin-top: 24px;
+      padding: 12px 28px;
+      background: #fff;
+      color: #0f1f45;
+      font-weight: 700;
+      font-size: 15px;
+      border-radius: 10px;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+    }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">RelayAI</div>
+
+  <div id="state-loading">
+    <div class="spinner"></div>
+    <h2>Connecting your software...</h2>
+    <p>Finalizing authorization. Please wait a moment.</p>
+  </div>
+
+  <div id="state-success" class="hidden">
+    <div class="success-icon">&#x2705;</div>
+    <h2 id="success-title">Connected!</h2>
+    <p id="success-body">Your invoicing software has been linked to your RelayAI account.</p>
+    <a href="/" class="btn">Back to Portal</a>
+  </div>
+
+  <div id="state-error" class="hidden">
+    <div class="error-icon">&#x26A0;&#xFE0F;</div>
+    <h2>Connection failed</h2>
+    <p id="error-msg">Something went wrong. Please try again from your account settings.</p>
+    <a href="/" class="btn">Back to Portal</a>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<script>
+(async function () {
+  var firebaseConfig = {
+    apiKey:            'AIzaSyAG6yO3waIb6MvdQPZDIGWu_hC8yo5Tfw8',
+    authDomain:        'relay-portal-68417.firebaseapp.com',
+    projectId:         'relay-portal-68417',
+    storageBucket:     'relay-portal-68417.appspot.com',
+    appId:             'relay-portal-68417',
+  };
+  if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+  var auth = firebase.auth();
+  var db   = firebase.firestore();
+
+  function show(state, opts) {
+    opts = opts || {};
+    ['loading','success','error'].forEach(function(s) {
+      document.getElementById('state-' + s).classList.toggle('hidden', s !== state);
+    });
+    if (opts.title)  document.getElementById('success-title').textContent = opts.title;
+    if (opts.body)   document.getElementById('success-body').textContent  = opts.body;
+    if (opts.errMsg) document.getElementById('error-msg').textContent     = opts.errMsg;
+  }
+
+  var params  = new URLSearchParams(window.location.search);
+  var code    = params.get('code');
+  var state   = params.get('state');
+  var realmId = params.get('realmId');
+  var error   = params.get('error');
+
+  if (error || !code || !state) {
+    show('error', { errMsg: error ? 'Authorization denied: ' + error : 'Missing authorization code. Please try again.' });
+    return;
+  }
+
+  var user = await new Promise(function(resolve) {
+    var unsub = auth.onAuthStateChanged(function(u) { unsub(); resolve(u); });
+  });
+
+  if (!user) {
+    show('error', { errMsg: 'You must be signed in to connect your software. Please sign in and try again.' });
+    return;
+  }
+
+  var tokenData;
+  try {
+    var resp = await fetch('/.netlify/functions/oauth-token', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ platform: state, code: code, realmId: realmId }),
+    });
+    var json = await resp.json();
+    if (!resp.ok || !json.success) throw new Error(json.error || 'Token exchange failed');
+    tokenData = json.tokenData;
+  } catch (err) {
+    console.error('Token exchange error:', err);
+    show('error', { errMsg: 'Could not complete authorization: ' + err.message });
+    return;
+  }
+
+  try {
+    await db.collection('users').doc(user.uid).update({
+      platform:    tokenData.platform,
+      oauthTokens: tokenData,
+      updatedAt:   firebase.firestore.FieldValue.serverTimestamp(),
+    });
+  } catch (err) {
+    console.error('Firestore write error:', err);
+    show('error', { errMsg: 'Tokens received but could not be saved. Please contact support.' });
+    return;
+  }
+
+  var platformLabel = state === 'quickbooks' ? 'QuickBooks' : 'Zoho Books';
+  show('success', {
+    title: platformLabel + ' Connected!',
+    body:  'Your ' + platformLabel + ' account is now linked to RelayAI. You can manage this in Account Settings.',
+  });
+
+  setTimeout(function() { window.location.href = '/'; }, 3000);
+})();
+</script>
+</body>
+</html>
