@@ -575,10 +575,10 @@ function sSubmit() {
     <p class="sh">Customer Info</p>
     <div class="form-group"><label class="form-lbl" for="f-name">Customer name <span class="req">*</span></label><input id="f-name" type="text" class="input" placeholder="e.g. Jeff Smith" autocomplete="off"></div>
     <div class="form-group"><label class="form-lbl" for="f-phone">Customer's Phone Number <span class="req">*</span></label><input id="f-phone" type="tel" class="input" placeholder="(616) 248-1977"></div>
-    <div class="form-group"><label class="form-lbl" for="f-email">Customer email</label><input id="f-email" type="email" class="input" placeholder="optional â for invoice delivery"></div>
+    <div class="form-group"><label class="form-lbl" for="f-email">Customer email</label><input id="f-email" type="email" class="input" placeholder="Optional for document delivery"></div>
     <p class="sh">Job Details</p>
     <div class="form-group"><label class="form-lbl" for="f-addr">Job address <span class="req">*</span></label><input id="f-addr" type="text" class="input" placeholder="412 Oak St, Grand Rapids MI" autocomplete="off"></div>
-    <div class="form-group"><label class="form-lbl" for="f-work">Work description <span class="req">*</span></label><textarea id="f-work" class="input" placeholder="Describe what was done in 2â3 sentences.&#10;e.g. Removed and replaced water heater, installed new supply valve."></textarea></div>
+    <div class="form-group"><label class="form-lbl" for="f-work">Work description <span class="req">Describe what was done in two to four sentences. Provide any critical detail needed.</span></label><textarea id="f-work" class="input" placeholder="Describe what was done in 2â3 sentences.&#10;e.g. Removed and replaced water heater, installed new supply valve."></textarea></div>
     <p class="sh">Pricing</p>
     <div class="toggle-g">
       <button class="toggle-btn${S.formPrice==='flat'?' on':''}" data-toggle="price" data-val="flat">Flat rate</button>
@@ -591,8 +591,15 @@ function sSubmit() {
           <div class="form-group"><label class="form-lbl" for="f-lab">Labor</label><input id="f-lab" type="text" class="input" placeholder="3 hrs @ $100"></div>
         </div>`}
     <div class="form-group"><label class="form-lbl" for="f-notes">Special Notes</label><input id="f-notes" type="text" class="input" placeholder="e.g. Address invoice to property manager"></div>
-    <p class="sh">Photos (Optional)</p>
-    <div class="upload-area">${I.camera}<div style="font-size:13px;color:#6b7280">Tap to add photos</div><div style="font-size:11px;color:#9ca3af;margin-top:3px">Before/after work</div></div>
+    <!-- Document Template File -->
+    <div class="form-group">
+      <label class="form-lbl">Document Template File</label>
+      <span class="form-hint">Upload a blank template or example document. Relay AI will use this as the format when generating documents for each customer.</span>
+      <div class="template-upload-wrap">
+        <input type="file" id="f-template" accept=".pdf,.doc,.docx" class="form-input" onchange="handleTemplateUpload(this)">
+        <p class="template-hint" id="f-template-status"></p>
+      </div>
+    </div>
     <div id="sub-err" class="auth-error" style="display:none;margin-bottom:10px"></div>
     <button id="sub-btn" class="btn btn-primary" data-action="submitJob">Send to Relay dispatch</button>
     <div style="height:20px"></div>
@@ -1222,3 +1229,33 @@ auth.onAuthStateChanged(async user => {
     nav('locked');
   }
 });
+// ── Document Template Upload ────────────────────────────────────────────────
+async function handleTemplateUpload(input) {
+  const file = input.files[0];
+  const status = document.getElementById("f-template-status");
+  if (!file) return;
+
+  const allowed = ["application/pdf","application/msword","application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
+  if (!allowed.includes(file.type)) {
+    status.textContent = "Please upload a PDF or Word document.";
+    status.style.color = "#e53e3e";
+    return;
+  }
+
+  status.textContent = "Uploading…";
+  status.style.color = "#718096";
+
+  try {
+    const uid  = firebase.auth().currentUser?.uid;
+    if (!uid) throw new Error("Not signed in");
+    const ref  = firebase.storage().ref(`users/${uid}/template/${file.name}`);
+    await ref.put(file);
+    const url  = await ref.getDownloadURL();
+    await db.collection("users").doc(uid).update({ templateFile: url, templateFileName: file.name });
+    status.textContent = "✓ Template saved: " + file.name;
+    status.style.color = "#38a169";
+  } catch (err) {
+    status.textContent = "Upload failed: " + err.message;
+    status.style.color = "#e53e3e";
+  }
+}
