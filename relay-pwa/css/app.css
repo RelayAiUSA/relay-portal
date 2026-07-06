@@ -1,7 +1,9 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --brand: #1a2f5e;
+  --brand: #1d4ed8;
+  --brand-dark: #0f1f45;
+  --brand-gradient: linear-gradient(135deg, #0f1f45 0%, #1d4ed8 100%);
   --brand-mid: #2563eb;
   --brand-light: #dbeafe;
   --green: #16a34a; --green-bg: #dcfce7; --green-bd: #86efac;
@@ -26,7 +28,7 @@ body { font-family: var(--font); -webkit-font-smoothing: antialiased; display: f
 
 /* ── Topbar ── */
 .topbar {
-  padding: 48px 18px 14px; background: var(--brand); color: #fff;
+  padding: 48px 18px 14px; background: var(--brand-gradient); color: #fff;
   display: flex; align-items: center; gap: 10px; flex-shrink: 0;
 }
 .topbar.light {
@@ -142,7 +144,7 @@ select.input { cursor: pointer; }
   background: #fff; font-size: 13px; font-weight: 500; font-family: var(--font);
   color: var(--g600); cursor: pointer; text-align: center; transition: all .15s;
 }
-.toggle-btn.on { border-color: var(--brand); background: var(--brand-light); color: var(--brand); font-weight: 600; }
+.toggle-btn.on { border-color: #1d4ed8; background: var(--brand-gradient); color: #fff; font-weight: 600; }
 
 /* ── Buttons ── */
 .btn {
@@ -151,8 +153,8 @@ select.input { cursor: pointer; }
   font-family: var(--font); cursor: pointer; border: none; transition: opacity .15s, transform .1s; width: 100%;
 }
 .btn:active { transform: scale(.98); }
-.btn-primary { background: var(--brand); color: #fff; }
-.btn-primary:hover { background: #152448; }
+.btn-primary { background: var(--brand-gradient); color: #fff; }
+.btn-primary:hover { background: linear-gradient(135deg, #0a1530 0%, #1740b0 100%); }
 .btn-outline { background: transparent; border: 1px solid var(--g300); color: var(--g700); }
 .btn-success { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-bd); }
 .btn-sm { padding: 8px 14px; font-size: 13px; border-radius: var(--r-sm); }
@@ -193,7 +195,7 @@ select.input { cursor: pointer; }
   border: 1px solid var(--g200); background: #fff; color: var(--g600);
   cursor: pointer; font-family: var(--font); transition: all .15s; white-space: nowrap;
 }
-.fp.on { background: var(--brand); border-color: var(--brand); color: #fff; }
+.fp.on { background: var(--brand-gradient); border-color: #1d4ed8; color: #fff; }
 
 /* ── Contacts ── */
 .cx-item {
@@ -217,7 +219,7 @@ select.input { cursor: pointer; }
   padding: 56px 26px 36px; overflow-y: auto;
 }
 .relay-mark {
-  width: 54px; height: 54px; background: var(--brand); border-radius: 14px;
+  width: 54px; height: 54px; background: var(--brand-gradient); border-radius: 14px;
   display: flex; align-items: center; justify-content: center; margin-bottom: 18px;
 }
 .relay-mark span { color: #fff; font-size: 22px; font-weight: 800; letter-spacing: -.5px; }
@@ -302,7 +304,7 @@ select.input { cursor: pointer; }
   border-bottom: 1px solid var(--g100); background: var(--g50);
 }
 .prof-av {
-  width: 62px; height: 62px; background: var(--brand); border-radius: 15px;
+  width: 62px; height: 62px; background: var(--brand-gradient); border-radius: 15px;
   display: flex; align-items: center; justify-content: center;
   font-size: 20px; font-weight: 700; color: #fff; margin: 0 auto 11px;
 }
