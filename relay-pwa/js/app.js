@@ -712,89 +712,149 @@ function sProfile() {
       ? `<span class="badge paid">${p.plan || 'Starter'} Plan · Active</span>`
       : `<span class="badge overdue">No active plan</span>`;
 
-  return topbar({title:'Profile &amp; Settings', back:'dashboard'}) +
+  const bizTypes = ['Plumbing','Electrical','HVAC / Mechanical','Roofing','General Contracting',
+    'Property Management','Landscaping / Lawn Care','Pest Control','Cleaning Services',
+    'Painting','Flooring','Appliance Repair','Other'];
+
+  const payMethods = ['Cash','Check','Zelle','Venmo','CashApp','Credit / Debit Card'];
+  const savedMethods = p.paymentMethods || [];
+  const savedMethodOther = p.paymentMethodOther || '';
+
+  const validityOpts = ['7 days','14 days','30 days','60 days','90 days'];
+
+  return topbar({title:'Account Settings', back:'dashboard'}) +
     `<div class="scroll">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
-        <div style="width:48px;height:48px;border-radius:12px;background:#1a2f5e;display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;font-weight:800;flex-shrink:0">
+
+      <!-- ── Company Header ── -->
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom
+20px;padding:14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:14px">
+        <div style="width:50px;height:50px;border-radius:12px;background:linear-gradient(135deg,#0f1f45,#1d4ed8);display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;font-weight:800;flex-shrink:0">
           ${getInitials(p.companyName||'?')}
         </div>
-        <div>
-          <div style="font-weight:700;font-size:16px;color:#111827">${p.companyName||'My Company'}</div>
-          <div style="margin-top:4px">${planBadge}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:15px;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.companyName||'My Company'}</div>
+          <div style="margin-top:3px">${planBadge}</div>
         </div>
       </div>
 
+      <!-- ── Business Info ── -->
       <p class="sh">Business info</p>
       <div class="form-group">
         <label class="form-lbl" for="pf-co">Company / DBA name</label>
         <input id="pf-co" type="text" class="input" value="${p.companyName||''}" placeholder="Your business name">
       </div>
       <div class="form-group">
+        <label class="form-lbl" for="pf-biztype">Business type / trade</label>
+        <select id="pf-biztype" class="input" onchange="document.getElementById('pf-biztype-other-wrap').style.display=this.value==='Other'?'block':'none'">
+          <option value="">— Select your trade —</option>
+          ${bizTypes.map(t => `<option${(p.businessType===t||(!p.businessType&&t==='General Contracting'))?'selected':''}>${t}</option>`).join('')}
+        </select>
+      </div>
+      <div id="pf-biztype-other-wrap" class="form-group" style="display:${p.businessType==='Other'?'block':'none'}">
+        <label class="form-lbl" for="pf-biztype-other">Describe your trade</label>
+        <input id="pf-biztype-other" type="text" class="input" value="${p.businessTypeOther||''}" placeholder="e.g. Pool Service, Fire Suppression...">
+      </div>
+      <div class="form-group">
+        <label class="form-lbl" for="pf-license">Business license / contractor #</label>
+        <input id="pf-license" type="text" class="input" value="${p.licenseNumber||''}" placeholder="e.g. LIC-12345 (optional — prints on invoices)">
+      </div>
+      <div class="form-group">
         <label class="form-lbl">Accounting platform</label>
         <select id="pf-platform" class="input">
           <option value="quickbooks"${p.platform==='quickbooks'?' selected':''}>QuickBooks Online</option>
           <option value="zoho"${p.platform==='zoho'?' selected':''}>Zoho Books</option>
-          <option value="none"${p.platform==='none'?' selected':''}>Not connected</option>
+          <option value="none"${(!p.platform||p.platform==='none')?' selected':''}>Not connected</option>
         </select>
       </div>
 
+      <!-- ── Pricing Defaults ── -->
       <p class="sh">Pricing defaults</p>
       <div class="input-row">
         <div class="form-group">
-          <label class="form-lbl" for="pf-rate">Labor rate ($/hr)</label>
-          <input id="pf-rate" type="number" class="input" value="${p.laborRate||100}" min="0" step="5">
+          <label class="form-lbl" for="pf-callFee">Min. service call fee ($)</label>
+          <input id="pf-callFee" type="number" class="input" value="${p.minCallFee||0}" min="0" step="5" placeholder="0">
         </div>
         <div class="form-group">
-          <label class="form-lbl" for="pf-markup">Material markup (%)</label>
-          <input id="pf-markup" type="number" class="input" value="${p.materialMarkup||15}" min="0" step="1">
+          <label class="form-lbl" for="pf-tax">Tax rate (%)</label>
+          <input id="pf-tax" type="number" class="input" value="${p.taxRate||0}" min="0" step="0.1" placeholder="e.g. 8.25">
         </div>
       </div>
       <div class="form-group">
         <label class="form-lbl">Default payment terms</label>
         <select id="pf-terms" class="input">
-          <option${p.paymentTerms==='Due on receipt'?' selected':''}>Due on receipt</option>
-          <option${p.paymentTerms==='Net 7'?' selected':''}>Net 7</option>
-          <option${p.paymentTerms==='Net 15'?' selected':''}>Net 15</option>
-          <option${p.paymentTerms==='Net 30'?' selected':''}>Net 30</option>
+          ${['Due on receipt','Net 7','Net 15','Net 30','Net 45'].map(t=>`<option${p.paymentTerms===t?' selected':''}>${t}</option>`).join('')}
         </select>
+      </div>
+      <div class="form-group">
+        <label class="form-lbl">Estimate validity window</label>
+        <select id="pf-validity" class="input">
+          ${validityOpts.map(v=>`<option${p.estimateValidity===v?' selected':''}>${v}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-lbl" for="pf-invprefix">Invoice number prefix</label>
+        <input id="pf-invprefix" type="text" class="input" value="${p.invoicePrefix||''}" placeholder="e.g. INV- or PPS- (optional)">
+      </div>
+
+      <!-- ── Payment Methods ── -->
+      <p class="sh">Payment methods accepted</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+        ${payMethods.map(m => `
+        <label style="display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid #e5e7eb;border-radius:9px;cursor:pointer;font-size:13px;font-weight:500;color:#374151;background:${savedMethods.includes(m)?'#eff6ff':'#fff'}">
+          <input type="checkbox" id="pf-pay-${m.replace(/[^a-z]/gi,'').toLowerCase()}" value="${m}" ${savedMethods.includes(m)?'checked':''} style="accent-color:#1d4ed8;width:15px;height:15px">
+          ${m}
+        </label>`).join('')}
+        <label style="display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid #e5e7eb;border-radius:9px;cursor:pointer;font-size:13px;font-weight:500;color:#374151;background:${savedMethodOther?'#eff6ff':'#fff'}">
+          <input type="checkbox" id="pf-pay-other-chk" ${savedMethodOther?'checked':''} style="accent-color:#1d4ed8;width:15px;height:15px"
+            onchange="document.getElementById('pf-pay-other-wrap').style.display=this.checked?'block':'none'">
+          Other
+        </label>
+      </div>
+      <div id="pf-pay-other-wrap" style="display:${savedMethodOther?'block':'none'};margin-bottom:14px">
+        <input id="pf-pay-other" type="text" class="input" value="${savedMethodOther}" placeholder="Describe other payment method...">
+      </div>
+
+      <!-- ── Invoice Defaults ── -->
+      <p class="sh">Invoice defaults</p>
+      <div class="form-group">
+        <label class="form-lbl" for="pf-footer">Default invoice footer / notes</label>
+        <textarea id="pf-footer" class="input" placeholder="e.g. Thank you for choosing us! Payment appreciated within stated terms.">${p.invoiceFooter||''}</textarea>
+        <div style="font-size:11px;color:#9ca3af;margin-top:4px">Appears at the bottom of every invoice and quote.</div>
       </div>
 
       ${canSMS ? `
-      <p class="sh">SMS Dispatch settings</p>
+      <p class="sh">SMS dispatch</p>
       <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#166534">
-        <strong>Relay dispatch line:</strong> +1 (844) 729-1376 — text job info to this number to generate invoices via AI.
+        <strong>Relay dispatch line:</strong> +1 (844) 729-1376 — text job info to generate invoices via AI.
       </div>` : ''}
 
       ${isEssentialPlus ? `
-      <p class="sh">Essential+ settings <span class="badge paid" style="font-size:11px">Essential+</span></p>
+      <p class="sh">Essential+ <span class="badge paid" style="font-size:11px;margin-left:4px">Essential+</span></p>
       <div class="form-group">
-        <label class="form-lbl" for="pf-review-url">Google / Yelp review URL</label>
-        <input id="pf-review-url" type="url" class="input" value="${p.reviewUrl||''}"
-               placeholder="https://g.page/your-business/review">
-        <div style="font-size:12px;color:#6b7280;margin-top:4px">Customers receive this link via SMS after job completion.</div>
+        <label class="form-lbl" for="pf-review-url">Google / Yelp review link</label>
+        <input id="pf-review-url" type="url" class="input" value="${p.reviewUrl||''}" placeholder="https://g.page/your-business/review">
+        <div style="font-size:12px;color:#6b7280;margin-top:4px">Sent to customer via SMS after job completion.</div>
       </div>
-      <div class="form-group">
-        <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
-          <input id="pf-autofwd" type="checkbox" ${p.autoForwardToCustomer?'checked':''} style="width:18px;height:18px;accent-color:#1a2f5e">
-          <div>
-            <div style="font-size:14px;font-weight:600;color:#111827">Auto-forward dispatch doc to customer</div>
-            <div style="font-size:12px;color:#6b7280;margin-top:2px">When enabled, the AI-generated invoice or quote is sent to the customer via SMS automatically after dispatch.</div>
-          </div>
-        </label>
-      </div>` : (canSMS ? `
+      <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;margin-bottom:16px;padding:12px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px">
+        <input id="pf-autofwd" type="checkbox" ${p.autoForwardToCustomer?'checked':''} style="width:18px;height:18px;accent-color:#1d4ed8;margin-top:1px;flex-shrink:0">
+        <div>
+          <div style="font-size:14px;font-weight:600;color:#111827">Auto-forward invoice to customer</div>
+          <div style="font-size:12px;color:#6b7280;margin-top:2px">AI-generated invoice sent to customer via SMS after every dispatch.</div>
+        </div>
+      </label>` : (canSMS ? `
       <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:12px 14px;margin-bottom:14px">
         <div style="font-size:13px;font-weight:600;color:#92400e;margin-bottom:4px">Essential+ features locked</div>
-        <div style="font-size:12px;color:#92400e">Upgrade to Essential+ to unlock auto-forward and review request SMS.</div>
-        <a href="${STRIPE_ESSENTIAL_PLUS}" target="_blank" rel="noopener"
-           style="font-size:12px;color:#1a2f5e;font-weight:600;text-decoration:underline">Upgrade now →</a>
+        <div style="font-size:12px;color:#92400e">Upgrade to unlock auto-forward and review SMS.</div>
+        <a href="${STRIPE_ESSENTIAL_PLUS}" target="_blank" rel="noopener" style="font-size:12px;color:#1a2f5e;font-weight:600;text-decoration:underline">Upgrade now →</a>
       </div>` : '')}
 
       <button id="pf-save" class="btn btn-primary" data-action="saveProfile" style="margin-bottom:12px">Save changes</button>
       ${billingRow}
-      <button class="btn btn-outline" data-action="signOut" style="margin-bottom:20px">${I.logout} Sign out</button>
+      <button class="btn btn-outline" data-action="signOut" style="margin-bottom:28px">${I.logout} Sign out</button>
     </div>
     ${tabs('profile')}`;
 }
+
 const SCREENS = {
   loading:   sLoading,
   login:     sLogin,
@@ -976,17 +1036,32 @@ document.addEventListener('click', async e => {
   if (action === 'saveProfile') {
     const uid = S.user?.uid;
     if (!uid) return;
-    const co      = document.getElementById('pf-co')?.value?.trim() || S.profile?.companyName || '';
-    const plat    = document.getElementById('pf-platform')?.value   || S.profile?.platform    || 'quickbooks';
-    const rate    = parseFloat(document.getElementById('pf-rate')?.value)   || 100;
-    const markup  = parseFloat(document.getElementById('pf-markup')?.value) || 15;
-    const terms   = document.getElementById('pf-terms')?.value              || 'Due on receipt';
-    const reviewUrl       = document.getElementById('pf-review-url')?.value?.trim() || '';
+    const co          = document.getElementById('pf-co')?.value?.trim()        || S.profile?.companyName || '';
+    const plat        = document.getElementById('pf-platform')?.value          || 'none';
+    const bizType     = document.getElementById('pf-biztype')?.value           || '';
+    const bizTypeOther= document.getElementById('pf-biztype-other')?.value?.trim() || '';
+    const license     = document.getElementById('pf-license')?.value?.trim()   || '';
+    const callFee     = parseFloat(document.getElementById('pf-callFee')?.value) || 0;
+    const taxRate     = parseFloat(document.getElementById('pf-tax')?.value)   || 0;
+    const terms       = document.getElementById('pf-terms')?.value             || 'Due on receipt';
+    const validity    = document.getElementById('pf-validity')?.value          || '30 days';
+    const invPrefix   = document.getElementById('pf-invprefix')?.value?.trim() || '';
+    const footer      = document.getElementById('pf-footer')?.value?.trim()    || '';
+    const payMethodOther = document.getElementById('pf-pay-other-chk')?.checked
+      ? (document.getElementById('pf-pay-other')?.value?.trim() || '') : '';
+    const payMethods  = ['Cash','Check','Zelle','Venmo','CashApp','Credit / Debit Card']
+      .filter(m => document.getElementById('pf-pay-'+m.replace(/[^a-z]/gi,'').toLowerCase())?.checked);
+    const reviewUrl   = document.getElementById('pf-review-url')?.value?.trim() || '';
     const autoForwardToCustomer = document.getElementById('pf-autofwd')?.checked || false;
     const saveBtn = document.getElementById('pf-save');
     if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
     try {
-      const updates = { companyName: co, platform: plat, laborRate: rate, materialMarkup: markup, paymentTerms: terms };
+      const updates = {
+        companyName: co, platform: plat, businessType: bizType, businessTypeOther: bizTypeOther,
+        licenseNumber: license, minCallFee: callFee, taxRate: taxRate,
+        paymentTerms: terms, estimateValidity: validity, invoicePrefix: invPrefix,
+        invoiceFooter: footer, paymentMethods: payMethods, paymentMethodOther: payMethodOther,
+      };
       const plan = (S.profile?.plan || '').toLowerCase();
       if (canAutoForward(plan)) {
         updates.reviewUrl = reviewUrl;
