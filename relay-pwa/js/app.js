@@ -47,7 +47,7 @@ const ADMIN_EMAIL = 'pryorpropertysolutions269@gmail.com';
 const STRIPE_STARTER        = 'https://buy.stripe.com/7sYaEZ51C4i8aW58HC6g801';
 const STRIPE_ESSENTIAL      = 'https://buy.stripe.com/00w4gB79K9CsaW59LG6g802';
 const STRIPE_ESSENTIAL_PLUS = 'https://buy.stripe.com/6oU6oJdy82a0aW59LG6g800';
-const STRIPE_BILLING        = 'https://billing.stripe.com/p/login/test_7sY7sL7q23tz0Sr7jI4AU00';
+const STRIPE_BILLING        = 'https://billing.stripe.com/p/login/6oU6oJdy82a0aW59LG6g800';
 
 // ── ACCOUNTING INTEGRATION OAUTH ─────────────────────────────────────────────
 // Register at developer.intuit.com (QuickBooks) and
