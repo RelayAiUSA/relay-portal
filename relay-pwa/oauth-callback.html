@@ -109,7 +109,11 @@
 
   var params  = new URLSearchParams(window.location.search);
   var code    = params.get('code');
-  var state   = params.get('state');
+  var stateParam = params.get('state');
+  // Zoho appends suffix to state (e.g. "zoho_abc123") — extract just the platform prefix
+  var state   = stateParam && stateParam.startsWith('quickbooks') ? 'quickbooks'
+              : stateParam && stateParam.startsWith('zoho')        ? 'zoho'
+              : stateParam;
   var realmId = params.get('realmId');
   var error   = params.get('error');
 
