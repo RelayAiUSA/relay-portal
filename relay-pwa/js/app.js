@@ -1,4 +1,4 @@
-app.js v4.1: set Intuit and Zoho OAuth client IDs'use strict';
+'use strict';
 
 // ââ FIREBASE SDK GUARD ââââââââââââââââââââââââââââââââââââââââââââââââââââ
 // If Firebase CDN fails to load, show a friendly error instead of blank page
