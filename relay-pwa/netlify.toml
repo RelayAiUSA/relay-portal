@@ -3,7 +3,7 @@
   publish = "."
 
 [functions]
-  directory = "../netlify/functions"
+  directory = "functions"
 
 [[redirects]]
   from = "/doc/*"
