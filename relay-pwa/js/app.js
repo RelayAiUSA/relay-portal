@@ -1082,6 +1082,8 @@ document.addEventListener('click', async e => {
         type:        S.formType,
         status:      'pending',
         submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        sentAt:              new Date(),
+        reviewRequestSent:   false,
       });
 
       await db.collection('publicDocs').doc(invRef.id).set({
