@@ -117,6 +117,52 @@ exports.handler = async function () {
           errors.push({ inv: invDoc.id, error: err.message });
         }
       }
+      // ── Also check dispatch collection ─────────────────────────────────────
+      const dispSnap = await db
+        .collection('users').doc(uid)
+        .collection('dispatch')
+        .where('reviewRequestSent', '==', false)
+        .get();
+
+      for (const dispDoc of dispSnap.docs) {
+        const disp    = dispDoc.data();
+        const sentAt  = disp.sentAt?.toMillis ? disp.sentAt.toMillis()
+                      : disp.sentAt           ? new Date(disp.sentAt).getTime()
+                      : null;
+
+        if (!sentAt || sentAt < windowStart || sentAt > windowEnd) continue;
+
+        const phone    = disp.phone;
+        const customer = disp.customer || 'there';
+        const company  = userDoc.data()?.companyName || 'your service provider';
+
+        if (!phone) {
+          skipped.push({ doc: dispDoc.id, reason: 'no phone' });
+          continue;
+        }
+
+        const msg =
+          `Hi ${customer}! Thanks for choosing ${company}. ` +
+          `If everything went well, we'd really appreciate a quick Google review — it means everything to a small business. ` +
+          `Takes 30 seconds: ${reviewLink}\n\nReply STOP to opt out.`;
+
+        try {
+          const twilioSid = await sendSms(phone, msg);
+
+          await db
+            .collection('users').doc(uid)
+            .collection('dispatch').doc(dispDoc.id)
+            .update({
+              reviewRequestSent:   true,
+              reviewRequestSentAt: new Date(),
+              reviewRequestSid:    twilioSid,
+            });
+
+          sent.push({ doc: dispDoc.id, to: phone.slice(-4) });
+        } catch (err) {
+          errors.push({ doc: dispDoc.id, error: err.message });
+        }
+      }
     }
 
     console.log('review-request run:', { sent: sent.length, skipped: skipped.length, errors: errors.length });
