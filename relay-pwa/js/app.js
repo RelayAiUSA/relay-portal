@@ -44,7 +44,7 @@ const ADMIN_EMAIL = 'pryorpropertysolutions269@gmail.com';
 
 // ââ STRIPE PAYMENT LINKS ââââââââââââââââââââââââââââââââââââââââââââââââââ
 // Replace these with your real links from stripe.com/payment-links
-const const STRIPE_STARTER        = 'https://buy.stripe.com/7sYaEZ51C4i8aW58HC6g801';
+const STRIPE_STARTER        = 'https://buy.stripe.com/7sYaEZ51C4i8aW58HC6g801';
 const STRIPE_ESSENTIAL      = 'https://buy.stripe.com/00w4gB79K9CsaW59LG6g802';
 const STRIPE_ESSENTIAL_PLUS = 'https://buy.stripe.com/6oU6oJdy82a0aW59LG6g800';
 const STRIPE_BILLING        = 'https://billing.stripe.com/p/login/REPLACE_PORTAL_LINK';
@@ -635,9 +635,7 @@ function sInvoices() {
             </div>`;
           }).join('')
         : `<div style="padding:32px;text-align:center;color:#9ca3af;font-size:14px">
-            ${S.filter==='all' ? 'No invoices yet â submit your first job!' : 
-            ${S.filter==='all' ? 'No invoices yet Ã¢ÂÂ submit your first job!' : 
-            `No ${S.filter} invoices found.`}
+            ${S.filter==='all' ? 'No invoices yet â submit your first job!' :             `No ${S.filter} invoices found.`}
           </div>`
       }
     </div>
