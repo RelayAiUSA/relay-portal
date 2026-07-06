@@ -62,6 +62,17 @@ function canSMSDispatch(plan) {
 function canAutoForward(plan) { return isAdminUser() || ['essential+','essential_plus'].includes((plan||'').toLowerCase()); }
 function canReviewRequest(plan) { return isAdminUser() || ['essential+','essential_plus'].includes((plan||'').toLowerCase()); }
 function docLimit(plan) { return (isAdminUser() || ['essential+','essential_plus'].includes((plan||'').toLowerCase())) ? 500 : 250; }
+function getMonthKey() { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
+async function checkAndIncrementDocCount(uid, plan) {
+  if (isAdminUser()) return; // admin unlimited
+  const key   = getMonthKey();
+  const ref   = db.collection('users').doc(uid).collection('docCounts').doc(key);
+  const snap  = await ref.get();
+  const count = snap.exists ? (snap.data().count || 0) : 0;
+  const limit = docLimit(plan);
+  if (count >= limit) throw Object.assign(new Error('DOC_LIMIT_REACHED'), {limit, count});
+  await ref.set({ count: firebase.firestore.FieldValue.increment(1), updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+}
 // Protected screens â require active subscription
 const PROTECTED = new Set(['dashboard','submit','invoices','customers','profile']);
 
@@ -179,10 +190,12 @@ function setBtn(id, loading, label) {
 
 async function loadUserData(uid) {
   try {
-    const [profSnap, invSnap, cxSnap] = await Promise.all([
+    const monthKey = getMonthKey();
+    const [profSnap, invSnap, cxSnap, dcSnap] = await Promise.all([
       db.collection('users').doc(uid).get(),
       db.collection('users').doc(uid).collection('invoices').get(),
       db.collection('users').doc(uid).collection('customers').get(),
+      db.collection('users').doc(uid).collection('docCounts').doc(monthKey).get(),
     ]);
 
     S.profile = profSnap.exists ? profSnap.data() : {
@@ -210,11 +223,13 @@ async function loadUserData(uid) {
       .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
 
     S.customers = cxSnap.docs.map(d => ({docId: d.id, ...d.data()}));
+    S.docCountThisMonth = dcSnap.exists ? (dcSnap.data().count || 0) : 0;
   } catch(e) {
     console.error('loadUserData:', e);
     if (!S.profile) S.profile = {companyName: 'My Company', plan: 'Essential+', platform: 'quickbooks'};
     S.invoices  = S.invoices  || [];
     S.customers = S.customers || [];
+    S.docCountThisMonth = S.docCountThisMonth || 0;
   }
 }
 
@@ -691,7 +706,6 @@ function sCustomers() {
   </div>
   ${tabs('customers')}`;
 }
-
 function sProfile() {
   const p    = S.profile || {};
   const plan = (p.plan || 'starter').toLowerCase();
@@ -735,6 +749,18 @@ function sProfile() {
           <div style="font-weight:700;font-size:15px;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.companyName||'My Company'}</div>
           <div style="margin-top:3px">${planBadge}</div>
         </div>
+      </div>
+
+      <!-- ── Monthly usage meter ── -->
+      <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:12px 14px;margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="font-size:12px;font-weight:600;color:#374151">Documents this month</span>
+          <span style="font-size:12px;color:#6b7280">${S.docCountThisMonth||0} / ${docLimit(plan)}</span>
+        </div>
+        <div style="height:6px;background:#e5e7eb;border-radius:99px;overflow:hidden">
+          <div style="height:100%;width:${Math.min(100,Math.round(((S.docCountThisMonth||0)/docLimit(plan))*100))}%;background:${((S.docCountThisMonth||0)/docLimit(plan))>0.85?'#ef4444':'#1d4ed8'};border-radius:99px;transition:width .3s"></div>
+        </div>
+        <div style="font-size:11px;color:#9ca3af;margin-top:5px">${docLimit(plan)-(S.docCountThisMonth||0)} remaining · resets ${new Date(new Date().getFullYear(),new Date().getMonth()+1,1).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div>
       </div>
 
       <!-- ── Business Info ── -->
@@ -854,6 +880,7 @@ function sProfile() {
     </div>
     ${tabs('profile')}`;
 }
+
 
 const SCREENS = {
   loading:   sLoading,
@@ -992,10 +1019,20 @@ document.addEventListener('click', async e => {
       const mat = parseFloat(($('f-mat')?.value || '0').replace(/[^0-9.]/g, '')) || 0;
       const lab = parseFloat(($('f-lab')?.value || '0').replace(/[^0-9.]/g, '')) || 0;
       amount = mat + lab;
-    }
-    setBtn('sub-btn', true, 'Send to Relay dispatch');
+    }    setBtn('sub-btn', true, 'Send to Relay dispatch');
     try {
-      const uid = S.user.uid;
+      const uid  = S.user.uid;
+      const plan = (S.profile?.plan || 'starter').toLowerCase();
+      try {
+        await checkAndIncrementDocCount(uid, plan);
+      } catch(limitErr) {
+        if (limitErr.message === 'DOC_LIMIT_REACHED') {
+          showErr('sub-err', `Monthly document limit reached (${limitErr.limit} docs/mo on your plan). Please upgrade to continue.`);
+          setBtn('sub-btn', false, 'Send to Relay dispatch');
+          return;
+        }
+        throw limitErr;
+      }
       const invRef = await db.collection('users').doc(uid).collection('invoices').add({
         customer:  name,
         phone,
@@ -1021,6 +1058,7 @@ document.addEventListener('click', async e => {
         status:      'pending',
         submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
       });
+
       S.lastJob = { type: S.formType, customer: name, amount: fmt(amount) };
       await loadUserData(uid);
       nav('confirm');
