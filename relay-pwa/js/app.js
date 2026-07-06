@@ -235,8 +235,8 @@ async function loadDispatchQueue() {
 function tabs(active) {
   const t = [
     {id:'dashboard', ic:I.home,     lbl:'Home'},
-    {id:'submit',    ic:I.plus,     lbl:'Submit'},
-    {id:'invoices',  ic:I.file,     lbl:'Invoices'},
+    {id:'submit',    ic:I.plus,     lbl:'New'},   
+    {id:'invoices',  ic:I.file,     lbl:'Logs'},    
     {id:'customers', ic:I.users,    lbl:'Customers'},
   ];
   return `<nav class="tabs">${t.map(x=>`
@@ -460,90 +460,100 @@ function sPlans() {
     </div>`;
 }
 function sDashboard() {
-  const name = S.profile?.companyName || 'My Company';
-  const plan = S.profile?.plan        || 'Starter';
-  const invs = S.invoices || [];
-
-  // This-month stats
-  const now   = new Date();
-  const mo    = now.getMonth();
-  const yr    = now.getFullYear();
-  const mtd   = invs.filter(i => {
-    const d = i.createdAt?.toDate ? i.createdAt.toDate() : new Date(i.createdAt || 0);
-    return d.getMonth() === mo && d.getFullYear() === yr;
-  });
-
-  const revenue = mtd.filter(i => i.status === 'paid').reduce((s, i) => s + (i.amount || 0), 0);
-  const sent    = mtd.filter(i => ['sent','paid','overdue'].includes(i.status)).length;
-  const overdue = invs.filter(i => i.status === 'overdue').length;
-  const recent  = invs.slice(0, 4);
+  const name    = S.profile?.companyName || 'My Company';
+  const plan    = S.profile?.plan        || 'Starter';
+  const invs    = S.invoices || [];
+  const recent  = invs.slice(0, 3);
   const isAdmin = S.user?.email === ADMIN_EMAIL;
-
   const subStatus = S.profile?.subscriptionStatus || 'unpaid';
+
   const trialBanner = (!isAdmin && subStatus === 'trialing') ? `
     <div class="trial-banner">
-      <span style="font-size:18px">â³</span>
+      <span style="font-size:18px">⏳</span>
       <div style="flex:1">
         <div class="trial-banner-title">Your free trial is active</div>
-        <div class="trial-banner-sub">Subscribe before your trial ends to keep full access â no interruption.</div>
+        <div class="trial-banner-sub">Subscribe before your trial ends to keep full access — no interruption.</div>
       </div>
-      <a href="${STRIPE_ESSENTIAL}" target="_blank" rel="noopener" class="trial-banner-btn">Subscribe â</a>
+      <a href="${STRIPE_ESSENTIAL}" target="_blank" rel="noopener" class="trial-banner-btn">Subscribe →</a>
     </div>` : '';
 
-  // ── PAST DUE WARNING BANNER (Days 1–7 grace period) ──
   const pastDueBanner = (!isAdmin && subStatus === 'past_due') ? `
-<div class="past-due-banner">
-<span style="font-size:20px">⚠️</span>
-<div style="flex:1">
-<div class="past-due-banner-title">⚠️ ACTION REQUIRED — Payment Past Due</div>
-<div class="past-due-banner-sub">Update your payment method within 7 days or your portal access will be suspended. Your data is safe.</div>
-</div>
-<a href="${STRIPE_BILLING}" target="_blank" rel="noopener" class="past-due-banner-btn">Update Payment →</a>
-</div>` : '';
+    <div class="past-due-banner">
+      <span style="font-size:20px">⚠️</span>
+      <div style="flex:1">
+        <div class="past-due-banner-title">⚠️ ACTION REQUIRED — Payment Past Due</div>
+        <div class="past-due-banner-sub">Update your payment method within 7 days or your portal access will be suspended. Your data is safe.</div>
+      </div>
+      <a href="${STRIPE_BILLING}" target="_blank" rel="noopener" class="past-due-banner-btn">Update Payment →</a>
+    </div>` : '';
 
-  return topbar({title: name, sub: `${plan} Plan Â· Active`, right:`
-    ${isAdmin ? `<button class="topbar-btn" data-action="goAdmin" title="Admin view">${I.shield}</button>` : ''}
+  return topbar({title: name, sub: `${plan} Plan · Active`, right:`
+    ${isAdmin ? `<button class="topbar-btn" data-action="goAdmin" title="Admin">${I.shield}</button>` : ''}
+    <button class="topbar-btn" data-nav="profile" title="Settings">${I.settings}</button>
     <button class="topbar-btn" title="Notifications">${I.bell}</button>`}) +
   `<div class="scroll">${trialBanner}${pastDueBanner}
-    <p class="sh">This month</p>
-    <div class="stats-grid">
-      <div class="stat-card"><div class="stat-lbl">Revenue collected</div><div class="stat-val g">${fmt(revenue)}</div></div>
-      <div class="stat-card"><div class="stat-lbl">Invoices sent</div><div class="stat-val">${sent}</div></div>
-      <div class="stat-card"><div class="stat-lbl">Overdue</div><div class="stat-val${overdue > 0 ? ' r' : ''}">${overdue}</div></div>
-      <div class="stat-card"><div class="stat-lbl">All invoices</div><div class="stat-val">${invs.length}</div></div>
+
+    <div class="dispatch-card">
+      <div class="dispatch-card-header">
+        <div class="dispatch-card-icon">${I.msg}</div>
+        <div>
+          <div class="dispatch-card-number">1 (844) 729-1376</div>
+          <div class="dispatch-card-tagline">SMS Dispatch Line</div>
+        </div>
+      </div>
+      <div class="dispatch-steps">
+        <div class="dispatch-step">
+          <div class="step-arrow">
+            <div class="step-num">1</div>
+            <div class="step-line"></div>
+          </div>
+          <div class="step-body">
+            <div class="step-title">Customer Name, Address &amp; Phone Number</div>
+            <div class="step-desc">Include the full service address and best contact number</div>
+          </div>
+        </div>
+        <div class="dispatch-step">
+          <div class="step-arrow">
+            <div class="step-num">2</div>
+            <div class="step-line"></div>
+          </div>
+          <div class="step-body">
+            <div class="step-title">Brief Description of Work Completed (or Quoted)</div>
+            <div class="step-desc">A short summary of the job performed or estimate provided</div>
+          </div>
+        </div>
+        <div class="dispatch-step last">
+          <div class="step-arrow">
+            <div class="step-num">3</div>
+          </div>
+          <div class="step-body">
+            <div class="step-title">Amount to be Charged for Service $</div>
+            <div class="step-desc">The total dollar amount for the invoice or quote</div>
+          </div>
+        </div>
+      </div>
     </div>
-    <p class="sh">Dispatch number</p>
-    <div class="dispatch-number">
-      <div class="dispatch-number-label">Relay SMS dispatch line</div>
-      <div class="dispatch-number-val">+1 (844) 729-1376</div>
-      <div class="dispatch-number-sub">Text job info to this number anytime â Invoice or Quote, customer name &amp; phone, address, work done, amount.</div>
-    </div>
-    <p class="sh">Quick actions</p>
-    <div class="actions-grid">
-      <div class="action-item" data-nav="submit"><div class="action-icon">${I.send}</div><div class="action-lbl">Submit job</div><div class="action-desc">Invoice or quote</div></div>
-      <div class="action-item" data-nav="invoices"><div class="action-icon">${I.file}</div><div class="action-lbl">My invoices</div><div class="action-desc">Track &amp; status</div></div>
-      <div class="action-item" data-nav="customers"><div class="action-icon">${I.users}</div><div class="action-lbl">Customers</div><div class="action-desc">Registry</div></div>
-      <div class="action-item" data-nav="profile"><div class="action-icon">${I.settings}</div><div class="action-lbl">Profile</div><div class="action-desc">Rates &amp; settings</div></div>
-    </div>
-    <p class="sh">Recent activity</p>
+
+    <p class="sh" style="margin-top:20px">Recent Activity</p>
     <div class="card">
       ${recent.length
         ? recent.map(inv => {
-            const dot = inv.status==='paid' ? '#16a34a'
-                      : inv.status==='overdue' ? '#dc2626'
-                      : inv.status==='sent' ? '#2563eb' : '#6366f1';
+            const ac  = avatarColor(inv.customer || '');
             return `<div class="act-item">
-              <div class="act-dot" style="background:${dot}"></div>
-              <div>
-                <div class="act-title">${inv.type==='quote'?'Quote':'Invoice'} ${badge(inv.status)} â ${fmt(inv.amount||0)}</div>
-                <div class="act-sub">${inv.customer} Â· ${fmtDate(inv.createdAt)}</div>
+              <div class="inv-av" style="background:${ac.bg};color:${ac.fg};width:36px;height:36px;font-size:12px;flex-shrink:0">
+                ${getInitials(inv.customer||'?')}
               </div>
+              <div style="flex:1;min-width:0">
+                <div class="act-title">${inv.customer || 'Unknown'}</div>
+                <div class="act-sub">${fmtDate(inv.createdAt)} · ${fmt(inv.amount||0)} · ${(inv.type||'invoice').charAt(0).toUpperCase()+(inv.type||'invoice').slice(1)}</div>
+              </div>
+              <div style="flex-shrink:0">${badge(inv.status)}</div>
             </div>`;
           }).join('')
-        : `<div style="padding:28px;text-align:center;color:#9ca3af;font-size:14px">
-            <div style="font-size:32px;margin-bottom:10px">ð</div>
-            <div style="font-weight:600;color:#374151;margin-bottom:4px">You're all set!</div>
-            <div>Submit your first job to get started.</div>
+        : `<div style="padding:32px 20px;text-align:center">
+            <div style="width:52px;height:52px;background:#f3f4f6;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;color:#9ca3af">${I.send}</div>
+            <div style="font-size:14px;font-weight:600;color:#374151;margin-bottom:6px">No jobs yet</div>
+            <div style="font-size:13px;color:#9ca3af">Text your first job to the dispatch line above to get started.</div>
           </div>`
       }
     </div>
