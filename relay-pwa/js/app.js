@@ -788,6 +788,7 @@ const SCREENS = {
 function render() {
   const fn = SCREENS[S.screen] || sLoading;
   $('app').innerHTML = fn();
+  const ldr = document.getElementById('loader'); if (ldr) ldr.style.display = 'none';
 }
 
 function nav(screen) {
