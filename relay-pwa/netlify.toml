@@ -1,3 +1,4 @@
+# RelayAI portal configuration
 [build]
   publish = "."
 
