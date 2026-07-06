@@ -1,0 +1,302 @@
+<!DOCTYPE html> 
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document — Relay AI</title>
+  <meta name="robots" content="noindex,nofollow">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f3f4f6; color: #111827; min-height: 100vh; }
+
+    /* ── top bar ── */
+    .topbar { background: linear-gradient(135deg,#0f1f45 0%,#1d4ed8 100%); padding: 14px 20px; display: flex; align-items: center; gap: 10px; }
+    .topbar-logo { width: 34px; height: 34px; background: rgba(255,255,255,.15); border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+    .topbar-logo svg { width: 20px; height: 20px; }
+    .topbar-name { color: #fff; font-weight: 700; font-size: 16px; letter-spacing: -.3px; }
+    .topbar-sub  { color: rgba(255,255,255,.6); font-size: 12px; }
+
+    /* ── card ── */
+    .wrap { max-width: 640px; margin: 0 auto; padding: 20px 16px 60px; }
+    .card { background: #fff; border-radius: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.08); overflow: hidden; margin-bottom: 14px; }
+
+    /* ── doc header ── */
+    .doc-header { padding: 22px 22px 16px; border-bottom: 1px solid #f3f4f6; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+    .company-block { display: flex; align-items: center; gap: 11px; }
+    .company-av { width: 44px; height: 44px; border-radius: 11px; background: linear-gradient(135deg,#0f1f45,#1d4ed8); color: #fff; font-size: 17px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .company-name { font-weight: 700; font-size: 15px; color: #111827; }
+    .company-trade { font-size: 12px; color: #6b7280; margin-top: 2px; }
+    .doc-meta { text-align: right; flex-shrink: 0; }
+    .doc-type { font-size: 11px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: #6b7280; }
+    .doc-id   { font-size: 13px; font-weight: 600; color: #374151; margin-top: 2px; font-family: monospace; }
+    .doc-date { font-size: 11px; color: #9ca3af; margin-top: 3px; }
+
+    /* ── status badge ── */
+    .badge { display: inline-block; padding: 3px 9px; border-radius: 99px; font-size: 11px; font-weight: 700; letter-spacing: .3px; text-transform: uppercase; }
+    .badge-pending  { background: #fef9c3; color: #a16207; }
+    .badge-sent     { background: #dbeafe; color: #1d4ed8; }
+    .badge-paid     { background: #d1fae5; color: #065f46; }
+    .badge-overdue  { background: #fee2e2; color: #b91c1c; }
+    .badge-quote    { background: #ede9fe; color: #7c3aed; }
+    .badge-completed{ background: #d1fae5; color: #065f46; }
+
+    /* ── section ── */
+    .section { padding: 18px 22px; border-bottom: 1px solid #f3f4f6; }
+    .section:last-child { border-bottom: none; }
+    .section-label { font-size: 11px; font-weight: 600; letter-spacing: .4px; text-transform: uppercase; color: #9ca3af; margin-bottom: 10px; }
+
+    /* ── customer row ── */
+    .cust-row { display: flex; gap: 8px; }
+    .cust-av  { width: 36px; height: 36px; border-radius: 50%; background: #e5e7eb; color: #374151; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .cust-name { font-weight: 600; font-size: 14px; color: #111827; }
+    .cust-sub  { font-size: 12px; color: #6b7280; margin-top: 2px; }
+
+    /* ── work ── */
+    .work-text { font-size: 14px; color: #374151; line-height: 1.6; white-space: pre-wrap; }
+
+    /* ── amount ── */
+    .amount-table { width: 100%; border-collapse: collapse; }
+    .amount-table td { padding: 5px 0; font-size: 14px; color: #374151; }
+    .amount-table td:last-child { text-align: right; }
+    .amount-table .total-row td { border-top: 1px solid #e5e7eb; padding-top: 10px; font-weight: 700; font-size: 18px; color: #111827; }
+
+    /* ── payment methods ── */
+    .pay-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .pay-chip  { padding: 4px 10px; background: #f3f4f6; border-radius: 99px; font-size: 12px; font-weight: 500; color: #374151; }
+
+    /* ── footer note ── */
+    .footer-note { font-size: 12px; color: #6b7280; line-height: 1.6; font-style: italic; }
+
+    /* ── action bar ── */
+    .action-bar { display: flex; gap: 10px; padding: 16px 0 0; }
+    .btn { padding: 11px 20px; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; transition: opacity .15s; flex: 1; text-align: center; }
+    .btn:active { opacity: .85; }
+    .btn-primary { background: linear-gradient(135deg,#0f1f45,#1d4ed8); color: #fff; }
+    .btn-outline { background: transparent; border: 1.5px solid #d1d5db; color: #374151; }
+
+    /* ── relay branding ── */
+    .relay-footer { text-align: center; padding: 20px 0 10px; font-size: 11px; color: #9ca3af; }
+    .relay-footer strong { color: #6b7280; }
+
+    /* ── loading / error states ── */
+    .state-wrap { text-align: center; padding: 60px 20px; color: #9ca3af; }
+    .state-icon { font-size: 40px; margin-bottom: 12px; }
+    .state-title { font-size: 16px; font-weight: 600; color: #374151; margin-bottom: 6px; }
+    .state-sub   { font-size: 13px; color: #9ca3af; }
+
+    /* ── print ── */
+    @media print {
+      .topbar, .action-bar, .relay-footer { display: none !important; }
+      body { background: #fff; }
+      .card { box-shadow: none; }
+      .wrap { padding: 0; max-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="topbar">
+  <div class="topbar-logo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+    </svg>
+  </div>
+  <div>
+    <div class="topbar-name">Relay AI</div>
+    <div class="topbar-sub">Secure document link</div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div id="doc-root">
+    <div class="state-wrap">
+      <div class="state-icon">⏳</div>
+      <div class="state-title">Loading document…</div>
+      <div class="state-sub">This should only take a moment.</div>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script>
+// ── Firebase config (same as portal) ──────────────────────────────────────
+const firebaseConfig = {
+  apiKey:            "AIzaSyBiJkZGFMGOr_FvAjwT_e0lD1-jEkjv1as",
+  authDomain:        "relay-portal-7f8c2.firebaseapp.com",
+  projectId:         "relay-portal-7f8c2",
+  storageBucket:     "relay-portal-7f8c2.appspot.com",
+  messagingSenderId: "549083726419",
+  appId:             "1:549083726419:web:2c4f8e3d1a5b9f0e4c7d6a"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function initials(name) {
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/);
+  return parts.length >= 2
+    ? (parts[0][0] + parts[parts.length-1][0]).toUpperCase()
+    : name.slice(0,2).toUpperCase();
+}
+function fmt(n) {
+  return '$' + (parseFloat(n)||0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');
+}
+function fmtDate(ts) {
+  if (!ts) return '';
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  return d.toLocaleDateString('en-US', {year:'numeric', month:'long', day:'numeric'});
+}
+function badgeClass(status) {
+  const map = {pending:'badge-pending', sent:'badge-sent', paid:'badge-paid',
+               overdue:'badge-overdue', quote:'badge-quote', completed:'badge-completed'};
+  return 'badge ' + (map[status] || 'badge-pending');
+}
+function badgeLabel(status) {
+  return status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Pending';
+}
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Get doc ID from URL ────────────────────────────────────────────────────
+// URL: /doc/{invoiceId}
+function getDocId() {
+  const parts = location.pathname.split('/').filter(Boolean);
+  // parts = ['doc', '{id}']
+  return parts.length >= 2 ? parts[parts.length - 1] : null;
+}
+
+// ── Render ─────────────────────────────────────────────────────────────────
+function renderError(msg) {
+  document.getElementById('doc-root').innerHTML = `
+    <div class="state-wrap">
+      <div class="state-icon">📄</div>
+      <div class="state-title">Document not found</div>
+      <div class="state-sub">${escHtml(msg)}</div>
+    </div>`;
+}
+
+function renderDoc(d) {
+  const taxAmt   = (parseFloat(d.amount)||0) * (parseFloat(d.taxRate)||0) / 100;
+  const subtotal = parseFloat(d.amount) || 0;
+  const total    = subtotal + taxAmt;
+  const hasTax   = taxAmt > 0;
+  const hasCallFee = d.minCallFee > 0;
+  const docLabel = (d.type === 'quote' || d.type === 'estimate') ? 'Estimate' : 'Invoice';
+  const payMethods = Array.isArray(d.paymentMethods) ? d.paymentMethods : [];
+  if (d.paymentMethodOther) payMethods.push(d.paymentMethodOther);
+  const prefix = d.invoicePrefix || '';
+  const shortId = (prefix + (d.invoiceId || '').slice(-6).toUpperCase());
+
+  document.title = `${docLabel} ${shortId} — ${escHtml(d.companyName||'Relay AI')}`;
+
+  document.getElementById('doc-root').innerHTML = `
+    <!-- Company + doc header -->
+    <div class="card">
+      <div class="doc-header">
+        <div class="company-block">
+          <div class="company-av">${escHtml(initials(d.companyName||'RA'))}</div>
+          <div>
+            <div class="company-name">${escHtml(d.companyName||'Your Contractor')}</div>
+            <div class="company-trade">${escHtml(d.businessType||d.trade||'')}</div>
+            ${d.licenseNumber ? `<div style="font-size:11px;color:#9ca3af;margin-top:2px">Lic. ${escHtml(d.licenseNumber)}</div>` : ''}
+          </div>
+        </div>
+        <div class="doc-meta">
+          <div class="doc-type">${docLabel}</div>
+          <div class="doc-id">#${shortId}</div>
+          <div class="doc-date">${fmtDate(d.createdAt)}</div>
+          <div style="margin-top:6px"><span class="${badgeClass(d.status)}">${badgeLabel(d.status)}</span></div>
+        </div>
+      </div>
+
+      <!-- Bill to -->
+      <div class="section">
+        <div class="section-label">Bill to</div>
+        <div class="cust-row">
+          <div class="cust-av">${escHtml(initials(d.customer))}</div>
+          <div>
+            <div class="cust-name">${escHtml(d.customer||'Customer')}</div>
+            ${d.address ? `<div class="cust-sub">${escHtml(d.address)}</div>` : ''}
+            ${d.email   ? `<div class="cust-sub">${escHtml(d.email)}</div>` : ''}
+          </div>
+        </div>
+      </div>
+
+      <!-- Work description -->
+      <div class="section">
+        <div class="section-label">Work description</div>
+        <div class="work-text">${escHtml(d.work||'—')}</div>
+      </div>
+
+      <!-- Amount -->
+      <div class="section">
+        <div class="section-label">Amount</div>
+        <table class="amount-table">
+          ${hasCallFee ? `<tr><td>Minimum service call fee</td><td>${fmt(d.minCallFee)}</td></tr>` : ''}
+          <tr><td>${docLabel} subtotal</td><td>${fmt(subtotal)}</td></tr>
+          ${hasTax ? `<tr><td>Tax (${parseFloat(d.taxRate).toFixed(2)}%)</td><td>${fmt(taxAmt)}</td></tr>` : ''}
+          <tr class="total-row"><td>Total</td><td>${fmt(total)}</td></tr>
+        </table>
+        ${d.paymentTerms ? `<div style="font-size:12px;color:#6b7280;margin-top:10px">Payment terms: <strong>${escHtml(d.paymentTerms)}</strong></div>` : ''}
+        ${d.estimateValidity && docLabel==='Estimate' ? `<div style="font-size:12px;color:#6b7280;margin-top:4px">This estimate is valid for <strong>${escHtml(d.estimateValidity)}</strong> from the date above.</div>` : ''}
+      </div>
+
+      <!-- Payment methods -->
+      ${payMethods.length ? `
+      <div class="section">
+        <div class="section-label">Payment methods accepted</div>
+        <div class="pay-chips">
+          ${payMethods.map(m=>`<div class="pay-chip">${escHtml(m)}</div>`).join('')}
+        </div>
+      </div>` : ''}
+
+      <!-- Footer note -->
+      ${d.invoiceFooter ? `
+      <div class="section">
+        <div class="footer-note">${escHtml(d.invoiceFooter)}</div>
+      </div>` : ''}
+    </div>
+
+    <!-- Action bar -->
+    <div class="action-bar">
+      <button class="btn btn-primary" onclick="window.print()">🖨️ Print / Save PDF</button>
+      <button class="btn btn-outline" onclick="copyLink()">🔗 Copy link</button>
+    </div>
+
+    <div class="relay-footer">
+      Powered by <strong>Relay AI</strong> · portal-relay.com
+    </div>
+  `;
+}
+
+function copyLink() {
+  navigator.clipboard.writeText(location.href).then(() => {
+    const btn = event.target;
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copied!';
+    setTimeout(() => { btn.textContent = orig; }, 2000);
+  });
+}
+
+// ── Load document ──────────────────────────────────────────────────────────
+async function loadDoc() {
+  const id = getDocId();
+  if (!id) { renderError('No document ID in URL.'); return; }
+  try {
+    const snap = await db.collection('publicDocs').doc(id).get();
+    if (!snap.exists) { renderError('This document link may have expired or been removed.'); return; }
+    renderDoc({ invoiceId: id, ...snap.data() });
+  } catch(e) {
+    console.error(e);
+    renderError('Could not load document. Please try again.');
+  }
+}
+
+loadDoc();
+</script>
+</body>
+</html>
