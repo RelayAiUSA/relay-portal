@@ -493,48 +493,61 @@ function sDashboard() {
     <button class="topbar-btn" title="Notifications">${I.bell}</button>`}) +
   `<div class="scroll">${trialBanner}${pastDueBanner}
 
-    <div class="dispatch-card">
-      <div class="dispatch-card-header">
-        <div class="dispatch-card-icon">${I.msg}</div>
-        <div>
-          <div class="dispatch-card-number">1 (844) 729-1376</div>
-          <div class="dispatch-card-tagline">SMS Dispatch Line</div>
-        </div>
-      </div>
-      <div class="dispatch-steps">
-        <div class="dispatch-step">
-          <div class="step-arrow">
-            <div class="step-num">1</div>
-            <div class="step-line"></div>
-          </div>
-          <div class="step-body">
-            <div class="step-title">Customer Name, Address &amp; Phone Number</div>
-            <div class="step-desc">Include the full service address and best contact number</div>
-          </div>
-        </div>
-        <div class="dispatch-step">
-          <div class="step-arrow">
-            <div class="step-num">2</div>
-            <div class="step-line"></div>
-          </div>
-          <div class="step-body">
-            <div class="step-title">Brief Description of Work Completed (or Quoted)</div>
-            <div class="step-desc">A short summary of the job performed or estimate provided</div>
-          </div>
-        </div>
-        <div class="dispatch-step last">
-          <div class="step-arrow">
-            <div class="step-num">3</div>
-          </div>
-          <div class="step-body">
-            <div class="step-title">Amount to be Charged for Service $</div>
-            <div class="step-desc">The total dollar amount for the invoice or quote</div>
-          </div>
-        </div>
-      </div>
+    <div style="margin-bottom:4px">
+      <svg viewBox="0 0 390 298" xmlns="http://www.w3.org/2000/svg" style="width:100%;border-radius:18px;display:block">
+        <defs>
+          <linearGradient id="dbg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#0f1f45"/><stop offset="100%" style="stop-color:#1d4ed8"/></linearGradient>
+          <linearGradient id="s1g" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" style="stop-color:#34d399"/><stop offset="100%" style="stop-color:#10b981"/></linearGradient>
+          <linearGradient id="s2g" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" style="stop-color:#60a5fa"/><stop offset="100%" style="stop-color:#3b82f6"/></linearGradient>
+          <linearGradient id="s3g" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" style="stop-color:#c084fc"/><stop offset="100%" style="stop-color:#9333ea"/></linearGradient>
+          <linearGradient id="wg" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" style="stop-color:rgba(255,255,255,0.07)"/><stop offset="100%" style="stop-color:rgba(255,255,255,0.03)"/></linearGradient>
+          <filter id="dgl"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>
+        <rect width="390" height="298" rx="20" fill="url(#dbg)"/>
+        <circle cx="330" cy="25" r="70" fill="rgba(255,255,255,0.03)"/>
+        <circle cx="370" cy="80" r="45" fill="rgba(255,255,255,0.025)"/>
+        <text x="374" y="19" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="10.5" font-weight="700" fill="rgba(255,255,255,0.28)" text-anchor="end">RelayAi</text>
+        <polygon points="22,10 17,24 21,24 16,38 24,21 20,21" fill="rgba(192,132,252,0.55)"/>
+        <circle cx="38" cy="44" r="22" fill="rgba(255,255,255,0.11)"/>
+        <rect x="27" y="35" width="22" height="16" rx="4" fill="none" stroke="white" stroke-width="1.6"/>
+        <line x1="31" y1="40" x2="45" y2="40" stroke="white" stroke-width="1.3" stroke-linecap="round" opacity="0.75"/>
+        <line x1="31" y1="44" x2="41" y2="44" stroke="white" stroke-width="1.3" stroke-linecap="round" opacity="0.75"/>
+        <path d="M30 51 l4-4" stroke="white" stroke-width="1.4" stroke-linecap="round" opacity="0.75"/>
+        <text x="70" y="38" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="22" font-weight="800" fill="white" letter-spacing="0.3">1 (844) 729-1376</text>
+        <text x="70" y="51" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="9.5" font-weight="600" fill="rgba(255,255,255,0.52)" letter-spacing="1.4">SMS DISPATCH LINE</text>
+        <text x="70" y="66" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="12" font-weight="700" fill="rgba(255,255,255,0.9)">How to Submit a Job via Text:</text>
+        <line x1="18" y1="80" x2="372" y2="80" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+        <circle cx="183" cy="80" r="2.5" fill="rgba(255,255,255,0.28)"/><circle cx="193" cy="80" r="2.5" fill="rgba(255,255,255,0.28)"/><circle cx="203" cy="80" r="2.5" fill="rgba(255,255,255,0.28)"/>
+        <circle cx="36" cy="108" r="15" fill="url(#s1g)" filter="url(#dgl)" opacity="0.92"/>
+        <text x="36" y="113" font-family="-apple-system,sans-serif" font-size="13" font-weight="800" fill="white" text-anchor="middle">1</text>
+        <circle cx="360" cy="103" r="5.5" fill="none" stroke="rgba(52,211,153,0.48)" stroke-width="1.3"/>
+        <path d="M352 116 q8-5 16 0" fill="none" stroke="rgba(52,211,153,0.48)" stroke-width="1.3" stroke-linecap="round"/>
+        <line x1="36" y1="123" x2="36" y2="143" stroke="rgba(52,211,153,0.38)" stroke-width="1.5" stroke-dasharray="3,3"/>
+        <text x="62" y="103" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="13.5" font-weight="700" fill="white">Customer Name, Address &amp; Phone</text>
+        <text x="62" y="118" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="11" fill="rgba(255,255,255,0.52)">Full service address and best contact number</text>
+        <circle cx="36" cy="156" r="15" fill="url(#s2g)" filter="url(#dgl)" opacity="0.92"/>
+        <text x="36" y="161" font-family="-apple-system,sans-serif" font-size="13" font-weight="800" fill="white" text-anchor="middle">2</text>
+        <rect x="351" y="148" width="14" height="14" rx="2" fill="none" stroke="rgba(96,165,250,0.48)" stroke-width="1.3"/>
+        <line x1="354" y1="153" x2="362" y2="153" stroke="rgba(96,165,250,0.48)" stroke-width="1.2" stroke-linecap="round"/>
+        <line x1="354" y1="156" x2="362" y2="156" stroke="rgba(96,165,250,0.48)" stroke-width="1.2" stroke-linecap="round"/>
+        <line x1="354" y1="159" x2="359" y2="159" stroke="rgba(96,165,250,0.48)" stroke-width="1.2" stroke-linecap="round"/>
+        <line x1="36" y1="171" x2="36" y2="191" stroke="rgba(96,165,250,0.38)" stroke-width="1.5" stroke-dasharray="3,3"/>
+        <text x="62" y="151" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="13.5" font-weight="700" fill="white">Description of Work Done or Quoted</text>
+        <text x="62" y="166" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="11" fill="rgba(255,255,255,0.52)">Short summary of the job or estimate provided</text>
+        <circle cx="36" cy="204" r="15" fill="url(#s3g)" filter="url(#dgl)" opacity="0.92"/>
+        <text x="36" y="209" font-family="-apple-system,sans-serif" font-size="13" font-weight="800" fill="white" text-anchor="middle">3</text>
+        <circle cx="358" cy="200" r="8" fill="none" stroke="rgba(192,132,252,0.48)" stroke-width="1.3"/>
+        <text x="358" y="204.5" font-family="-apple-system,sans-serif" font-size="10" font-weight="700" fill="rgba(192,132,252,0.65)" text-anchor="middle">$</text>
+        <text x="62" y="199" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="13.5" font-weight="700" fill="white">Amount to be Charged for Service $</text>
+        <text x="62" y="214" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="11" fill="rgba(255,255,255,0.52)">Total dollar amount for the invoice or quote</text>
+        <rect x="14" y="228" width="362" height="58" rx="10" fill="url(#wg)" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+        <text x="28" y="249" font-family="-apple-system,sans-serif" font-size="13" fill="rgba(255,255,255,0.7)">&#x26A0;</text>
+        <text x="44" y="248" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="10.5" fill="rgba(255,255,255,0.85)"><tspan font-weight="800" fill="white">*IMPORTANT!:</tspan><tspan> All three fields </tspan><tspan font-weight="800" text-decoration="underline" fill="white">MUST</tspan><tspan> be included in every text</tspan></text>
+        <text x="44" y="261" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="10.5" fill="rgba(255,255,255,0.85)">message to ensure a complete and accurate submission.</text>
+        <text x="28" y="276" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="10" fill="rgba(255,255,255,0.42)">*Missing details may result in an incomplete or failed document.</text>
+      </svg>
     </div>
-
-    <p class="sh" style="margin-top:20px">Recent Activity</p>
+        <p class="sh" style="margin-top:20px">Recent Activity</p>
     <div class="card">
       ${recent.length
         ? recent.map(inv => {
