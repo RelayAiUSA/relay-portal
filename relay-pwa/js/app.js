@@ -1070,6 +1070,8 @@ document.addEventListener('click', async e => {
         notes:     $('f-notes')?.value?.trim() || '',
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         platform:  S.profile?.platform || 'quickbooks',
+        sentAt:              new Date(),
+        reviewRequestSent:   false,
       });
       await db.collection('dispatch').add({
         userId:      uid,
