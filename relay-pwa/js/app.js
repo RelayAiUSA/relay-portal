@@ -772,6 +772,19 @@ function sProfile() {
     </div>
     ${tabs('profile')}`;
 }
+const SCREENS = {
+  loading:   sLoading,
+  login:     sLogin,
+  signup:    sSignup,
+  locked:    sLocked,
+  plans:     sPlans,
+  dashboard: sDashboard,
+  submit:    sSubmit,
+  confirm:   sConfirm,
+  invoices:  sInvoices,
+  customers: sCustomers,
+  profile:   sProfile,
+};
 function render() {
   const fn = SCREENS[S.screen] || sLoading;
   $('app').innerHTML = fn();
