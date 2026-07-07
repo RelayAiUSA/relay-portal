@@ -32,3 +32,6 @@
 
 [functions.review-request]
   schedule = "0 * * * *"
+
+[[plugins]]
+  package = "@netlify/plugin-functions-install-core"
