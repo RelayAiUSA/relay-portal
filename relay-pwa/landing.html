@@ -574,6 +574,28 @@
       font-size: 13px; color: var(--muted);
     }
 
+    /* ── MOBILE HOMESCREEN BANNER ──────────────────────────────────── */
+    #pwa-banner {
+      display: none;
+      background: linear-gradient(135deg, rgba(124,58,237,0.18), rgba(245,158,11,0.12));
+      border-bottom: 1px solid rgba(124,58,237,0.3);
+      padding: 10px 16px;
+      text-align: center;
+      font-size: 13px;
+      color: var(--off-white);
+      position: relative;
+      z-index: 999;
+    }
+    #pwa-banner strong { color: #fff; }
+    #pwa-banner .pwa-icon { font-size: 15px; vertical-align: middle; margin-right: 4px; }
+    #pwa-banner .pwa-dismiss {
+      position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; color: var(--muted); font-size: 18px;
+      cursor: pointer; padding: 4px 8px; line-height: 1;
+    }
+    @media(max-width: 900px) { #pwa-banner { display: block; } }
+    @media(min-width: 901px) { #pwa-banner { display: none !important; } }
+
     /* ── RESPONSIVE ────────────────────────────────────────────────── */
     @media(max-width: 900px) {
       .stats-inner { grid-template-columns: repeat(2,1fr); }
@@ -633,6 +655,14 @@
   </div>
 </nav>
 
+<!-- ── MOBILE HOMESCREEN BANNER ───────────────────────────────────── -->
+<div id="pwa-banner">
+  <span class="pwa-icon">📲</span>
+  <strong>Add RelayAI to your home screen</strong> — quick access from anywhere, just like an app.
+  <span id="pwa-instructions"></span>
+  <button class="pwa-dismiss" onclick="dismissPwaBanner()" aria-label="Dismiss">&times;</button>
+</div>
+
 <!-- ── HERO ───────────────────────────────────────────────────────── -->
 <section class="hero">
   <div class="hero-bg">
@@ -686,8 +716,8 @@
   <div class="container">
     <div class="stats-inner">
       <div class="stat reveal">
-        <div class="stat-num"><span class="counter" data-target="400">0</span><span class="accent">+</span></div>
-        <div class="stat-label">Hours saved per contractor / year</div>
+        <div class="stat-num"><span class="counter" data-target="200">0</span><span class="accent">+</span></div>
+        <div class="stat-label">Hours saved per year on average (≈4 hrs/week)</div>
       </div>
       <div class="stat reveal delay-1">
         <div class="stat-num"><span class="counter" data-target="97">0</span><span class="accent">%</span></div>
@@ -758,8 +788,8 @@
       </div>
     </div>
     <p class="pain-closer reveal">
-      <strong>You're a skilled professional doing honest work.</strong><br>
-      You deserve software that handles the business side so you can stay focused on what you're actually good at.
+      <strong>As a skilled professional running your operation — let AI work for you.</strong><br>
+      Stay focused on what you enjoy and what you're good at. We'll handle the rest.
     </p>
   </div>
 </section>
@@ -949,7 +979,6 @@
         <div class="plan-divider"></div>
         <ul class="plan-features">
           <li><span class="tick">✓</span> Professional invoicing</li>
-          <li><span class="tick">✓</span> Text message dispatch</li>
           <li><span class="tick">✓</span> Customer management</li>
           <li><span class="tick">✓</span> Business dashboard</li>
           <li><span class="tick">✓</span> Mobile-ready portal</li>
@@ -969,10 +998,10 @@
         <ul class="plan-features">
           <li><span class="tick">✓</span> Everything in Starter</li>
           <li><span class="tick">✓</span> <strong>AI document generation</strong></li>
-          <li><span class="tick">✓</span> <strong>Automated review requests</strong></li>
+          <li><span class="tick">✓</span> <strong>Customer Information Shortcuts</strong></li>
+          <li><span class="tick">✓</span> <strong>Text Message Dispatching</strong></li>
           <li><span class="tick">✓</span> Zoho Books integration</li>
           <li><span class="tick">✓</span> QuickBooks integration</li>
-          <li><span class="tick">✓</span> Document template upload</li>
           <li><span class="tick">✓</span> Priority support</li>
         </ul>
         <a href="https://buy.stripe.com/00w4gB79K9CsaW59LG6g802" class="btn btn-amber plan-cta">Start 14-Day Free Trial</a>
@@ -980,16 +1009,15 @@
       </div>
 
       <div class="plan reveal delay-3">
-        <div class="plan-name">Relay Pro</div>
+        <div class="plan-name">RelayPRO</div>
         <div class="plan-price"><sup>$</sup>99<span>/mo</span></div>
         <p class="plan-desc">Full automation for growing businesses ready to scale. Everything running in the background while you work.</p>
         <div class="plan-divider"></div>
         <ul class="plan-features">
           <li><span class="tick">✓</span> Everything in Essential+</li>
           <li><span class="tick">✓</span> Full job automation</li>
-          <li><span class="tick">✓</span> Advanced reporting</li>
-          <li><span class="tick">✓</span> Multi-user access</li>
-          <li><span class="tick">✓</span> Custom integrations</li>
+          <li><span class="tick">✓</span> <strong>Customer Follow-up &amp; Review Generation</strong></li>
+          <li><span class="tick">✓</span> <strong>Up to 500 Documents Generated Monthly</strong></li>
           <li><span class="tick">✓</span> Dedicated support</li>
           <li><span class="tick">✓</span> Early access to new features</li>
         </ul>
@@ -1078,14 +1106,14 @@
           Is a credit card really required for the free trial?
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
         </div>
-        <div class="faq-a">Yes — and we want to be upfront about that. Your card is required to start the Essential+ or Relay Pro trial. If you cancel before the 14 days are up, you will not be charged a single cent. We ask for it upfront so you have a seamless upgrade experience if you love it — which we're confident you will. Starter at $19 has no trial and charges immediately.</div>
+        <div class="faq-a">Yes — and we want to be upfront about that. Your card is required to start the Essential+ or RelayPRO trial. If you cancel before the 14 days are up, you will not be charged a single cent. We ask for it upfront so you have a seamless upgrade experience if you love it — which we're confident you will. Starter at $19 has no trial and charges immediately.</div>
       </div>
       <div class="faq-item">
         <div class="faq-q" onclick="toggleFaq(this)">
           What happens when the trial ends?
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
         </div>
-        <div class="faq-a">Your card will be charged automatically at the plan rate ($49/mo for Essential+, $99/mo for Pro). You'll receive an email reminder before the trial ends. If you cancel before then, no charge — ever. You can manage billing, cancel, or downgrade anytime from your portal dashboard.</div>
+        <div class="faq-a">Your card will be charged automatically at the plan rate ($49/mo for Essential+, $99/mo for RelayPRO). You'll receive an email reminder before the trial ends. If you cancel before then, no charge — ever. You can manage billing, cancel, or downgrade anytime from your portal dashboard.</div>
       </div>
       <div class="faq-item">
         <div class="faq-q" onclick="toggleFaq(this)">
@@ -1099,14 +1127,14 @@
           How does AI document generation work?
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
         </div>
-        <div class="faq-a">You upload your blank document template — a service agreement, job completion form, estimate sheet, whatever you use — once. Every time a job is submitted, RelayAI reads the job details and fills in your template automatically, creating a custom, professional document for that specific customer. Available on Essential+ and Relay Pro.</div>
+        <div class="faq-a">You upload your blank document template — a service agreement, job completion form, estimate sheet, whatever you use — once. Every time a job is submitted, RelayAI reads the job details and fills in your template automatically, creating a custom, professional document for that specific customer. Available on Essential+ and RelayPRO.</div>
       </div>
       <div class="faq-item">
         <div class="faq-q" onclick="toggleFaq(this)">
           Does RelayAI work with my accounting software?
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
         </div>
-        <div class="faq-a">Yes. RelayAI integrates with both Zoho Books and QuickBooks on Essential+ and Relay Pro plans. Connect your existing account and your invoices sync automatically. You don't have to switch tools — we work with what you already have.</div>
+        <div class="faq-a">Yes. RelayAI integrates with both Zoho Books and QuickBooks on Essential+ and RelayPRO plans. Connect your existing account and your invoices sync automatically. You don't have to switch tools — we work with what you already have.</div>
       </div>
       <div class="faq-item">
         <div class="faq-q" onclick="toggleFaq(this)">
@@ -1228,6 +1256,29 @@
     track.style.transform = `translateX(-${currentSlide * (cards[0].offsetWidth + 24)}px)`;
   }
   setInterval(() => goToSlide((currentSlide + 1) % cards.length), 5000);
+
+  // ── MOBILE HOMESCREEN BANNER ───────────────────────────────────────
+  (function() {
+    if (localStorage.getItem('pwaBannerDismissed')) {
+      var b = document.getElementById('pwa-banner');
+      if (b) b.style.display = 'none';
+      return;
+    }
+    var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    var isAndroid = /android/i.test(navigator.userAgent);
+    var hint = document.getElementById('pwa-instructions');
+    if (!hint) return;
+    if (isIOS) {
+      hint.innerHTML = ' &middot; Tap <strong>Share</strong> &#x2B06; then <strong>"Add to Home Screen"</strong>';
+    } else if (isAndroid) {
+      hint.innerHTML = ' &middot; Tap <strong>&#8942; Menu</strong> then <strong>"Add to Home Screen"</strong>';
+    }
+  })();
+  function dismissPwaBanner() {
+    var b = document.getElementById('pwa-banner');
+    if (b) b.style.display = 'none';
+    localStorage.setItem('pwaBannerDismissed', '1');
+  }
 
   // ── FAQ ACCORDION ──────────────────────────────────────────────────
   function toggleFaq(el) {
