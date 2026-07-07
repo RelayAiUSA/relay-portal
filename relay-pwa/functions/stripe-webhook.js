@@ -2,7 +2,7 @@
 // Netlify function — receives Stripe subscription events and syncs plan to Firestore
 //
 // Required env vars:
-//   STRIPE_SECRET_KEY        live secret key (sk_live_...)
+//   STRIPE_SECRET_KEY        live secret key ([live key])
 //   STRIPE_WEBHOOK_SECRET    from Stripe Dashboard > Webhooks > signing secret
 //   STRIPE_PRICE_STARTER     Stripe price ID for $19 plan
 //   STRIPE_PRICE_ESSENTIAL   Stripe price ID for $49 plan
