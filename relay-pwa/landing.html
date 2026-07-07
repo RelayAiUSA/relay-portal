@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RelayAI — Paperwork Done Before You Leave the Job Site</title>
+  <meta name="description" content="RelayAI generates professional invoices, dispatches work orders by text message, and follows up with customers automatically. Built for contractors and service businesses.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --dark:      #07070f;
+      --dark-2:    #0e0e1a;
+      --dark-3:    #14142a;
+      --panel:     #1a1a2e;
+      --violet:    #7c3aed;
+      --violet-lt: #9d6af5;
+      --amber:     #f59e0b;
+      --amber-lt:  #fbbf24;
+      --white:     #ffffff;
+      --off-white: #f0f0f6;
+      --muted:     #8892a4;
+      --border:    rgba(255,255,255,0.08);
+      --radius:    14px;
+      --transition: cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--dark);
+      color: var(--white);
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── UTILITIES ─────────────────────────────────────────────────── */
+    .container { max-width: 1160px; margin: 0 auto; padding: 0 24px; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(124,58,237,0.15); border: 1px solid rgba(124,58,237,0.35);
+      color: var(--violet-lt); font-size: 13px; font-weight: 600;
+      padding: 6px 14px; border-radius: 100px; letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .badge::before {
+      content: ''; width: 7px; height: 7px; border-radius: 50%;
+      background: var(--violet-lt); animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.4)} }
+
+    .gradient-text {
+      background: linear-gradient(135deg, #fff 0%, var(--violet-lt) 50%, var(--amber) 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: inherit; font-weight: 700; font-size: 15px;
+      padding: 14px 28px; border-radius: 10px; border: none;
+      cursor: pointer; text-decoration: none; transition: all 0.25s var(--transition);
+      white-space: nowrap; letter-spacing: -0.01em;
+    }
+    .btn-primary {
+      background: var(--violet); color: #fff;
+    }
+    .btn-primary:hover {
+      background: var(--violet-lt); transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(124,58,237,0.4);
+    }
+
+    /* ── LOGIN BUTTON — distinct professional style ─────────────────── */
+    .btn-login {
+      background: rgba(255,255,255,0.07);
+      color: rgba(255,255,255,0.9);
+      border: 1.5px solid rgba(255,255,255,0.18);
+      backdrop-filter: blur(8px);
+      font-size: 14px; font-weight: 600;
+      padding: 10px 22px; border-radius: 10px;
+      display: inline-flex; align-items: center; gap: 8px;
+      text-decoration: none; transition: all 0.22s var(--transition);
+      white-space: nowrap;
+    }
+    .btn-login:hover {
+      background: rgba(255,255,255,0.13);
+      border-color: rgba(255,255,255,0.35);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+      color: #fff;
+    }
+    .btn-login svg {
+      width: 15px; height: 15px; opacity: 0.8;
+    }
+
+    .btn-ghost {
+      background: transparent; color: #fff;
+      border: 1.5px solid rgba(255,255,255,0.2);
+    }
+    .btn-ghost:hover {
+      border-color: rgba(255,255,255,0.5); background: rgba(255,255,255,0.06);
+      transform: translateY(-2px);
+    }
+    .btn-amber {
+      background: var(--amber); color: #0a0a0f; font-size: 16px; padding: 16px 36px;
+    }
+    .btn-amber:hover {
+      background: var(--amber-lt); transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(245,158,11,0.35);
+    }
+    .btn-lg { font-size: 17px; padding: 18px 40px; border-radius: 12px; }
+
+    /* ── REVEAL ANIMATIONS ─────────────────────────────────────────── */
+    .reveal {
+      opacity: 0; transform: translateY(36px);
+      transition: opacity 0.7s var(--transition), transform 0.7s var(--transition);
+    }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+    .delay-1 { transition-delay: 0.1s; }
+    .delay-2 { transition-delay: 0.2s; }
+    .delay-3 { transition-delay: 0.3s; }
+    .delay-4 { transition-delay: 0.4s; }
+    .delay-5 { transition-delay: 0.5s; }
+
+    /* ── NAV ───────────────────────────────────────────────────────── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      padding: 16px 0;
+      transition: background 0.4s ease, backdrop-filter 0.4s ease, border-color 0.4s ease;
+      border-bottom: 1px solid transparent;
+    }
+    nav.scrolled {
+      background: rgba(7,7,15,0.88); backdrop-filter: blur(20px);
+      border-color: var(--border);
+    }
+    .nav-inner {
+      display: flex; align-items: center; justify-content: space-between; gap: 24px;
+    }
+    .nav-logo {
+      font-size: 22px; font-weight: 800; text-decoration: none; color: #fff;
+      display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+    }
+    .nav-logo span { color: var(--violet-lt); }
+    .nav-logo svg { width: 28px; height: 28px; flex-shrink: 0; }
+    .nav-links {
+      display: flex; align-items: center; gap: 28px; list-style: none;
+    }
+    .nav-links a {
+      text-decoration: none; color: var(--muted); font-size: 14px; font-weight: 500;
+      transition: color 0.2s ease;
+    }
+    .nav-links a:hover { color: #fff; }
+
+    /* Nav right: Login CTA + Trial CTA */
+    .nav-cta {
+      display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+    }
+
+    /* ── HERO ──────────────────────────────────────────────────────── */
+    .hero {
+      position: relative; min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      padding: 120px 0 80px; text-align: center; overflow: hidden;
+    }
+    .hero-bg {
+      position: absolute; inset: 0; z-index: 0;
+      background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(124,58,237,0.25) 0%, transparent 70%),
+                  radial-gradient(ellipse 60% 50% at 80% 80%, rgba(245,158,11,0.08) 0%, transparent 60%),
+                  var(--dark);
+    }
+    .hero-orb {
+      position: absolute; border-radius: 50%;
+      filter: blur(80px); animation: float 8s ease-in-out infinite;
+    }
+    .hero-orb-1 {
+      width: 500px; height: 500px; top: -100px; left: -100px;
+      background: rgba(124,58,237,0.12); animation-delay: 0s;
+    }
+    .hero-orb-2 {
+      width: 400px; height: 400px; bottom: -80px; right: -80px;
+      background: rgba(245,158,11,0.08); animation-delay: -4s;
+    }
+    @keyframes float {
+      0%,100%{transform:translate(0,0) scale(1)}
+      33%{transform:translate(20px,-20px) scale(1.05)}
+      66%{transform:translate(-15px,15px) scale(0.95)}
+    }
+    .hero-grid {
+      position: absolute; inset: 0;
+      background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+      background-size: 60px 60px;
+      mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 30%, transparent 80%);
+    }
+    .hero-content { position: relative; z-index: 1; max-width: 820px; margin: 0 auto; }
+    .hero-eyebrow { margin-bottom: 28px; }
+    .hero h1 {
+      font-size: clamp(42px, 7vw, 78px); font-weight: 900; line-height: 1.05;
+      letter-spacing: -0.03em; margin-bottom: 24px;
+    }
+    .hero-sub {
+      font-size: clamp(16px, 2vw, 20px); color: var(--muted); line-height: 1.7;
+      max-width: 620px; margin: 0 auto 40px;
+    }
+    .hero-ctas { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-bottom: 20px; }
+    .hero-fine {
+      font-size: 13px; color: var(--muted); display: flex; align-items: center;
+      justify-content: center; gap: 20px; flex-wrap: wrap;
+    }
+    .hero-fine span { display: flex; align-items: center; gap: 6px; }
+    .hero-fine svg { width: 14px; height: 14px; color: var(--violet-lt); flex-shrink: 0; }
+    .scroll-indicator {
+      position: absolute; bottom: 36px; left: 50%; transform: translateX(-50%);
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      color: var(--muted); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase;
+      animation: bounce 2s ease-in-out infinite;
+    }
+    .scroll-indicator svg { width: 20px; height: 20px; }
+    @keyframes bounce {
+      0%,100%{transform:translateX(-50%) translateY(0)}
+      50%{transform:translateX(-50%) translateY(8px)}
+    }
+
+    /* ── STATS BAR ─────────────────────────────────────────────────── */
+    .stats-bar {
+      background: var(--dark-2); border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border); padding: 36px 0;
+    }
+    .stats-inner {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
+    }
+    .stat {
+      text-align: center; padding: 0 24px;
+      border-right: 1px solid var(--border);
+    }
+    .stat:last-child { border-right: none; }
+    .stat-num {
+      font-size: clamp(32px, 4vw, 48px); font-weight: 900;
+      letter-spacing: -0.03em; color: #fff;
+    }
+    .stat-num .accent { color: var(--violet-lt); }
+    .stat-label { font-size: 13px; color: var(--muted); margin-top: 4px; font-weight: 500; }
+
+    /* ── PAIN SECTION ──────────────────────────────────────────────── */
+    .pain {
+      padding: 120px 0; background: var(--dark-2); position: relative; overflow: hidden;
+    }
+    .pain::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--violet), transparent);
+    }
+    .section-label {
+      font-size: 12px; font-weight: 700; letter-spacing: 0.12em;
+      text-transform: uppercase; color: var(--violet-lt); margin-bottom: 16px;
+    }
+    .section-title {
+      font-size: clamp(32px, 5vw, 56px); font-weight: 800;
+      line-height: 1.1; letter-spacing: -0.02em; margin-bottom: 16px;
+    }
+    .section-sub {
+      font-size: 18px; color: var(--muted); line-height: 1.7; max-width: 580px;
+    }
+    .pain-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 60px;
+    }
+    .pain-card {
+      background: var(--dark-3); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 28px 32px;
+      display: flex; align-items: flex-start; gap: 16px;
+      transition: border-color 0.3s ease, transform 0.3s var(--transition);
+    }
+    .pain-card:hover { border-color: rgba(124,58,237,0.4); transform: translateY(-3px); }
+    .pain-icon {
+      width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;
+      background: rgba(124,58,237,0.15); display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+    }
+    .pain-card h3 { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+    .pain-card p { font-size: 14px; color: var(--muted); line-height: 1.6; }
+    .pain-closer {
+      margin-top: 56px; text-align: center;
+      font-size: clamp(18px, 2.5vw, 24px); font-weight: 700;
+      color: var(--muted); line-height: 1.5;
+      max-width: 640px; margin-left: auto; margin-right: auto;
+    }
+    .pain-closer strong { color: #fff; }
+
+    /* ── HOW IT WORKS ──────────────────────────────────────────────── */
+    .how { padding: 120px 0; background: var(--dark); }
+    .how-header { text-align: center; margin-bottom: 80px; }
+    .steps { display: grid; grid-template-columns: repeat(3,1fr); gap: 0; position: relative; }
+    .steps::before {
+      content: ''; position: absolute; top: 44px;
+      left: calc(16.66% + 40px); right: calc(16.66% + 40px);
+      height: 2px; background: linear-gradient(90deg, var(--violet), var(--amber));
+    }
+    .step { text-align: center; padding: 0 32px; }
+    .step-num {
+      width: 88px; height: 88px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--violet), var(--violet-lt));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 32px; font-weight: 900; margin: 0 auto 28px;
+      box-shadow: 0 0 40px rgba(124,58,237,0.35);
+      position: relative; z-index: 1;
+    }
+    .step-num.amber {
+      background: linear-gradient(135deg, var(--amber), var(--amber-lt));
+      box-shadow: 0 0 40px rgba(245,158,11,0.3);
+    }
+    .step h3 { font-size: 20px; font-weight: 700; margin-bottom: 12px; }
+    .step p { font-size: 15px; color: var(--muted); line-height: 1.7; }
+    .step-tag {
+      display: inline-block; font-size: 11px; font-weight: 700;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--amber); background: rgba(245,158,11,0.1);
+      border: 1px solid rgba(245,158,11,0.25);
+      padding: 3px 10px; border-radius: 100px; margin-top: 16px;
+    }
+
+    /* ── VIDEO SECTION ─────────────────────────────────────────────── */
+    .video-section {
+      position: relative; height: 600px;
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden; background: #000;
+    }
+    .video-bg {
+      position: absolute; inset: 0; z-index: 0; overflow: hidden;
+    }
+    .video-bg video {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      min-width: 100%; min-height: 100%;
+      width: auto; height: auto;
+      object-fit: cover;
+    }
+    .video-overlay {
+      position: absolute; inset: 0; z-index: 1;
+      background: linear-gradient(to bottom,
+        rgba(7,7,15,0.6) 0%, rgba(7,7,15,0.35) 50%, rgba(7,7,15,0.7) 100%);
+    }
+    .video-content {
+      position: relative; z-index: 2; text-align: center;
+      max-width: 700px; padding: 0 24px;
+    }
+    .video-content h2 {
+      font-size: clamp(32px, 5vw, 56px); font-weight: 900;
+      line-height: 1.1; letter-spacing: -0.02em; margin-bottom: 20px;
+    }
+    .video-content p { font-size: 18px; color: rgba(255,255,255,0.75); line-height: 1.7; }
+
+    /* ── FEATURES ──────────────────────────────────────────────────── */
+    .features { padding: 120px 0; background: var(--off-white); }
+    .features .section-title { color: #0a0a0f; }
+    .features .section-label { color: var(--violet); }
+    .features-header { text-align: center; margin-bottom: 64px; }
+    .features-header .section-sub { color: #555; margin: 0 auto; }
+    .feat-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 24px; }
+    .feat-card {
+      background: #fff; border: 1px solid #e5e7eb;
+      border-radius: var(--radius); padding: 36px 32px;
+      transition: transform 0.3s var(--transition), box-shadow 0.3s var(--transition), border-color 0.3s ease;
+      position: relative; overflow: hidden;
+    }
+    .feat-card::before {
+      content: ''; position: absolute; inset: 0; opacity: 0;
+      background: linear-gradient(135deg, rgba(124,58,237,0.03), rgba(245,158,11,0.03));
+      transition: opacity 0.3s ease;
+    }
+    .feat-card:hover { transform: translateY(-6px); box-shadow: 0 20px 60px rgba(0,0,0,0.1); border-color: rgba(124,58,237,0.3); }
+    .feat-card:hover::before { opacity: 1; }
+    .feat-icon {
+      width: 52px; height: 52px; border-radius: 12px; margin-bottom: 20px;
+      background: linear-gradient(135deg, rgba(124,58,237,0.12), rgba(124,58,237,0.06));
+      display: flex; align-items: center; justify-content: center; font-size: 24px;
+    }
+    .feat-card h3 { font-size: 18px; font-weight: 700; color: #0a0a0f; margin-bottom: 10px; }
+    .feat-card p { font-size: 14px; color: #6b7280; line-height: 1.7; }
+    .feat-tag {
+      display: inline-block; font-size: 10px; font-weight: 700;
+      letter-spacing: 0.1em; text-transform: uppercase; margin-top: 16px;
+      padding: 3px 10px; border-radius: 100px;
+    }
+    .feat-tag.ai { color: var(--violet); background: rgba(124,58,237,0.1); }
+    .feat-tag.all { color: #059669; background: rgba(5,150,105,0.1); }
+
+    /* ── COMPARISON TABLE ──────────────────────────────────────────── */
+    .compare { padding: 120px 0; background: var(--dark-2); }
+    .compare-header { text-align: center; margin-bottom: 60px; }
+    .compare-wrap { overflow-x: auto; }
+    table {
+      width: 100%; border-collapse: separate; border-spacing: 0; font-size: 15px;
+    }
+    thead th {
+      padding: 20px 24px; font-weight: 700; text-align: center;
+      font-size: 14px; letter-spacing: 0.02em; color: var(--muted);
+    }
+    thead th:first-child { text-align: left; width: 40%; }
+    thead th.ours {
+      background: rgba(124,58,237,0.15); color: var(--violet-lt);
+      border-radius: 12px 12px 0 0; border: 1px solid rgba(124,58,237,0.3); border-bottom: none;
+    }
+    tbody tr { border-bottom: 1px solid var(--border); }
+    tbody tr:last-child { border-bottom: none; }
+    tbody td { padding: 16px 24px; text-align: center; color: var(--muted); }
+    tbody td:first-child { text-align: left; color: #fff; font-weight: 500; }
+    tbody td.ours {
+      background: rgba(124,58,237,0.08); color: #fff; font-weight: 600;
+      border-left: 1px solid rgba(124,58,237,0.3);
+      border-right: 1px solid rgba(124,58,237,0.3);
+    }
+    tbody tr:last-child td.ours {
+      border-radius: 0 0 12px 12px;
+      border-bottom: 1px solid rgba(124,58,237,0.3);
+    }
+    .check { color: #34d399; font-size: 18px; }
+    .cross { color: #6b7280; font-size: 18px; }
+    .price-badge {
+      display: inline-block; padding: 4px 12px; border-radius: 100px;
+      font-size: 13px; font-weight: 700; background: rgba(124,58,237,0.2); color: var(--violet-lt);
+    }
+
+    /* ── PRICING ───────────────────────────────────────────────────── */
+    .pricing { padding: 120px 0; background: var(--dark); }
+    .pricing-header { text-align: center; margin-bottom: 64px; }
+    .pricing-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 24px; align-items: start; }
+    .plan {
+      background: var(--dark-2); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 40px 36px;
+      transition: transform 0.3s var(--transition);
+    }
+    .plan:hover { transform: translateY(-4px); }
+    .plan.featured {
+      background: linear-gradient(160deg, rgba(124,58,237,0.15) 0%, var(--dark-2) 100%);
+      border-color: rgba(124,58,237,0.5);
+      box-shadow: 0 0 60px rgba(124,58,237,0.15);
+      transform: scale(1.03);
+    }
+    .plan.featured:hover { transform: scale(1.03) translateY(-4px); }
+    .plan-badge {
+      display: inline-block; font-size: 11px; font-weight: 700;
+      letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 20px;
+      padding: 4px 12px; border-radius: 100px;
+      background: rgba(124,58,237,0.2); color: var(--violet-lt);
+    }
+    .plan-name { font-size: 20px; font-weight: 800; margin-bottom: 8px; }
+    .plan-price {
+      font-size: 52px; font-weight: 900; letter-spacing: -0.03em; margin: 20px 0 4px;
+    }
+    .plan-price sup { font-size: 24px; vertical-align: top; margin-top: 12px; font-weight: 700; }
+    .plan-price span { font-size: 16px; font-weight: 500; color: var(--muted); }
+    .plan-desc { font-size: 14px; color: var(--muted); line-height: 1.6; margin-bottom: 28px; }
+    .plan-divider { height: 1px; background: var(--border); margin: 28px 0; }
+    .plan-features { list-style: none; display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px; }
+    .plan-features li {
+      font-size: 14px; color: var(--muted); display: flex; align-items: flex-start; gap: 10px;
+    }
+    .plan-features li .tick { color: #34d399; flex-shrink: 0; margin-top: 1px; font-size: 16px; }
+    .plan-features li.dim { opacity: 0.4; }
+    .plan-features li.dim .tick { color: var(--muted); }
+    .plan-cta { display: block; text-align: center; width: 100%; }
+    .trial-note { font-size: 12px; color: var(--muted); text-align: center; margin-top: 12px; }
+
+    /* ── TESTIMONIALS ──────────────────────────────────────────────── */
+    .testimonials { padding: 120px 0; background: var(--dark-2); overflow: hidden; }
+    .testimonials-header { text-align: center; margin-bottom: 64px; }
+    .testi-track-wrap { overflow: hidden; }
+    .testi-track {
+      display: flex; gap: 24px; transition: transform 0.6s var(--transition);
+    }
+    .testi-card {
+      background: var(--dark-3); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 36px 32px;
+      min-width: 380px; flex-shrink: 0; transition: border-color 0.3s ease;
+    }
+    .testi-card.active { border-color: rgba(124,58,237,0.4); }
+    .testi-stars { color: var(--amber); font-size: 16px; margin-bottom: 20px; letter-spacing: 2px; }
+    .testi-quote {
+      font-size: 16px; line-height: 1.7; color: rgba(255,255,255,0.85);
+      margin-bottom: 28px; font-style: italic;
+    }
+    .testi-quote::before { content: '\201C'; }
+    .testi-quote::after  { content: '\201D'; }
+    .testi-author { display: flex; align-items: center; gap: 14px; }
+    .testi-avatar {
+      width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 800;
+      background: linear-gradient(135deg, var(--violet), var(--violet-lt));
+    }
+    .testi-name { font-size: 15px; font-weight: 700; }
+    .testi-role { font-size: 13px; color: var(--muted); }
+    .testi-dots { display: flex; gap: 8px; justify-content: center; margin-top: 40px; }
+    .testi-dot {
+      width: 8px; height: 8px; border-radius: 50%; background: var(--border);
+      cursor: pointer; transition: background 0.3s ease, transform 0.2s ease;
+    }
+    .testi-dot.active { background: var(--violet-lt); transform: scale(1.3); }
+
+    /* ── FAQ ───────────────────────────────────────────────────────── */
+    .faq { padding: 120px 0; background: var(--dark); }
+    .faq-header { text-align: center; margin-bottom: 64px; }
+    .faq-list { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+    .faq-item {
+      background: var(--dark-2); border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden; transition: border-color 0.3s ease;
+    }
+    .faq-item.open { border-color: rgba(124,58,237,0.4); }
+    .faq-q {
+      padding: 22px 28px; font-size: 16px; font-weight: 600;
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      cursor: pointer; user-select: none;
+    }
+    .faq-q svg {
+      width: 20px; height: 20px; flex-shrink: 0; color: var(--violet-lt);
+      transition: transform 0.3s ease;
+    }
+    .faq-item.open .faq-q svg { transform: rotate(45deg); }
+    .faq-a {
+      max-height: 0; overflow: hidden;
+      transition: max-height 0.4s var(--transition), padding 0.3s ease;
+      font-size: 15px; color: var(--muted); line-height: 1.7; padding: 0 28px;
+    }
+    .faq-item.open .faq-a { max-height: 220px; padding: 0 28px 24px; }
+
+    /* ── FINAL CTA ─────────────────────────────────────────────────── */
+    .final-cta {
+      padding: 120px 0; text-align: center; position: relative; overflow: hidden;
+      background: linear-gradient(160deg, var(--dark-3) 0%, #160d30 50%, var(--dark) 100%);
+    }
+    .final-cta::before {
+      content: ''; position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%,-50%);
+      width: 600px; height: 600px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(124,58,237,0.2) 0%, transparent 70%);
+    }
+    .final-cta-content { position: relative; z-index: 1; max-width: 680px; margin: 0 auto; }
+    .final-cta h2 {
+      font-size: clamp(36px, 5vw, 60px); font-weight: 900;
+      line-height: 1.1; letter-spacing: -0.02em; margin-bottom: 20px;
+    }
+    .final-cta p { font-size: 18px; color: var(--muted); line-height: 1.7; margin-bottom: 44px; }
+    .cta-note { font-size: 13px; color: var(--muted); margin-top: 20px; }
+
+    /* ── FOOTER ────────────────────────────────────────────────────── */
+    footer {
+      background: var(--dark); border-top: 1px solid var(--border); padding: 60px 0 40px;
+    }
+    .footer-top {
+      display: grid; grid-template-columns: 1fr auto; gap: 60px; align-items: start;
+      margin-bottom: 48px;
+    }
+    .footer-logo {
+      font-size: 20px; font-weight: 800; color: #fff; margin-bottom: 12px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .footer-logo span { color: var(--violet-lt); }
+    .footer-tagline { font-size: 14px; color: var(--muted); max-width: 280px; line-height: 1.6; }
+    .footer-links { display: flex; gap: 48px; }
+    .footer-col h4 {
+      font-size: 13px; font-weight: 700; color: var(--muted);
+      letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 16px;
+    }
+    .footer-col a {
+      display: block; font-size: 14px; color: var(--muted);
+      text-decoration: none; margin-bottom: 10px; transition: color 0.2s;
+    }
+    .footer-col a:hover { color: #fff; }
+    .footer-bottom {
+      border-top: 1px solid var(--border); padding-top: 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 13px; color: var(--muted);
+    }
+
+    /* ── RESPONSIVE ────────────────────────────────────────────────── */
+    @media(max-width: 900px) {
+      .stats-inner { grid-template-columns: repeat(2,1fr); }
+      .stat { border-right: none; border-bottom: 1px solid var(--border); padding: 16px 0; }
+      .stat:nth-child(3), .stat:nth-child(4) { border-bottom: none; }
+      .pain-grid { grid-template-columns: 1fr; }
+      .steps { grid-template-columns: 1fr; gap: 48px; }
+      .steps::before { display: none; }
+      .feat-grid { grid-template-columns: 1fr 1fr; }
+      .pricing-grid { grid-template-columns: 1fr; max-width: 420px; margin: 0 auto; }
+      .plan.featured { transform: none; }
+      .footer-top { grid-template-columns: 1fr; }
+      .footer-links { flex-wrap: wrap; gap: 32px; }
+      nav .nav-links { display: none; }
+    }
+    @media(max-width: 600px) {
+      .feat-grid { grid-template-columns: 1fr; }
+      .hero-ctas { flex-direction: column; align-items: center; }
+      .footer-bottom { flex-direction: column; gap: 12px; text-align: center; }
+      .testi-card { min-width: 300px; }
+      .nav-cta .btn-primary { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── NAV ────────────────────────────────────────────────────────── -->
+<nav id="nav">
+  <div class="container">
+    <div class="nav-inner">
+      <a href="#" class="nav-logo">
+        <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M14 3L25 9V19L14 25L3 19V9L14 3Z" stroke="#9d6af5" stroke-width="2" fill="rgba(124,58,237,0.15)"/>
+          <path d="M9 14H19M14 9V19" stroke="#9d6af5" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        Relay<span>AI</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#how">How It Works</a></li>
+        <li><a href="#pricing">Pricing</a></li>
+        <li><a href="#faq">FAQ</a></li>
+      </ul>
+      <div class="nav-cta">
+        <!-- Login CTA — takes user to the portal login (current homepage) -->
+        <a href="https://portal-relay.com" class="btn-login">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+            <polyline points="10 17 15 12 10 7"/>
+            <line x1="15" y1="12" x2="3" y2="12"/>
+          </svg>
+          Log In
+        </a>
+        <a href="https://buy.stripe.com/00w4gB79K9CsaW59LG6g802" class="btn btn-primary">Start Free Trial</a>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- ── HERO ───────────────────────────────────────────────────────── -->
+<section class="hero">
+  <div class="hero-bg">
+    <div class="hero-orb hero-orb-1"></div>
+    <div class="hero-orb hero-orb-2"></div>
+    <div class="hero-grid"></div>
+  </div>
+  <div class="container">
+    <div class="hero-content">
+      <div class="hero-eyebrow reveal">
+        <span class="badge">Relay AI — Built for the Trades</span>
+      </div>
+      <h1 class="reveal delay-1">
+        The Paperwork's Done<br>
+        <span class="gradient-text">Before You Leave the Job Site.</span>
+      </h1>
+      <p class="hero-sub reveal delay-2">
+        RelayAI generates professional invoices, dispatches work orders by text message, and follows up with customers automatically — so you can focus on the work that actually pays.
+      </p>
+      <div class="hero-ctas reveal delay-3">
+        <a href="https://buy.stripe.com/00w4gB79K9CsaW59LG6g802" class="btn btn-amber btn-lg">
+          Start Your 14-Day Free Trial →
+        </a>
+        <a href="#how" class="btn btn-ghost btn-lg">See How It Works</a>
+      </div>
+      <div class="hero-fine reveal delay-4">
+        <span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+          14-day free trial
+        </span>
+        <span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          Card required — cancel before trial ends, pay nothing
+        </span>
+        <span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+          Up and running in under 10 minutes
+        </span>
+      </div>
+    </div>
+  </div>
+  <div class="scroll-indicator">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M12 5v14M5 12l7 7 7-7"/>
+    </svg>
+  </div>
+</section>
+
+<!-- ── STATS BAR ──────────────────────────────────────────────────── -->
+<div class="stats-bar">
+  <div class="container">
+    <div class="stats-inner">
+      <div class="stat reveal">
+        <div class="stat-num"><span class="counter" data-target="400">0</span><span class="accent">+</span></div>
+        <div class="stat-label">Hours saved per contractor / year</div>
+      </div>
+      <div class="stat reveal delay-1">
+        <div class="stat-num"><span class="counter" data-target="97">0</span><span class="accent">%</span></div>
+        <div class="stat-label">Faster invoice turnaround</div>
+      </div>
+      <div class="stat reveal delay-2">
+        <div class="stat-num"><span class="accent">$</span><span class="counter" data-target="19">0</span></div>
+        <div class="stat-label">Starting price per month</div>
+      </div>
+      <div class="stat reveal delay-3">
+        <div class="stat-num"><span class="counter" data-target="24">0</span><span class="accent">hr</span></div>
+        <div class="stat-label">Automated review follow-up</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── PAIN SECTION ───────────────────────────────────────────────── -->
+<section class="pain" id="pain">
+  <div class="container">
+    <div class="reveal">
+      <div class="section-label">Sound familiar?</div>
+      <h2 class="section-title">You didn't start your business<br>to become a secretary.</h2>
+      <p class="section-sub">You started it to do great work and build something real. But somehow the paperwork keeps winning.</p>
+    </div>
+    <div class="pain-grid">
+      <div class="pain-card reveal delay-1">
+        <div class="pain-icon">🌙</div>
+        <div>
+          <h3>Late night paperwork sessions</h3>
+          <p>Writing invoices at 10pm after a 12-hour day because there was no time during the job.</p>
+        </div>
+      </div>
+      <div class="pain-card reveal delay-2">
+        <div class="pain-icon">📞</div>
+        <div>
+          <h3>Missed follow-ups</h3>
+          <p>That big estimate you sent two weeks ago? You meant to follow up. Now they've hired someone else.</p>
+        </div>
+      </div>
+      <div class="pain-card reveal delay-3">
+        <div class="pain-icon">📄</div>
+        <div>
+          <h3>No paper trail when it counts</h3>
+          <p>A customer disputes a charge and you're searching through texts trying to find the agreement.</p>
+        </div>
+      </div>
+      <div class="pain-card reveal delay-4">
+        <div class="pain-icon">⭐</div>
+        <div>
+          <h3>Lost Google reviews</h3>
+          <p>Happy customers who would have left a 5-star review — if only someone had asked them at the right moment.</p>
+        </div>
+      </div>
+      <div class="pain-card reveal delay-2">
+        <div class="pain-icon">📱</div>
+        <div>
+          <h3>No system for dispatching</h3>
+          <p>Calling and texting each job individually, repeating the same information every single time.</p>
+        </div>
+      </div>
+      <div class="pain-card reveal delay-3">
+        <div class="pain-icon">💸</div>
+        <div>
+          <h3>Paying for complexity you don't need</h3>
+          <p>Enterprise software built for 50-person operations, priced for them too. You just need clean, simple tools that work.</p>
+        </div>
+      </div>
+    </div>
+    <p class="pain-closer reveal">
+      <strong>You're a skilled professional doing honest work.</strong><br>
+      You deserve software that handles the business side so you can stay focused on what you're actually good at.
+    </p>
+  </div>
+</section>
+
+<!-- ── HOW IT WORKS ───────────────────────────────────────────────── -->
+<section class="how" id="how">
+  <div class="container">
+    <div class="how-header reveal">
+      <div class="section-label">Simple by design</div>
+      <h2 class="section-title">Three steps. Zero headaches.</h2>
+      <p class="section-sub" style="margin:0 auto;color:var(--muted);">From job submission to customer follow-up — RelayAI handles every step automatically.</p>
+    </div>
+    <div class="steps">
+      <div class="step reveal delay-1">
+        <div class="step-num">1</div>
+        <h3>Submit the Job</h3>
+        <p>Enter the customer's name, describe the work, add a phone number. That's it. Takes under 60 seconds from any device.</p>
+        <span class="step-tag">60 seconds</span>
+      </div>
+      <div class="step reveal delay-2">
+        <div class="step-num">2</div>
+        <h3>RelayAI Takes Over</h3>
+        <p>A professional invoice is generated instantly. A work order goes out by text message. Your AI-formatted document is created from your template automatically.</p>
+        <span class="step-tag">Instant</span>
+      </div>
+      <div class="step reveal delay-3">
+        <div class="step-num amber">3</div>
+        <h3>Customer Cared For</h3>
+        <p>24 hours after the job, your customer receives a text asking for a Google review. You look like a pro — without lifting a finger.</p>
+        <span class="step-tag" style="color:var(--amber);background:rgba(245,158,11,0.1);border-color:rgba(245,158,11,0.25);">Automated</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── VIDEO SECTION ──────────────────────────────────────────────── -->
+<div class="video-section">
+  <div class="video-bg">
+    <video autoplay muted loop playsinline preload="metadata">
+      <source src="hero-video.mp4" type="video/mp4">
+    </video>
+  </div>
+  <div class="video-overlay"></div>
+  <div class="video-content reveal">
+    <div class="section-label" style="color:rgba(255,255,255,0.55);margin-bottom:16px;">Technology with purpose</div>
+    <h2>Built for the people<br><span class="gradient-text">who build everything else.</span></h2>
+    <p style="margin-top:20px;">RelayAI was designed from the ground up for contractors, tradespeople, and service businesses who want to run a professional operation without drowning in administrative work.</p>
+  </div>
+</div>
+
+<!-- ── FEATURES ───────────────────────────────────────────────────── -->
+<section class="features" id="features">
+  <div class="container">
+    <div class="features-header reveal">
+      <div class="section-label">What RelayAI does for you</div>
+      <h2 class="section-title">Everything your business needs.<br>Nothing you don't.</h2>
+      <p class="section-sub" style="margin:16px auto 0;">Designed to replace five different subscriptions with one clean, affordable platform.</p>
+    </div>
+    <div class="feat-grid">
+      <div class="feat-card reveal delay-1">
+        <div class="feat-icon">🤖</div>
+        <h3>AI Document Generation</h3>
+        <p>Upload your document template once. RelayAI reads it and auto-generates a custom, professional document for every single job — perfectly formatted, every time.</p>
+        <span class="feat-tag ai">Essential+ &amp; Pro</span>
+      </div>
+      <div class="feat-card reveal delay-2">
+        <div class="feat-icon">💬</div>
+        <h3>Instant Text Dispatch</h3>
+        <p>The moment a job is created, your customer receives a professional text message with all the relevant details. No calls, no repeated explanations.</p>
+        <span class="feat-tag all">All Plans</span>
+      </div>
+      <div class="feat-card reveal delay-3">
+        <div class="feat-icon">⭐</div>
+        <h3>Automated Review Requests</h3>
+        <p>24 hours after a job is submitted, RelayAI texts your customer asking for a Google review. More 5-star reviews, zero extra effort from you.</p>
+        <span class="feat-tag ai">Essential+ &amp; Pro</span>
+      </div>
+      <div class="feat-card reveal delay-1">
+        <div class="feat-icon">🧾</div>
+        <h3>Professional Invoicing</h3>
+        <p>Create, send, and track invoices in seconds. Integrated directly with Zoho Books and QuickBooks so your accounting stays clean automatically.</p>
+        <span class="feat-tag all">All Plans</span>
+      </div>
+      <div class="feat-card reveal delay-2">
+        <div class="feat-icon">📊</div>
+        <h3>Business Dashboard</h3>
+        <p>See every active job, pending invoice, and dispatched work order in one clean view. Your entire operation at a glance, from any device.</p>
+        <span class="feat-tag all">All Plans</span>
+      </div>
+      <div class="feat-card reveal delay-3">
+        <div class="feat-icon">📱</div>
+        <h3>Built for Mobile</h3>
+        <p>Run your entire business from your phone on the job site. No laptop. No office. No waiting until you get home to handle the paperwork.</p>
+        <span class="feat-tag all">All Plans</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── COMPARISON ─────────────────────────────────────────────────── -->
+<section class="compare" id="compare">
+  <div class="container">
+    <div class="compare-header reveal">
+      <div class="section-label">How we stack up</div>
+      <h2 class="section-title">More for less. By a lot.</h2>
+      <p class="section-sub" style="margin:0 auto;color:var(--muted);">See how RelayAI compares to the platforms contractors have been overpaying for.</p>
+    </div>
+    <div class="compare-wrap reveal delay-1">
+      <table>
+        <thead>
+          <tr>
+            <th></th>
+            <th class="ours">RelayAI</th>
+            <th>Jobber</th>
+            <th>HouseCall Pro</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Starting Price</td>
+            <td class="ours"><span class="price-badge">$19 / mo</span></td>
+            <td>$49 / mo</td>
+            <td>$65 / mo</td>
+          </tr>
+          <tr>
+            <td>AI Document Generation</td>
+            <td class="ours"><span class="check">✓</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+          </tr>
+          <tr>
+            <td>Automated Text Dispatch</td>
+            <td class="ours"><span class="check">✓</span></td>
+            <td><span class="check">✓</span></td>
+            <td><span class="check">✓</span></td>
+          </tr>
+          <tr>
+            <td>Automated Review Requests</td>
+            <td class="ours"><span class="check">✓</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+          </tr>
+          <tr>
+            <td>Accounting Integration</td>
+            <td class="ours"><span class="check">✓</span></td>
+            <td><span class="check">✓</span></td>
+            <td><span class="check">✓</span></td>
+          </tr>
+          <tr>
+            <td>14-Day Free Trial</td>
+            <td class="ours"><span class="check">✓</span></td>
+            <td><span class="check">✓</span></td>
+            <td><span class="cross">✗</span></td>
+          </tr>
+          <tr>
+            <td>Setup Time</td>
+            <td class="ours">Under 10 minutes</td>
+            <td>Hours to days</td>
+            <td>Hours to days</td>
+          </tr>
+          <tr>
+            <td>Built for Solo Operators</td>
+            <td class="ours"><span class="check">✓</span></td>
+            <td><span class="cross">Partial</span></td>
+            <td><span class="cross">Partial</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ── PRICING ────────────────────────────────────────────────────── -->
+<section class="pricing" id="pricing">
+  <div class="container">
+    <div class="pricing-header reveal">
+      <div class="section-label">Simple pricing</div>
+      <h2 class="section-title">Pick your plan. Upgrade anytime.</h2>
+      <p class="section-sub" style="margin:0 auto;color:var(--muted);">No contracts. No hidden fees. Cancel whenever you want.</p>
+    </div>
+    <div class="pricing-grid">
+
+      <div class="plan reveal delay-1">
+        <div class="plan-name">Starter</div>
+        <div class="plan-price"><sup>$</sup>19<span>/mo</span></div>
+        <p class="plan-desc">Everything you need to get organized and look professional. No AI, no trial — just an affordable foundation.</p>
+        <div class="plan-divider"></div>
+        <ul class="plan-features">
+          <li><span class="tick">✓</span> Professional invoicing</li>
+          <li><span class="tick">✓</span> Text message dispatch</li>
+          <li><span class="tick">✓</span> Customer management</li>
+          <li><span class="tick">✓</span> Business dashboard</li>
+          <li><span class="tick">✓</span> Mobile-ready portal</li>
+          <li class="dim"><span class="tick">—</span> AI document generation</li>
+          <li class="dim"><span class="tick">—</span> Automated review requests</li>
+          <li class="dim"><span class="tick">—</span> Accounting integration</li>
+        </ul>
+        <a href="https://buy.stripe.com/7sYaEZ51C4i8aW58HC6g801" class="btn btn-ghost plan-cta">Get Started</a>
+      </div>
+
+      <div class="plan featured reveal delay-2">
+        <div class="plan-badge">⚡ Most Popular</div>
+        <div class="plan-name">Essential+</div>
+        <div class="plan-price"><sup>$</sup>49<span>/mo</span></div>
+        <p class="plan-desc">The full RelayAI experience. AI writes your documents, reviews run on autopilot, and your books stay connected.</p>
+        <div class="plan-divider"></div>
+        <ul class="plan-features">
+          <li><span class="tick">✓</span> Everything in Starter</li>
+          <li><span class="tick">✓</span> <strong>AI document generation</strong></li>
+          <li><span class="tick">✓</span> <strong>Automated review requests</strong></li>
+          <li><span class="tick">✓</span> Zoho Books integration</li>
+          <li><span class="tick">✓</span> QuickBooks integration</li>
+          <li><span class="tick">✓</span> Document template upload</li>
+          <li><span class="tick">✓</span> Priority support</li>
+        </ul>
+        <a href="https://buy.stripe.com/00w4gB79K9CsaW59LG6g802" class="btn btn-amber plan-cta">Start 14-Day Free Trial</a>
+        <p class="trial-note">Card required · Cancel before trial ends, pay nothing</p>
+      </div>
+
+      <div class="plan reveal delay-3">
+        <div class="plan-name">Relay Pro</div>
+        <div class="plan-price"><sup>$</sup>99<span>/mo</span></div>
+        <p class="plan-desc">Full automation for growing businesses ready to scale. Everything running in the background while you work.</p>
+        <div class="plan-divider"></div>
+        <ul class="plan-features">
+          <li><span class="tick">✓</span> Everything in Essential+</li>
+          <li><span class="tick">✓</span> Full job automation</li>
+          <li><span class="tick">✓</span> Advanced reporting</li>
+          <li><span class="tick">✓</span> Multi-user access</li>
+          <li><span class="tick">✓</span> Custom integrations</li>
+          <li><span class="tick">✓</span> Dedicated support</li>
+          <li><span class="tick">✓</span> Early access to new features</li>
+        </ul>
+        <a href="https://buy.stripe.com/6oU6oJdy82a0aW59LG6g800" class="btn btn-primary plan-cta">Start 14-Day Free Trial</a>
+        <p class="trial-note">Card required · Cancel before trial ends, pay nothing</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── TESTIMONIALS ───────────────────────────────────────────────── -->
+<section class="testimonials">
+  <div class="container">
+    <div class="testimonials-header reveal">
+      <div class="section-label">Real results</div>
+      <h2 class="section-title">From people doing real work.</h2>
+    </div>
+    <div class="testi-track-wrap">
+      <div class="testi-track" id="testiTrack">
+        <div class="testi-card active">
+          <div class="testi-stars">★★★★★</div>
+          <p class="testi-quote">I used to spend Sunday nights catching up on invoices and job notes. Now it's all done before I pull out of the customer's driveway. I genuinely cannot believe this is $49 a month.</p>
+          <div class="testi-author">
+            <div class="testi-avatar">M</div>
+            <div>
+              <div class="testi-name">Mike T.</div>
+              <div class="testi-role">Electrical Contractor · 6 years in business</div>
+            </div>
+          </div>
+        </div>
+        <div class="testi-card">
+          <div class="testi-stars">★★★★★</div>
+          <p class="testi-quote">The automated review request feature alone paid for itself in the first month. My Google rating went from 4.1 to 4.8 in 60 days. Customers are getting the text right when they're still thinking about the job.</p>
+          <div class="testi-author">
+            <div class="testi-avatar" style="background:linear-gradient(135deg,var(--amber),var(--amber-lt));color:#0a0a0f;">S</div>
+            <div>
+              <div class="testi-name">Sarah L.</div>
+              <div class="testi-role">Residential Cleaning Services · 3 years in business</div>
+            </div>
+          </div>
+        </div>
+        <div class="testi-card">
+          <div class="testi-stars">★★★★★</div>
+          <p class="testi-quote">I was paying Jobber $149 a month and still doing half the work manually. Switched to RelayAI, saved $100 a month, and the AI actually writes my job completion documents for me. No brainer.</p>
+          <div class="testi-author">
+            <div class="testi-avatar" style="background:linear-gradient(135deg,#059669,#34d399);color:#fff;">C</div>
+            <div>
+              <div class="testi-name">Carlos R.</div>
+              <div class="testi-role">HVAC Technician · Owner/Operator</div>
+            </div>
+          </div>
+        </div>
+        <div class="testi-card">
+          <div class="testi-stars">★★★★★</div>
+          <p class="testi-quote">Set it up in less than 10 minutes during a lunch break. By the end of the day my first invoice was sent and my first dispatch text went out automatically. I didn't have to call the customer once.</p>
+          <div class="testi-author">
+            <div class="testi-avatar" style="background:linear-gradient(135deg,#0284c7,#38bdf8);color:#fff;">D</div>
+            <div>
+              <div class="testi-name">Diane P.</div>
+              <div class="testi-role">Property Management · Real Estate Investor</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="testi-dots" id="testiDots">
+      <div class="testi-dot active" onclick="goToSlide(0)"></div>
+      <div class="testi-dot" onclick="goToSlide(1)"></div>
+      <div class="testi-dot" onclick="goToSlide(2)"></div>
+      <div class="testi-dot" onclick="goToSlide(3)"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FAQ ────────────────────────────────────────────────────────── -->
+<section class="faq" id="faq">
+  <div class="container">
+    <div class="faq-header reveal">
+      <div class="section-label">Questions answered</div>
+      <h2 class="section-title">Everything you need to know.</h2>
+    </div>
+    <div class="faq-list reveal delay-1">
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          Is a credit card really required for the free trial?
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+        </div>
+        <div class="faq-a">Yes — and we want to be upfront about that. Your card is required to start the Essential+ or Relay Pro trial. If you cancel before the 14 days are up, you will not be charged a single cent. We ask for it upfront so you have a seamless upgrade experience if you love it — which we're confident you will. Starter at $19 has no trial and charges immediately.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          What happens when the trial ends?
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+        </div>
+        <div class="faq-a">Your card will be charged automatically at the plan rate ($49/mo for Essential+, $99/mo for Pro). You'll receive an email reminder before the trial ends. If you cancel before then, no charge — ever. You can manage billing, cancel, or downgrade anytime from your portal dashboard.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          Do I need to be tech-savvy to use RelayAI?
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+        </div>
+        <div class="faq-a">Not at all. If you can send a text message, you can use RelayAI. We built it specifically for contractors and tradespeople — not accountants or software engineers. Setup takes under 10 minutes and every screen is designed to be self-explanatory.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          How does AI document generation work?
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+        </div>
+        <div class="faq-a">You upload your blank document template — a service agreement, job completion form, estimate sheet, whatever you use — once. Every time a job is submitted, RelayAI reads the job details and fills in your template automatically, creating a custom, professional document for that specific customer. Available on Essential+ and Relay Pro.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          Does RelayAI work with my accounting software?
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+        </div>
+        <div class="faq-a">Yes. RelayAI integrates with both Zoho Books and QuickBooks on Essential+ and Relay Pro plans. Connect your existing account and your invoices sync automatically. You don't have to switch tools — we work with what you already have.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          How does the automated review text message work?
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+        </div>
+        <div class="faq-a">Exactly 24 hours after a job is submitted, RelayAI automatically sends a friendly text message to your customer's phone number asking for a Google review. The message includes your business name and a direct link to your Google review page. It only sends once per job — no spam, no double sends. Customers can reply STOP to opt out at any time.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FINAL CTA ───────────────────────────────────────────────────── -->
+<section class="final-cta">
+  <div class="container">
+    <div class="final-cta-content reveal">
+      <div class="section-label" style="color:var(--violet-lt);margin-bottom:20px;">Ready to get ahead?</div>
+      <h2>Get your evenings back.<br><span class="gradient-text">Starting today.</span></h2>
+      <p>14 days to see exactly what RelayAI can do for your business. Cancel before the trial ends and you won't pay a thing. That's a promise.</p>
+      <a href="https://buy.stripe.com/00w4gB79K9CsaW59LG6g802" class="btn btn-amber btn-lg">
+        Start My Free Trial →
+      </a>
+      <p class="cta-note">Card required · Cancel anytime · No contracts · No setup fees</p>
+    </div>
+  </div>
+</section>
+
+<!-- ── FOOTER ──────────────────────────────────────────────────────── -->
+<footer>
+  <div class="container">
+    <div class="footer-top">
+      <div>
+        <div class="footer-logo">
+          <svg width="22" height="22" viewBox="0 0 28 28" fill="none">
+            <path d="M14 3L25 9V19L14 25L3 19V9L14 3Z" stroke="#9d6af5" stroke-width="2" fill="rgba(124,58,237,0.15)"/>
+            <path d="M9 14H19M14 9V19" stroke="#9d6af5" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          Relay<span>AI</span>
+        </div>
+        <p class="footer-tagline">Professional invoicing, text message dispatch, and AI-powered documents — built for the trades.</p>
+      </div>
+      <div class="footer-links">
+        <div class="footer-col">
+          <h4>Product</h4>
+          <a href="#features">Features</a>
+          <a href="#pricing">Pricing</a>
+          <a href="#how">How It Works</a>
+          <a href="#compare">Compare</a>
+        </div>
+        <div class="footer-col">
+          <h4>Account</h4>
+          <a href="https://portal-relay.com">Log In to Portal</a>
+          <a href="https://buy.stripe.com/00w4gB79K9CsaW59LG6g802">Start Trial</a>
+          <a href="https://billing.stripe.com/p/login/6oU6oJdy82a0aW59LG6g800">Manage Billing</a>
+        </div>
+        <div class="footer-col">
+          <h4>Support</h4>
+          <a href="#faq">FAQ</a>
+          <a href="mailto:support@portal-relay.com">Contact Us</a>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 RelayAI. All rights reserved.</span>
+      <span>Built for the people who build everything else.</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // ── NAV SCROLL ─────────────────────────────────────────────────────
+  const nav = document.getElementById('nav');
+  window.addEventListener('scroll', () => {
+    nav.classList.toggle('scrolled', window.scrollY > 40);
+  }, { passive: true });
+
+  // ── REVEAL ON SCROLL ───────────────────────────────────────────────
+  const revealEls = document.querySelectorAll('.reveal');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) { e.target.classList.add('visible'); observer.unobserve(e.target); }
+    });
+  }, { threshold: 0.1 });
+  revealEls.forEach(el => observer.observe(el));
+
+  // ── COUNTER ANIMATION ──────────────────────────────────────────────
+  function animateCounter(el) {
+    const target   = parseInt(el.dataset.target);
+    const duration = 1800;
+    const start    = performance.now();
+    const update   = (now) => {
+      const progress = Math.min((now - start) / duration, 1);
+      const ease     = 1 - Math.pow(1 - progress, 4);
+      el.textContent = Math.floor(ease * target);
+      if (progress < 1) requestAnimationFrame(update);
+      else el.textContent = target;
+    };
+    requestAnimationFrame(update);
+  }
+  const counterObserver = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) { animateCounter(e.target); counterObserver.unobserve(e.target); }
+    });
+  }, { threshold: 0.5 });
+  document.querySelectorAll('.counter').forEach(el => counterObserver.observe(el));
+
+  // ── TESTIMONIAL CAROUSEL ───────────────────────────────────────────
+  let currentSlide = 0;
+  const cards = document.querySelectorAll('.testi-card');
+  const dots  = document.querySelectorAll('.testi-dot');
+  const track = document.getElementById('testiTrack');
+
+  function goToSlide(n) {
+    cards[currentSlide].classList.remove('active');
+    dots[currentSlide].classList.remove('active');
+    currentSlide = n;
+    cards[currentSlide].classList.add('active');
+    dots[currentSlide].classList.add('active');
+    track.style.transform = `translateX(-${currentSlide * (cards[0].offsetWidth + 24)}px)`;
+  }
+  setInterval(() => goToSlide((currentSlide + 1) % cards.length), 5000);
+
+  // ── FAQ ACCORDION ──────────────────────────────────────────────────
+  function toggleFaq(el) {
+    const item   = el.parentElement;
+    const isOpen = item.classList.contains('open');
+    document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+    if (!isOpen) item.classList.add('open');
+  }
+
+  // ── SMOOTH ANCHOR SCROLL ───────────────────────────────────────────
+  document.querySelectorAll('a[href^="#"]').forEach(a => {
+    a.addEventListener('click', e => {
+      const target = document.querySelector(a.getAttribute('href'));
+      if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth' }); }
+    });
+  });
+</script>
+
+</body>
+</html>
