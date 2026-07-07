@@ -5,8 +5,8 @@
 // Required env vars (set in Netlify dashboard):
 //   TWILIO_ACCOUNT_SID
 //   TWILIO_AUTH_TOKEN
-//   TWILIO_FROM_NUMBER  (+18447291376)
-//   FIREBASE_PROJECT_ID (relay-portal-68417)
+//   TWILIO_FROM_NUMBER
+//   FIREBASE_PROJECT_ID
 //   FIREBASE_CLIENT_EMAIL
 //   FIREBASE_PRIVATE_KEY
 //   GOOGLE_REVIEW_LINK  (your Google Business review URL)
