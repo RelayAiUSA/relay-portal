@@ -1,41 +1,46 @@
 // relay-pwa/functions/review-request.js
-// Netlify scheduled function — runs every hour, sends review SMS 24hrs after invoice is sent
-// Schedule: set in netlify.toml as [functions.review-request] schedule = "0 * * * *"
+// Netlify scheduled function — runs every hour, sends review SMS 24 hrs after job submission
 //
-// Required env vars (set in Netlify dashboard):
+// Schedule (add to netlify.toml):
+//   [functions.review-request]
+//   schedule = "0 * * * *"
+//
+// Required env vars (Netlify dashboard > Site > Environment variables):
 //   TWILIO_ACCOUNT_SID
 //   TWILIO_AUTH_TOKEN
 //   TWILIO_FROM_NUMBER
 //   FIREBASE_PROJECT_ID
 //   FIREBASE_CLIENT_EMAIL
-//   FIREBASE_PRIVATE_KEY
-//   GOOGLE_REVIEW_LINK  (your Google Business review URL)
+//   FIREBASE_PRIVATE_KEY      (full private key string)
+//   GOOGLE_REVIEW_LINK        (fallback if not set per-user in Firestore)
 
-const { initializeApp, cert } = require('firebase-admin/app');
-const { getFirestore }        = require('firebase-admin/firestore');
+const { initializeApp, cert, getApps } = require('firebase-admin/app');
+const { getFirestore }                  = require('firebase-admin/firestore');
 
-// ── Firebase Admin init (lazy singleton) ─────────────────────────────────────
+// Firebase Admin — lazy singleton with duplicate-init guard
 let _db;
 function getDb() {
   if (!_db) {
-    initializeApp({
-      credential: cert({
-        projectId:   process.env.FIREBASE_PROJECT_ID,
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        privateKey:  (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
-      }),
-    });
+    if (!getApps().length) {
+      initializeApp({
+        credential: cert({
+          projectId:   process.env.FIREBASE_PROJECT_ID,
+          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+          privateKey:  (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
+        }),
+      });
+    }
     _db = getFirestore();
   }
   return _db;
 }
 
-// ── Twilio SMS send ───────────────────────────────────────────────────────────
+// Twilio SMS — plain fetch, no SDK needed
 async function sendSms(to, body) {
   const sid   = process.env.TWILIO_ACCOUNT_SID;
   const token = process.env.TWILIO_AUTH_TOKEN;
   const from  = process.env.TWILIO_FROM_NUMBER;
-
+  if (!sid || !token || !from) throw new Error('Twilio env vars not configured');
   const res = await fetch(
     `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`,
     {
@@ -47,129 +52,96 @@ async function sendSms(to, body) {
       body: new URLSearchParams({ From: from, To: to, Body: body }).toString(),
     }
   );
-
   const data = await res.json();
-  if (!res.ok) throw new Error(`Twilio error: ${data.message}`);
+  if (!res.ok) throw new Error(`Twilio ${res.status}: ${data.message || JSON.stringify(data)}`);
   return data.sid;
 }
 
-// ── Main handler ──────────────────────────────────────────────────────────────
-exports.handler = async function () {
-  const db          = getDb();
-  const reviewLink  = process.env.GOOGLE_REVIEW_LINK || 'https://g.page/r/YOUR_PLACE_ID/review';
+// TCPA compliance — only send 8am-8pm local time
+function isWithinSendWindow(utcOffset = -5) {
+  const utcHour   = new Date().getUTCHours();
+  const localHour = ((utcHour + utcOffset) % 24 + 24) % 24;
+  return localHour >= 8 && localHour < 20;
+}
+
+// Build the review SMS body
+function buildReviewSms(customerName, companyName, reviewLink) {
+  const first = (customerName || '').split(' ')[0] || 'there';
+  return (
+    `Hey ${first} — ${companyName} here. ` +
+    `If you were happy with the work, a quick Google review means a lot to a small business: ${reviewLink} ` +
+    `Reply STOP to opt out.`
+  );
+}
+
+// Normalize a Firestore timestamp or string to ms
+function toMs(val) {
+  if (!val) return null;
+  if (typeof val.toMillis === 'function') return val.toMillis();
+  if (val._seconds) return val._seconds * 1000;
+  return new Date(val).getTime() || null;
+}
+
+// Scan one subcollection for jobs that need a review request
+async function processCollection(db, uid, collName, userData, results) {
   const now         = Date.now();
-  const windowStart = now - 25 * 60 * 60 * 1000; // 25 hrs ago
-  const windowEnd   = now - 23 * 60 * 60 * 1000; // 23 hrs ago
+  const windowStart = now - 25 * 60 * 60 * 1000;
+  const windowEnd   = now - 23 * 60 * 60 * 1000;
+  const companyName = userData.companyName || userData.businessName || 'Your service provider';
+  const reviewLink  = userData.googleReviewLink || process.env.GOOGLE_REVIEW_LINK || '';
+  const utcOffset   = userData.utcOffset !== undefined ? Number(userData.utcOffset) : -5;
 
-  const sent = [], skipped = [], errors = [];
+  if (!isWithinSendWindow(utcOffset)) {
+    results.skipped.push({ uid, collection: collName, reason: 'outside 8am-8pm send window' });
+    return;
+  }
 
+  let snap;
+  try {
+    snap = await db.collection('users').doc(uid).collection(collName)
+      .where('reviewRequestSent', '==', false).get();
+  } catch (err) { return; }
+
+  for (const doc of snap.docs) {
+    const d      = doc.data();
+    const sentMs = toMs(d.sentAt) || toMs(d.createdAt) || toMs(d.submittedAt);
+    if (!sentMs || sentMs < windowStart || sentMs > windowEnd) continue;
+
+    const phone    = d.customerPhone || d.phone;
+    const customer = d.customerName  || d.customer || '';
+    if (!phone)       { results.skipped.push({ id: doc.id, collection: collName, reason: 'no phone' }); continue; }
+    if (!reviewLink)  { results.skipped.push({ id: doc.id, collection: collName, reason: 'no review link' }); continue; }
+
+    try {
+      const twilioSid = await sendSms(phone, buildReviewSms(customer, companyName, reviewLink));
+      await db.collection('users').doc(uid).collection(collName).doc(doc.id).update({
+        reviewRequestSent: true, reviewRequestSentAt: new Date(), reviewRequestSid: twilioSid,
+      });
+      results.sent.push({ id: doc.id, collection: collName, last4: phone.slice(-4) });
+    } catch (err) {
+      results.errors.push({ id: doc.id, collection: collName, error: err.message });
+    }
+  }
+}
+
+exports.handler = async function () {
+  const db      = getDb();
+  const results = { sent: [], skipped: [], errors: [] };
   try {
     const usersSnap = await db.collection('users').get();
-
     for (const userDoc of usersSnap.docs) {
-      const uid = userDoc.id;
-
-      // Find invoices sent 23-25 hrs ago that haven't had a review request yet
-      const invSnap = await db
-        .collection('users').doc(uid)
-        .collection('invoices')
-        .where('reviewRequestSent', '==', false)
-        .get();
-
-      for (const invDoc of invSnap.docs) {
-        const inv = invDoc.data();
-
-        // Use sentAt (when invoice was sent to customer)
-        const sentAt = inv.sentAt?.toMillis ? inv.sentAt.toMillis()
-                     : inv.sentAt           ? new Date(inv.sentAt).getTime()
-                     : null;
-
-        if (!sentAt || sentAt < windowStart || sentAt > windowEnd) continue;
-
-        const phone    = inv.customerPhone || inv.phone;
-        const customer = inv.customer || 'there';
-        const company  = userDoc.data()?.companyName || 'your service provider';
-
-        if (!phone) {
-          skipped.push({ inv: invDoc.id, reason: 'no phone' });
-          continue;
-        }
-
-        const msg =
-          `Hi ${customer}! Thanks for choosing ${company}. ` +
-          `If everything went well, we'd really appreciate a quick Google review — it means everything to a small business. ` +
-          `Takes 30 seconds: ${reviewLink}\n\nReply STOP to opt out.`;
-
-        try {
-          const twilioSid = await sendSms(phone, msg);
-
-          await db
-            .collection('users').doc(uid)
-            .collection('invoices').doc(invDoc.id)
-            .update({
-              reviewRequestSent:   true,
-              reviewRequestSentAt: new Date(),
-              reviewRequestSid:    twilioSid,
-            });
-
-          sent.push({ inv: invDoc.id, to: phone.slice(-4) });
-        } catch (err) {
-          errors.push({ inv: invDoc.id, error: err.message });
-        }
-      }
-      // ── Also check dispatch collection ─────────────────────────────────────
-      const dispSnap = await db
-        .collection('users').doc(uid)
-        .collection('dispatch')
-        .where('reviewRequestSent', '==', false)
-        .get();
-
-      for (const dispDoc of dispSnap.docs) {
-        const disp    = dispDoc.data();
-        const sentAt  = disp.sentAt?.toMillis ? disp.sentAt.toMillis()
-                      : disp.sentAt           ? new Date(disp.sentAt).getTime()
-                      : null;
-
-        if (!sentAt || sentAt < windowStart || sentAt > windowEnd) continue;
-
-        const phone    = disp.phone;
-        const customer = disp.customer || 'there';
-        const company  = userDoc.data()?.companyName || 'your service provider';
-
-        if (!phone) {
-          skipped.push({ doc: dispDoc.id, reason: 'no phone' });
-          continue;
-        }
-
-        const msg =
-          `Hi ${customer}! Thanks for choosing ${company}. ` +
-          `If everything went well, we'd really appreciate a quick Google review — it means everything to a small business. ` +
-          `Takes 30 seconds: ${reviewLink}\n\nReply STOP to opt out.`;
-
-        try {
-          const twilioSid = await sendSms(phone, msg);
-
-          await db
-            .collection('users').doc(uid)
-            .collection('dispatch').doc(dispDoc.id)
-            .update({
-              reviewRequestSent:   true,
-              reviewRequestSentAt: new Date(),
-              reviewRequestSid:    twilioSid,
-            });
-
-          sent.push({ doc: dispDoc.id, to: phone.slice(-4) });
-        } catch (err) {
-          errors.push({ doc: dispDoc.id, error: err.message });
-        }
+      const uid      = userDoc.id;
+      const userData = userDoc.data();
+      const plan     = userData.plan || 'starter';
+      if (plan === 'starter') continue;  // Review requests: Essential+ and RelayPRO only
+      for (const coll of ['jobs', 'invoices', 'dispatch']) {
+        await processCollection(db, uid, coll, userData, results);
       }
     }
-
-    console.log('review-request run:', { sent: sent.length, skipped: skipped.length, errors: errors.length });
-    return { statusCode: 200, body: JSON.stringify({ sent, skipped, errors }) };
-
+    console.log('[review-request] complete:', { sent: results.sent.length, skipped: results.skipped.length, errors: results.errors.length });
+    return { statusCode: 200, body: JSON.stringify(results) };
   } catch (err) {
-    console.error('review-request fatal:', err);
+    console.error('[review-request] fatal:', err);
     return { statusCode: 500, body: err.message };
   }
 };
