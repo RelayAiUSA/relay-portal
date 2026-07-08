@@ -634,6 +634,14 @@
       .testi-avatar { width: 28px; height: 28px; font-size: 11px; }
       .testi-name { font-size: 11px; }
       .testi-role { font-size: 10px; }
+
+    /* ===== CTA CHECKLIST ===== */
+    .cta-checks { display:flex; flex-direction:column; gap:10px; margin-top:4px; }
+    .check-row { display:flex; align-items:center; gap:14px; padding:14px 20px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:10px; }
+    .check-icon { width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; background:rgba(124,58,237,0.15); border:1px solid rgba(157,106,245,0.35); }
+    .check-icon svg { width:12px; height:12px; }
+    .check-text { font-size:13px; line-height:1.4; color:#f0f0f6; font-weight:500; white-space:nowrap; }
+    @media(max-width:600px) { .check-text { font-size:11px; white-space:normal; } }
       .testimonials .section-title { font-size: 20px; white-space: nowrap; }
       .testimonials-header { margin-bottom: 32px; }
       .nav-cta .btn-primary { display: none; }
@@ -1263,7 +1271,16 @@
     <div class="final-cta-content reveal">
       <div class="section-label" style="color:var(--violet-lt);margin-bottom:20px;">Ready to get ahead?</div>
       <h2>Get your evenings back.<br><span class="gradient-text">Starting today.</span></h2>
-      <p>14 days to see exactly what RelayAI can do for your business. Cancel before the trial ends and you won't pay a thing. That's a promise.</p>
+      <div class="cta-checks">
+          <div class="check-row">
+            <div class="check-icon"><svg viewBox="0 0 12 12" fill="none" stroke="#9d6af5" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="2,6 5,9 10,3"/></svg></div>
+            <div class="check-text">14 days to see exactly what RelayAI can do for your business.</div>
+          </div>
+          <div class="check-row">
+            <div class="check-icon"><svg viewBox="0 0 12 12" fill="none" stroke="#9d6af5" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="2,6 5,9 10,3"/></svg></div>
+            <div class="check-text">Cancel before the trial ends and you won't pay a thing. That's a promise.</div>
+          </div>
+        </div>
       <a href="https://buy.stripe.com/00w4gB79K9CsaW59LG6g802" class="btn btn-amber btn-lg">
         Start My Free Trial →
       </a>
