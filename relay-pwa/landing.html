@@ -129,7 +129,7 @@
     nav {
       position: fixed; top: 0; left: 0; right: 0; z-index: 100;
       padding: 16px 0;
-      transition: background 0.4s ease, backdrop-filter 0.4s ease, border-color 0.4s ease;
+      transition: transform 0.3s ease, background 0.4s ease, backdrop-filter 0.4s ease, border-color 0.4s ease;
       border-bottom: 1px solid transparent;
     }
     nav.scrolled {
@@ -585,6 +585,7 @@
       color: var(--off-white);
       position: relative;
       z-index: 999;
+      transition: transform 0.3s ease;
     }
     #pwa-banner strong { color: #fff; }
     #pwa-banner .pwa-icon { font-size: 15px; vertical-align: middle; margin-right: 4px; }
@@ -626,6 +627,18 @@
       .footer-bottom { flex-direction: column; gap: 12px; text-align: center; }
       .testi-card { min-width: 300px; }
       .nav-cta .btn-primary { display: none; }
+    }
+    /* ── HIDE NAV ON SCROLL DOWN ──────────────────────────────────── */
+    body.nav-hidden nav {
+      transform: translateY(-100%);
+    }
+    @media(max-width: 900px) {
+      body.nav-hidden #pwa-banner {
+        transform: translateY(-100%);
+      }
+      body.nav-hidden nav {
+        transform: translateY(calc(-100% - 42px));
+      }
     }
   </style>
 </head>
@@ -1223,8 +1236,23 @@
 <script>
   // ── NAV SCROLL ─────────────────────────────────────────────────────
   const nav = document.getElementById('nav');
+  let _lastScrollY = window.scrollY;
+  let _scrollTicking = false;
   window.addEventListener('scroll', () => {
-    nav.classList.toggle('scrolled', window.scrollY > 40);
+    if (!_scrollTicking) {
+      window.requestAnimationFrame(() => {
+        const cur = window.scrollY;
+        nav.classList.toggle('scrolled', cur > 40);
+        if (cur > _lastScrollY && cur > 80) {
+          document.body.classList.add('nav-hidden');
+        } else {
+          document.body.classList.remove('nav-hidden');
+        }
+        _lastScrollY = cur;
+        _scrollTicking = false;
+      });
+      _scrollTicking = true;
+    }
   }, { passive: true });
 
   // ── REVEAL ON SCROLL ───────────────────────────────────────────────
