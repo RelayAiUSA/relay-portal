@@ -650,6 +650,69 @@
         transform: translateY(calc(-100% - 42px));
       }
     }
+
+    /* ── HERO FLOW VISUALIZER ─────────────────────────────────────────────── */
+    .hero-flow-viz { width:100%; max-width:880px; margin:0 auto; display:flex; flex-direction:column; align-items:center; gap:20px; }
+    .hviz-title { font-size:clamp(20px,3.5vw,30px); font-weight:800; color:var(--off-white); letter-spacing:-0.03em; text-align:center; line-height:1.2; }
+    .hviz-title-grad { background:linear-gradient(135deg,var(--violet-lt),var(--amber)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+    .hviz-relay-label { display:flex; align-items:center; gap:12px; width:100%; max-width:420px; }
+    .hviz-rule { flex:1; height:1px; background:rgba(255,255,255,0.08); }
+    .hviz-label-text { font-size:10px; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; color:rgba(157,106,245,0.6); white-space:nowrap; }
+    .hviz-arrow { display:flex; flex-direction:column; align-items:center; margin:2px 0; }
+    .hviz-arrow-shaft { width:1.5px; height:28px; background:linear-gradient(to bottom,rgba(157,106,245,0.5),rgba(245,158,11,0.5)); }
+    .hviz-arrow-head { width:0; height:0; border-left:6px solid transparent; border-right:6px solid transparent; border-top:8px solid rgba(245,158,11,0.6); }
+    .hviz-steps { width:100%; display:grid; grid-template-columns:repeat(4,1fr); gap:3px; }
+    @keyframes hviz-pulse-1 {
+      0%,100%  { background:var(--dark-2); box-shadow:none; border-color:rgba(124,58,237,0.12); }
+      5%       { background:#151530; box-shadow:0 0 32px rgba(124,58,237,0.28),inset 0 0 20px rgba(124,58,237,0.08); border-color:rgba(124,58,237,0.55); }
+      20%      { background:#151530; box-shadow:0 0 32px rgba(124,58,237,0.28),inset 0 0 20px rgba(124,58,237,0.08); border-color:rgba(124,58,237,0.55); }
+      32%,90%  { background:var(--dark-2); box-shadow:none; border-color:rgba(124,58,237,0.12); }
+    }
+    @keyframes hviz-pulse-2 {
+      0%,25%,100% { background:var(--dark-2); box-shadow:none; border-color:rgba(157,106,245,0.12); }
+      30%      { background:#161532; box-shadow:0 0 32px rgba(157,106,245,0.28),inset 0 0 20px rgba(157,106,245,0.08); border-color:rgba(157,106,245,0.55); }
+      45%      { background:#161532; box-shadow:0 0 32px rgba(157,106,245,0.28),inset 0 0 20px rgba(157,106,245,0.08); border-color:rgba(157,106,245,0.55); }
+      57%,95%  { background:var(--dark-2); box-shadow:none; border-color:rgba(157,106,245,0.12); }
+    }
+    @keyframes hviz-pulse-3 {
+      0%,50%,100% { background:var(--dark-2); box-shadow:none; border-color:rgba(168,85,247,0.12); }
+      55%      { background:#181428; box-shadow:0 0 32px rgba(168,85,247,0.25),inset 0 0 20px rgba(168,85,247,0.08); border-color:rgba(168,85,247,0.5); }
+      70%      { background:#181428; box-shadow:0 0 32px rgba(168,85,247,0.25),inset 0 0 20px rgba(168,85,247,0.08); border-color:rgba(168,85,247,0.5); }
+      82%      { background:var(--dark-2); box-shadow:none; border-color:rgba(168,85,247,0.12); }
+    }
+    @keyframes hviz-pulse-4 {
+      0%,75%,100% { background:var(--dark-2); box-shadow:none; border-color:rgba(245,158,11,0.12); }
+      80%      { background:#1a1508; box-shadow:0 0 32px rgba(245,158,11,0.22),inset 0 0 20px rgba(245,158,11,0.07); border-color:rgba(245,158,11,0.5); }
+      93%      { background:#1a1508; box-shadow:0 0 32px rgba(245,158,11,0.22),inset 0 0 20px rgba(245,158,11,0.07); border-color:rgba(245,158,11,0.5); }
+      99%      { background:var(--dark-2); box-shadow:none; border-color:rgba(245,158,11,0.12); }
+    }
+    .hviz-step { display:flex; flex-direction:column; align-items:flex-start; padding:22px 18px 20px; border:1px solid rgba(255,255,255,0.06); position:relative; overflow:hidden; transition:background 0.4s ease,box-shadow 0.4s ease,border-color 0.4s ease; }
+    .hviz-step:first-child { border-radius:14px 0 0 14px; }
+    .hviz-step:last-child  { border-radius:0 14px 14px 0; }
+    .hviz-step::after { content:''; position:absolute; bottom:0; left:0; right:0; height:2px; background:var(--step-accent); }
+    .hviz-step:not(:last-child)::before { content:'›'; position:absolute; right:-7px; top:50%; transform:translateY(-50%); font-size:16px; color:rgba(255,255,255,0.1); z-index:2; line-height:1; }
+    .hviz-step:nth-child(1) { --step-accent:linear-gradient(90deg,#7c3aed,#9d6af5); --num-grad:linear-gradient(135deg,#7c3aed,#9d6af5); animation:hviz-pulse-1 5.6s ease-in-out infinite; }
+    .hviz-step:nth-child(2) { --step-accent:linear-gradient(90deg,#9d6af5,#a78bfa); --num-grad:linear-gradient(135deg,#9d6af5,#a78bfa); animation:hviz-pulse-2 5.6s ease-in-out infinite; }
+    .hviz-step:nth-child(3) { --step-accent:linear-gradient(90deg,#a78bfa,#d97706); --num-grad:linear-gradient(135deg,#a78bfa,#c084fc); animation:hviz-pulse-3 5.6s ease-in-out infinite; }
+    .hviz-step:nth-child(4) { --step-accent:linear-gradient(90deg,#d97706,#f59e0b); --num-grad:linear-gradient(135deg,#d97706,#f59e0b); animation:hviz-pulse-4 5.6s ease-in-out infinite; }
+    .hviz-step-num { font-size:28px; font-weight:900; line-height:1; margin-bottom:12px; background:var(--num-grad); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+    .hviz-step-icon { font-size:24px; margin-bottom:10px; line-height:1; }
+    .hviz-step-title { font-size:13px; font-weight:700; color:var(--off-white); line-height:1.3; margin-bottom:6px; }
+    .hviz-step-sub { font-size:11px; color:var(--muted); line-height:1.55; }
+    .hviz-stat { display:flex; align-items:center; gap:10px; margin-top:4px; }
+    .hviz-stat-line { height:1px; width:40px; background:linear-gradient(90deg,transparent,rgba(157,106,245,0.5)); }
+    .hviz-stat-line.r { background:linear-gradient(90deg,rgba(245,158,11,0.5),transparent); }
+    .hviz-stat-text { font-size:12px; font-weight:500; color:var(--muted); text-align:center; }
+    .hviz-stat-text strong { background:linear-gradient(135deg,var(--violet-lt),var(--amber)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; font-weight:700; }
+    @media(max-width:600px) {
+      .hviz-steps { grid-template-columns:1fr 1fr; }
+      .hviz-step:nth-child(1) { border-radius:14px 0 0 0; }
+      .hviz-step:nth-child(2) { border-radius:0 14px 0 0; }
+      .hviz-step:nth-child(3) { border-radius:0 0 0 14px; }
+      .hviz-step:nth-child(4) { border-radius:0 0 14px 0; }
+      .hviz-step:not(:last-child)::before { display:none; }
+    }
+
   </style>
 </head>
 <body>
@@ -711,14 +774,49 @@
         The Paperwork's Done<br>
         <span class="gradient-text">Before You Leave the Job Site.</span>
       </h1>
-      <p class="hero-sub reveal delay-2" style="text-align:center;font-size:clamp(20px,2.5vw,25px);line-height:1.75;">
-        <span style="display:block;color:#f0f0f6;margin-bottom:22px;">
-          RelayAI is the receptionist in your pocket — <em><strong>From a single text message:</strong></em> logs your job, generates a professional document, sends it straight to your customer, and<br>follows up for a 5-star review.
-        </span>
-        <span style="display:block;font-weight:700;font-size:clamp(15px,1.8vw,17px);background:linear-gradient(135deg,#9d6af5,#f59e0b);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">
-          Most users report saving 2–4 hours a week in paperwork alone.
-        </span>
-      </p>
+      <div class="hero-flow-viz reveal delay-2">
+        <div class="hviz-title">One Text Message to <span class="hviz-title-grad">RelayAI</span></div>
+        <div class="hviz-relay-label">
+          <div class="hviz-rule"></div>
+          <div class="hviz-label-text">your receptionist in your pocket</div>
+          <div class="hviz-rule"></div>
+        </div>
+        <div class="hviz-arrow">
+          <div class="hviz-arrow-shaft"></div>
+          <div class="hviz-arrow-head"></div>
+        </div>
+        <div class="hviz-steps">
+          <div class="hviz-step">
+            <div class="hviz-step-num">1</div>
+            <div class="hviz-step-icon">📋</div>
+            <div class="hviz-step-title">Logs the Job</div>
+            <div class="hviz-step-sub">Every detail captured and automatically synced into the accounting software you already use.</div>
+          </div>
+          <div class="hviz-step">
+            <div class="hviz-step-num">2</div>
+            <div class="hviz-step-icon">📄</div>
+            <div class="hviz-step-title">Builds the Document</div>
+            <div class="hviz-step-sub">Professional invoice or work order generated instantly — no typing required.</div>
+          </div>
+          <div class="hviz-step">
+            <div class="hviz-step-num">3</div>
+            <div class="hviz-step-icon">📤</div>
+            <div class="hviz-step-title">Texts It to Your Customer</div>
+            <div class="hviz-step-sub">The finished document goes straight to their phone before you leave the job site.</div>
+          </div>
+          <div class="hviz-step">
+            <div class="hviz-step-num">4</div>
+            <div class="hviz-step-icon">⭐</div>
+            <div class="hviz-step-title">Requests the Review</div>
+            <div class="hviz-step-sub">Automated follow-up while they’re still impressed with your work.</div>
+          </div>
+        </div>
+        <div class="hviz-stat">
+          <div class="hviz-stat-line"></div>
+          <div class="hviz-stat-text">Most users save <strong>2–4 hours a week</strong> in paperwork alone.</div>
+          <div class="hviz-stat-line r"></div>
+        </div>
+      </div>
       <div class="hero-ctas reveal delay-3">
         <a href="https://buy.stripe.com/00w4gB79K9CsaW59LG6g802" class="btn btn-amber btn-lg">
           Start Your 14-Day Free Trial →
