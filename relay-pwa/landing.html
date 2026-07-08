@@ -632,14 +632,18 @@
       .hero-ctas { flex-direction: column; align-items: center; }
       .footer-bottom { flex-direction: column; gap: 12px; text-align: center; }
       .testi-card {
-        min-width: calc(68vw);
+        min-width: 0;
+        width: 72vw;
+        max-width: 240px;
         padding: 12px 10px;
+        overflow: hidden;
+        box-sizing: border-box;
       }
-      .testi-quote { font-size: 11px; line-height: 1.5; margin-bottom: 8px; }
-      .testi-stars { font-size: 11px; margin-bottom: 6px; }
-      .testi-avatar { width: 28px; height: 28px; font-size: 11px; }
-      .testi-name { font-size: 11px; }
-      .testi-role { font-size: 10px; }
+      .testi-quote { font-size: 10px; line-height: 1.5; margin-bottom: 6px; word-break: break-word; }
+      .testi-stars { font-size: 10px; margin-bottom: 5px; }
+      .testi-avatar { width: 24px; height: 24px; font-size: 10px; }
+      .testi-name { font-size: 10px; }
+      .testi-role { font-size: 9px; }
       .testimonials .section-title { font-size: 20px; white-space: nowrap; }
       .testimonials-header { margin-bottom: 32px; }
       .nav-cta .btn-primary { display: none; }
