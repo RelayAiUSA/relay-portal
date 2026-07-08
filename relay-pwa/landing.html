@@ -593,7 +593,16 @@
       background: none; border: none; color: var(--muted); font-size: 18px;
       cursor: pointer; padding: 4px 8px; line-height: 1;
     }
-    @media(max-width: 900px) { #pwa-banner { display: block; } }
+    @media(max-width: 900px) {
+      #pwa-banner {
+        display: block;
+        position: fixed;
+        top: 0; left: 0; right: 0;
+        z-index: 200;
+      }
+      nav { top: 42px; }
+      .hero { padding-top: 162px; }
+    }
     @media(min-width: 901px) { #pwa-banner { display: none !important; } }
 
     /* ── RESPONSIVE ────────────────────────────────────────────────── */
@@ -1284,6 +1293,9 @@
   function dismissPwaBanner() {
     var b = document.getElementById('pwa-banner');
     if (b) b.style.display = 'none';
+    var nav = document.getElementById('nav');
+    if (nav) nav.style.top = '0';
+    document.querySelector('.hero').style.paddingTop = '120px';
     localStorage.setItem('pwaBannerDismissed', '1');
   }
 
