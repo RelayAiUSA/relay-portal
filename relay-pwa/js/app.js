@@ -343,6 +343,14 @@ function sSignup() {
         <option value="none">I'll set this up later</option>
       </select>
     </div>
+    <div class="form-group">
+      <label class="form-lbl" for="sg-phone">Mobile phone <span class="req">*</span></label>
+      <input id="sg-phone" type="tel" class="input" placeholder="(555) 867-5309" autocomplete="tel">
+    </div>
+    <label style="display:flex;align-items:flex-start;gap:10px;margin-bottom:16px;cursor:pointer;">
+      <input id="sg-sms" type="checkbox" style="margin-top:3px;flex-shrink:0;width:16px;height:16px;accent-color:#6366f1;">
+      <span style="font-size:12px;color:#6b7280;line-height:1.5;">I agree to receive SMS text messages from RelayAI with setup info and dispatch instructions. Msg &amp; data rates may apply. Reply STOP to opt out anytime.</span>
+    </label>
     <button id="sg-btn" class="btn btn-primary" data-action="signup" style="margin-bottom:8px">Create my Relay account</button>
     <div class="divider"><span class="divider-line"></span><span class="divider-text">or</span><span class="divider-line"></span></div>
     <button class="btn btn-outline" data-action="googleLogin" style="gap:10px">
@@ -1012,13 +1020,25 @@ document.addEventListener('click', async e => {
     setBtn('sg-btn', true, 'Create my Relay account');
     try {
       const cred = await auth.createUserWithEmailAndPassword(email, pw);
+      const phone      = ($('sg-phone')?.value || '').trim();
+      const smsConsent = !!$('sg-sms')?.checked;
       await db.collection('users').doc(cred.user.uid).set({
         companyName:        co,
         platform:           plat,
         plan:               'Essential+',
         subscriptionStatus: 'unpaid',
+        phone:              phone,
+        smsConsent:         smsConsent,
         createdAt:          firebase.firestore.FieldValue.serverTimestamp(),
       });
+      // Send welcome SMS if user opted in
+      if (smsConsent && phone) {
+        fetch('/.netlify/functions/send-welcome-sms', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone, name: co, companyName: co }),
+        }).catch(e => console.warn('Welcome SMS failed:', e));
+      }
     } catch(err) {
       showErr('sg-err', friendlyAuthError(err.code));
       setBtn('sg-btn', false, 'Create my Relay account');
