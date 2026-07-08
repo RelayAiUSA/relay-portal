@@ -594,6 +594,12 @@
       background: none; border: none; color: var(--muted); font-size: 18px;
       cursor: pointer; padding: 4px 8px; line-height: 1;
     }
+    /* ===== CTA CHECKLIST ===== */
+    .cta-checks { display:flex; flex-direction:column; gap:10px; margin-top:4px; }
+    .check-row { display:flex; align-items:center; gap:14px; padding:14px 20px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:10px; }
+    .check-icon { width:22px; height:22px; min-width:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; background:rgba(124,58,237,0.15); border:1px solid rgba(157,106,245,0.35); }
+    .check-icon svg { width:12px; height:12px; display:block; }
+    .check-text { font-size:13px; line-height:1.4; color:#f0f0f6; font-weight:500; }
     @media(max-width: 900px) {
       #pwa-banner {
         display: block;
@@ -634,14 +640,6 @@
       .testi-avatar { width: 28px; height: 28px; font-size: 11px; }
       .testi-name { font-size: 11px; }
       .testi-role { font-size: 10px; }
-
-    /* ===== CTA CHECKLIST ===== */
-    .cta-checks { display:flex; flex-direction:column; gap:10px; margin-top:4px; }
-    .check-row { display:flex; align-items:center; gap:14px; padding:14px 20px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:10px; }
-    .check-icon { width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; background:rgba(124,58,237,0.15); border:1px solid rgba(157,106,245,0.35); }
-    .check-icon svg { width:12px; height:12px; }
-    .check-text { font-size:13px; line-height:1.4; color:#f0f0f6; font-weight:500; white-space:nowrap; }
-    @media(max-width:600px) { .check-text { font-size:11px; white-space:normal; } }
       .testimonials .section-title { font-size: 20px; white-space: nowrap; }
       .testimonials-header { margin-bottom: 32px; }
       .nav-cta .btn-primary { display: none; }
@@ -937,7 +935,6 @@
     <p class="pain-closer reveal">
       <strong>As a skilled professional running your operation —</strong><br>
       <strong style="display:block;text-align:center;margin-top:6px;">Let AI work for you!</strong><br>
-      Stay focused on what you enjoy and what you're good at. We'll handle the rest.
     </p>
   </div>
 </section>
