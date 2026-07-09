@@ -1,0 +1,46 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Helper functions ───────────────────────────────────────────────────
+
+    // User is signed in
+    function isAuthed() {
+      return request.auth != null;
+    }
+
+    // Signed-in user owns this document path
+    function isOwner(userId) {
+      return isAuthed() && request.auth.uid == userId;
+    }
+
+    // Incoming data doesn't try to change the owner uid field
+    function notChangingOwner() {
+      return !('uid' in request.resource.data) ||
+             request.resource.data.uid == request.auth.uid;
+    }
+
+    // ─── User profiles ───────────────────────────────────────────────────────
+    // /users/{uid}
+    // Stores: email, phone, subscriptionTier, stripeCustomerId, etc.
+    match /users/{userId} {
+      allow read:   if isOwner(userId);
+      allow create: if isOwner(userId) && notChangingOwner();
+      allow update: if isOwner(userId) && notChangingOwner();
+      allow delete: if false; // never delete via client
+
+      // ─── Jobs subcollection ───────────────────────────────────────────────
+      // /users/{uid}/jobs/{jobId}
+      // Created server-side by twilio-sms.js (Admin SDK bypasses these rules).
+      // Client can read its own jobs; cannot write directly — all writes come
+      // through the server so we can enforce tier logic and audit trails.
+      match /jobs/{jobId} {
+        allow read:   if isOwner(userId);
+        allow write:  if false; // server-side only (Admin SDK)
+      }
+    }
+
+    // ─── Deny everything else ─────────────────────────────────────────────────
+    // Catches any collection not explicitly matched above.
+    match /{document=**} {
+      allow read,
