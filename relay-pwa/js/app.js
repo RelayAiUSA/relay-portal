@@ -349,7 +349,7 @@ function sSignup() {
     </div>
     <label style="display:flex;align-items:flex-start;gap:10px;margin-bottom:16px;cursor:pointer;">
       <input id="sg-sms" type="checkbox" style="margin-top:3px;flex-shrink:0;width:16px;height:16px;accent-color:#6366f1;">
-      <span style="font-size:12px;color:#6b7280;line-height:1.5;">I agree to receive SMS text messages from RelayAI with setup info and dispatch instructions. Msg &amp; data rates may apply. Reply STOP to opt out anytime.</span>
+      <span style="font-size:12px;color:#6b7280;line-height:1.5;">I agree to receive SMS text messages from Relay with setup info and dispatch instructions. Msg &amp; data rates may apply. Reply STOP to opt out anytime.</span>
     </label>
     <button id="sg-btn" class="btn btn-primary" data-action="signup" style="margin-bottom:8px">Create my Relay account</button>
     <div class="divider"><span class="divider-line"></span><span class="divider-text">or</span><span class="divider-line"></span></div>
@@ -602,7 +602,7 @@ function sSubmit() {
     <!-- Document Template File -->
     <div class="form-group">
       <label class="form-lbl">Document Template File</label>
-      <span class="form-hint">Upload a blank template or example document. Relay AI will use this as the format when generating documents for each customer.</span>
+      <span class="form-hint">Upload a blank template or example document. Relay will use this as the format when generating documents for each customer.</span>
       <div class="template-upload-wrap">
         <input type="file" id="f-template" accept=".pdf,.doc,.docx" class="form-input" onchange="handleTemplateUpload(this)">
         <p class="template-hint" id="f-template-status"></p>
