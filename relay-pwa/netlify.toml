@@ -1,4 +1,4 @@
-# RelayAI portal configuration
+# Relay portal configuration
 [build]
   publish = "."
 
@@ -42,3 +42,5 @@
 
 [[plugins]]
   package = "@netlify/plugin-functions-install-core"
+
+# trigger redeploy after secret-scan allowlist fix
