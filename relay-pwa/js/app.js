@@ -293,6 +293,7 @@ function sLogin() {
     <div class="relay-mark"><span>R</span></div>
     <h1 class="login-title">Welcome to Relay</h1>
     <p class="login-sub">Your dispatch &amp; invoicing portal. Sign in to get started.</p>
+    <p class="login-value">Built for contractors who'd rather be on the job.</p>
     <div id="lg-err" class="auth-error" style="display:none"></div>
     <div class="form-group">
       <label class="form-lbl" for="lg-email">Email</label>
@@ -462,6 +463,14 @@ function sDashboard() {
   const plan    = S.profile?.plan        || 'Starter';
   const invs    = S.invoices || [];
   const recent  = invs.slice(0, 3);
+  const _now = new Date();
+  const _monthInvs = invs.filter(inv => {
+    const d = inv.createdAt?.toDate ? inv.createdAt.toDate() : (inv.createdAt ? new Date(inv.createdAt) : null);
+    return d && d.getMonth() === _now.getMonth() && d.getFullYear() === _now.getFullYear();
+  });
+  const _paidThisMonth = _monthInvs.filter(inv => inv.status === 'paid');
+  const _revenueThisMonth = _paidThisMonth.reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0);
+  const _completedThisMonth = _paidThisMonth.length;
   const isAdmin = S.user?.email === ADMIN_EMAIL;
   const subStatus = S.profile?.subscriptionStatus || 'unpaid';
 
@@ -494,9 +503,9 @@ function sDashboard() {
     <div style="margin-bottom:4px">
       <svg viewBox="0 0 390 298" xmlns="http://www.w3.org/2000/svg" style="width:100%;border-radius:18px;display:block">
         <defs>
-          <linearGradient id="dbg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#0f1f45"/><stop offset="100%" style="stop-color:#1d4ed8"/></linearGradient>
+          <linearGradient id="dbg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#2d1b4e"/><stop offset="100%" style="stop-color:#6d28d9"/></linearGradient>
           <linearGradient id="s1g" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" style="stop-color:#34d399"/><stop offset="100%" style="stop-color:#10b981"/></linearGradient>
-          <linearGradient id="s2g" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" style="stop-color:#60a5fa"/><stop offset="100%" style="stop-color:#3b82f6"/></linearGradient>
+          <linearGradient id="s2g" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" style="stop-color:#fbbf24"/><stop offset="100%" style="stop-color:#f59e0b"/></linearGradient>
           <linearGradient id="s3g" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" style="stop-color:#c084fc"/><stop offset="100%" style="stop-color:#9333ea"/></linearGradient>
           <linearGradient id="wg" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" style="stop-color:rgba(255,255,255,0.07)"/><stop offset="100%" style="stop-color:rgba(255,255,255,0.03)"/></linearGradient>
           <filter id="dgl"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
@@ -504,7 +513,7 @@ function sDashboard() {
         <rect width="390" height="298" rx="20" fill="url(#dbg)"/>
         <circle cx="330" cy="25" r="70" fill="rgba(255,255,255,0.03)"/>
         <circle cx="370" cy="80" r="45" fill="rgba(255,255,255,0.025)"/>
-        <text x="374" y="19" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="10.5" font-weight="700" fill="rgba(255,255,255,0.28)" text-anchor="end">RelayAi</text>
+        <text x="374" y="19" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="10.5" font-weight="700" fill="rgba(255,255,255,0.28)" text-anchor="end">Relay</text>
         <polygon points="22,10 17,24 21,24 16,38 24,21 20,21" fill="rgba(192,132,252,0.55)"/>
         <circle cx="38" cy="44" r="22" fill="rgba(255,255,255,0.11)"/>
         <rect x="27" y="35" width="22" height="16" rx="4" fill="none" stroke="white" stroke-width="1.6"/>
@@ -525,11 +534,11 @@ function sDashboard() {
         <text x="62" y="118" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="11" fill="rgba(255,255,255,0.52)">Full service address and best contact number</text>
         <circle cx="36" cy="156" r="15" fill="url(#s2g)" filter="url(#dgl)" opacity="0.92"/>
         <text x="36" y="161" font-family="-apple-system,sans-serif" font-size="13" font-weight="800" fill="white" text-anchor="middle">2</text>
-        <rect x="351" y="148" width="14" height="14" rx="2" fill="none" stroke="rgba(96,165,250,0.48)" stroke-width="1.3"/>
-        <line x1="354" y1="153" x2="362" y2="153" stroke="rgba(96,165,250,0.48)" stroke-width="1.2" stroke-linecap="round"/>
-        <line x1="354" y1="156" x2="362" y2="156" stroke="rgba(96,165,250,0.48)" stroke-width="1.2" stroke-linecap="round"/>
-        <line x1="354" y1="159" x2="359" y2="159" stroke="rgba(96,165,250,0.48)" stroke-width="1.2" stroke-linecap="round"/>
-        <line x1="36" y1="171" x2="36" y2="191" stroke="rgba(96,165,250,0.38)" stroke-width="1.5" stroke-dasharray="3,3"/>
+        <rect x="351" y="148" width="14" height="14" rx="2" fill="none" stroke="rgba(245,158,11,0.48)" stroke-width="1.3"/>
+        <line x1="354" y1="153" x2="362" y2="153" stroke="rgba(245,158,11,0.48)" stroke-width="1.2" stroke-linecap="round"/>
+        <line x1="354" y1="156" x2="362" y2="156" stroke="rgba(245,158,11,0.48)" stroke-width="1.2" stroke-linecap="round"/>
+        <line x1="354" y1="159" x2="359" y2="159" stroke="rgba(245,158,11,0.48)" stroke-width="1.2" stroke-linecap="round"/>
+        <line x1="36" y1="171" x2="36" y2="191" stroke="rgba(245,158,11,0.38)" stroke-width="1.5" stroke-dasharray="3,3"/>
         <text x="62" y="151" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="13.5" font-weight="700" fill="white">Description of Work Done or Quoted</text>
         <text x="62" y="166" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="11" fill="rgba(255,255,255,0.52)">Short summary of the job or estimate provided</text>
         <circle cx="36" cy="204" r="15" fill="url(#s3g)" filter="url(#dgl)" opacity="0.92"/>
@@ -545,7 +554,18 @@ function sDashboard() {
         <text x="28" y="276" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="10" fill="rgba(255,255,255,0.42)">*Missing details may result in an incomplete or failed document.</text>
       </svg>
     </div>
-        <p class="sh" style="margin-top:20px">Recent Activity</p>
+        <p class="sh" style="margin-top:20px">This month</p>
+    <div class="stats-grid">
+      <div class="stat-card good">
+        <div class="stat-lbl">Revenue collected</div>
+        <div class="stat-val g">${fmt(_revenueThisMonth)}</div>
+      </div>
+      <div class="stat-card good">
+        <div class="stat-lbl">Jobs completed</div>
+        <div class="stat-val g">${_completedThisMonth}</div>
+      </div>
+    </div>
+    <p class="sh">Recent Activity</p>
     <div class="card">
       ${recent.length
         ? recent.map(inv => {
