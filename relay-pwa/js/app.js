@@ -587,6 +587,7 @@ function sSubmit() {
     <p class="sh">Job Details</p>
     <div class="form-group"><label class="form-lbl" for="f-addr">Job address <span class="req">*</span></label><input id="f-addr" type="text" class="input" placeholder="412 Oak St, Grand Rapids MI" autocomplete="off"></div>
     <div class="form-group"><label class="form-lbl" for="f-work">Work description <span class="req">Describe what was done in two to four sentences. Provide any critical detail needed.</span></label><textarea id="f-work" class="input" placeholder="Describe what was done in 2â3 sentences.&#10;e.g. Removed and replaced water heater, installed new supply valve."></textarea></div>
+    <div class="form-group"><label class="form-lbl" for="f-poref">PO / Job ref number</label><input id="f-poref" type="text" class="input" placeholder="Optional — for property managers or commercial accounts"></div>
     <p class="sh">Pricing</p>
     <div class="toggle-g">
       <button class="toggle-btn${S.formPrice==='flat'?' on':''}" data-toggle="price" data-val="flat">Flat rate</button>
@@ -598,6 +599,8 @@ function sSubmit() {
           <div class="form-group"><label class="form-lbl" for="f-mat">Materials</label><input id="f-mat" type="text" class="input" placeholder="$0.00"></div>
           <div class="form-group"><label class="form-lbl" for="f-lab">Labor</label><input id="f-lab" type="text" class="input" placeholder="3 hrs @ $100"></div>
         </div>`}
+    ${S.formType === 'quote' ? `<div class="form-group"><label class="form-lbl" for="f-deposit">Deposit required</label><input id="f-deposit" type="text" class="input" placeholder="e.g. 50% due to schedule, or $200"></div>` : ''}
+    <div class="form-group"><label class="form-lbl" for="f-warranty">Warranty / guarantee period</label><input id="f-warranty" type="text" class="input" placeholder="e.g. 90 days on labor and parts"></div>
     <div class="form-group"><label class="form-lbl" for="f-notes">Special Notes</label><input id="f-notes" type="text" class="input" placeholder="e.g. Address invoice to property manager"></div>
     <!-- Document Template File -->
     <div class="form-group">
@@ -1060,6 +1063,9 @@ document.addEventListener('click', async e => {
     const phone = $('f-phone')?.value?.trim();
     const addr  = $('f-addr')?.value?.trim();
     const work  = $('f-work')?.value?.trim();
+    const poRef    = $('f-poref')?.value?.trim() || '';
+    const warranty = $('f-warranty')?.value?.trim() || '';
+    const deposit  = S.formType === 'quote' ? ($('f-deposit')?.value?.trim() || '') : '';
     if (!name || !phone || !addr || !work) {
       showErr('sub-err', 'Please fill in all required fields (*).');
       return;
@@ -1095,6 +1101,9 @@ document.addEventListener('click', async e => {
         type:      S.formType,
         status:    'pending',
         notes:     $('f-notes')?.value?.trim() || '',
+        poRef,
+        warranty,
+        deposit,
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         platform:  S.profile?.platform || 'quickbooks',
         sentAt:              new Date(),
@@ -1103,6 +1112,9 @@ document.addEventListener('click', async e => {
       await db.collection('dispatch').add({
         userId:      uid,
         invoiceId:   invRef.id,
+        poRef,
+        warranty,
+        deposit,
         customer:    name,
         phone,
         address:     addr,
@@ -1128,6 +1140,9 @@ document.addEventListener('click', async e => {
         estimateValidity:   S.profile?.estimateValidity|| '',
         taxRate:            S.profile?.taxRate         || 0,
         minCallFee:         S.profile?.minCallFee      || 0,
+        poRef,
+        warranty,
+        deposit,
         customer:  name,
         email:     $('f-email')?.value?.trim() || '',
         address:   addr,
