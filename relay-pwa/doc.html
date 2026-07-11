@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Document — Relay AI</title>
+  <title>Document — Relay</title>
   <meta name="robots" content="noindex,nofollow">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -103,7 +103,7 @@
     </svg>
   </div>
   <div>
-    <div class="topbar-name">Relay AI</div>
+    <div class="topbar-name">Relay</div>
     <div class="topbar-sub">Secure document link</div>
   </div>
 </div>
@@ -191,7 +191,7 @@ function renderDoc(d) {
   const prefix = d.invoicePrefix || '';
   const shortId = (prefix + (d.invoiceId || '').slice(-6).toUpperCase());
 
-  document.title = `${docLabel} ${shortId} — ${escHtml(d.companyName||'Relay AI')}`;
+  document.title = `${docLabel} ${shortId} — ${escHtml(d.companyName||'Relay')}`;
 
   document.getElementById('doc-root').innerHTML = `
     <!-- Company + doc header -->
@@ -268,7 +268,7 @@ function renderDoc(d) {
     </div>
 
     <div class="relay-footer">
-      Powered by <strong>Relay AI</strong> · portal-relay.com
+      Powered by <strong>Relay</strong> · portal-relay.com
     </div>
   `;
 }
