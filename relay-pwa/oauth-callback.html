@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Connecting your software | RelayAI</title>
+  <title>Connecting your software | Relay</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -57,7 +57,7 @@
 </head>
 <body>
 <div class="card">
-  <div class="logo">RelayAI</div>
+  <div class="logo">Relay</div>
 
   <div id="state-loading">
     <div class="spinner"></div>
@@ -68,7 +68,7 @@
   <div id="state-success" class="hidden">
     <div class="success-icon">&#x2705;</div>
     <h2 id="success-title">Connected!</h2>
-    <p id="success-body">Your invoicing software has been linked to your RelayAI account.</p>
+    <p id="success-body">Your invoicing software has been linked to your Relay account.</p>
     <a href="/" class="btn">Back to Portal</a>
   </div>
 
@@ -162,7 +162,7 @@
   var platformLabel = state === 'quickbooks' ? 'QuickBooks' : 'Zoho Books';
   show('success', {
     title: platformLabel + ' Connected!',
-    body:  'Your ' + platformLabel + ' account is now linked to RelayAI. You can manage this in Account Settings.',
+    body:  'Your ' + platformLabel + ' account is now linked to Relay. You can manage this in Account Settings.',
   });
 
   setTimeout(function() { window.location.href = '/'; }, 3000);
