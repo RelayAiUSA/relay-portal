@@ -82,7 +82,7 @@ async function checkAndIncrementDocCount(uid, plan) {
   await ref.set({ count: firebase.firestore.FieldValue.increment(1), updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
 }
 // Protected screens â require active subscription
-const PROTECTED = new Set(['dashboard','submit','invoices','customers','profile']);
+const PROTECTED = new Set(['dashboard','submit','invoices','customers','profile','addCustomer']);
 
 // ââ STATE âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
@@ -303,13 +303,13 @@ function sLogin() {
       <label class="form-lbl" for="lg-pw">Password</label>
       <input id="lg-pw" type="password" class="input" placeholder="â¢â¢â¢â¢â¢â¢â¢â¢" autocomplete="current-password">
     </div>
-    <button id="lg-btn" class="btn btn-primary" data-action="login" style="margin-bottom:8px">Sign in to Relay</button>
+    <button id="lg-btn" class="btn btn-primary" data-action="login" style="margin-bottom:8px">Sign In To Relay</button>
     <div class="divider"><span class="divider-line"></span><span class="divider-text">or</span><span class="divider-line"></span></div>
     <button class="btn btn-outline" data-action="googleLogin" style="gap:10px">
       ${I.google} Continue with Google
     </button>
     <div style="margin-top:auto;padding-top:28px;text-align:center">
-      <button class="link-btn" data-nav="signup">New to Relay? Create an account â</button>
+      <button class="link-btn" data-nav="signup">New To Relay? Create An Account â</button>
     </div>
   </main>`;
 }
@@ -352,13 +352,13 @@ function sSignup() {
       <input id="sg-sms" type="checkbox" style="margin-top:3px;flex-shrink:0;width:16px;height:16px;accent-color:#6366f1;">
       <span style="font-size:12px;color:#6b7280;line-height:1.5;">I agree to receive SMS text messages from Relay with setup info and dispatch instructions. Msg &amp; data rates may apply. Reply STOP to opt out anytime.</span>
     </label>
-    <button id="sg-btn" class="btn btn-primary" data-action="signup" style="margin-bottom:8px">Create my Relay account</button>
+    <button id="sg-btn" class="btn btn-primary" data-action="signup" style="margin-bottom:8px">Create My Relay Account</button>
     <div class="divider"><span class="divider-line"></span><span class="divider-text">or</span><span class="divider-line"></span></div>
     <button class="btn btn-outline" data-action="googleLogin" style="gap:10px">
       ${I.google} Sign up with Google
     </button>
     <div style="margin-top:auto;padding-top:28px;text-align:center">
-      <button class="link-btn" data-nav="login">Already have an account? Sign in â</button>
+      <button class="link-btn" data-nav="login">Already Have An Account? Sign In â</button>
     </div>
   </main>`;
 }
@@ -430,7 +430,7 @@ function sPlans() {
           <div class="plan-feat-item">${I.check}Customer registry</div>
           <div class="plan-feat-item">${I.check}Basic dispatch management</div>
         </div>
-        <a href="${STRIPE_STARTER}" target="_blank" rel="noopener" class="btn btn-outline" style="margin-top:12px;display:block;text-align:center;text-decoration:none">Get started</a>
+        <a href="${STRIPE_STARTER}" target="_blank" rel="noopener" class="btn btn-outline" style="margin-top:12px;display:block;text-align:center;text-decoration:none">Get Started</a>
       </div>
       <div class="plan-card featured">
         <div style="margin-bottom:8px"><span class="badge paid">Most popular</span></div>
@@ -442,7 +442,7 @@ function sPlans() {
           <div class="plan-feat-item">${I.check}Connect QuickBooks or Zoho — no double entry ever</div>
           <div class="plan-feat-item">${I.check}14-day free trial included</div>
         </div>
-        <a href="${STRIPE_ESSENTIAL}" target="_blank" rel="noopener" class="btn btn-primary" style="margin-top:12px;display:block;text-align:center;text-decoration:none">Start free trial</a>
+        <a href="${STRIPE_ESSENTIAL}" target="_blank" rel="noopener" class="btn btn-primary" style="margin-top:12px;display:block;text-align:center;text-decoration:none">Start Free Trial</a>
       </div>
       <div class="plan-card">
         <div class="plan-name">Relay Pro</div>
@@ -453,7 +453,7 @@ function sPlans() {
           <div class="plan-feat-item">${I.check}Multi-user access &amp; advanced reporting</div>
           <div class="plan-feat-item">${I.check}14-day free trial included</div>
         </div>
-        <a href="${STRIPE_PRO}" target="_blank" rel="noopener" class="btn btn-outline" style="margin-top:12px;display:block;text-align:center;text-decoration:none">Start free trial</a>
+        <a href="${STRIPE_PRO}" target="_blank" rel="noopener" class="btn btn-outline" style="margin-top:12px;display:block;text-align:center;text-decoration:none">Start Free Trial</a>
       </div>
       <div style="height:16px"></div>
     </div>`;
@@ -554,7 +554,7 @@ function sDashboard() {
         <text x="28" y="276" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="10" fill="rgba(255,255,255,0.42)">*Missing details may result in an incomplete or failed document.</text>
       </svg>
     </div>
-        <p class="sh" style="margin-top:20px">This month</p>
+        <p class="sh" style="margin-top:20px">This Month</p>
     <div class="stats-grid">
       <div class="stat-card good">
         <div class="stat-lbl">Revenue collected</div>
@@ -607,11 +607,11 @@ function sSubmit() {
     <p class="sh">Job Details</p>
     <div class="form-group"><label class="form-lbl" for="f-addr">Job address <span class="req">*</span></label><input id="f-addr" type="text" class="input" placeholder="412 Oak St, Grand Rapids MI" autocomplete="off"></div>
     <div class="form-group"><label class="form-lbl" for="f-work">Work description <span class="req">Describe what was done in two to four sentences. Provide any critical detail needed.</span></label><textarea id="f-work" class="input" placeholder="Describe what was done in 2â3 sentences.&#10;e.g. Removed and replaced water heater, installed new supply valve."></textarea></div>
-    <div class="form-group"><label class="form-lbl" for="f-poref">PO / Job ref number</label><input id="f-poref" type="text" class="input" placeholder="Optional — for property managers or commercial accounts"></div>
+    <div class="form-group"><label class="form-lbl" for="f-poref">PO / Job Ref Number</label><input id="f-poref" type="text" class="input" placeholder="Optional — for property managers or commercial accounts"></div>
     <p class="sh">Pricing</p>
     <div class="toggle-g">
-      <button class="toggle-btn${S.formPrice==='flat'?' on':''}" data-toggle="price" data-val="flat">Flat rate</button>
-      <button class="toggle-btn${S.formPrice==='itemized'?' on':''}" data-toggle="price" data-val="itemized">Materials + labor</button>
+      <button class="toggle-btn${S.formPrice==='flat'?' on':''}" data-toggle="price" data-val="flat">Flat Rate</button>
+      <button class="toggle-btn${S.formPrice==='itemized'?' on':''}" data-toggle="price" data-val="itemized">Materials + Labor</button>
     </div>
     ${S.formPrice === 'flat'
       ? `<div class="form-group"><label class="form-lbl" for="f-total">Total amount <span class="req">*</span></label><input id="f-total" type="text" class="input" placeholder="$0.00"></div>`
@@ -619,8 +619,8 @@ function sSubmit() {
           <div class="form-group"><label class="form-lbl" for="f-mat">Materials</label><input id="f-mat" type="text" class="input" placeholder="$0.00"></div>
           <div class="form-group"><label class="form-lbl" for="f-lab">Labor</label><input id="f-lab" type="text" class="input" placeholder="3 hrs @ $100"></div>
         </div>`}
-    ${S.formType === 'quote' ? `<div class="form-group"><label class="form-lbl" for="f-deposit">Deposit required</label><input id="f-deposit" type="text" class="input" placeholder="e.g. 50% due to schedule, or $200"></div>` : ''}
-    <div class="form-group"><label class="form-lbl" for="f-warranty">Warranty / guarantee period</label><input id="f-warranty" type="text" class="input" placeholder="e.g. 90 days on labor and parts"></div>
+    ${S.formType === 'quote' ? `<div class="form-group"><label class="form-lbl" for="f-deposit">Deposit Required</label><input id="f-deposit" type="text" class="input" placeholder="e.g. 50% due to schedule, or $200"></div>` : ''}
+    <div class="form-group"><label class="form-lbl" for="f-warranty">Warranty / Guarantee Period</label><input id="f-warranty" type="text" class="input" placeholder="e.g. 90 days on labor and parts"></div>
     <div class="form-group"><label class="form-lbl" for="f-notes">Special Notes</label><input id="f-notes" type="text" class="input" placeholder="e.g. Address invoice to property manager"></div>
     <!-- Document Template File -->
     <div class="form-group">
@@ -632,7 +632,7 @@ function sSubmit() {
       </div>
     </div>
     <div id="sub-err" class="auth-error" style="display:none;margin-bottom:10px"></div>
-    <button id="sub-btn" class="btn btn-primary" data-action="submitJob">Send to Relay dispatch</button>
+    <button id="sub-btn" class="btn btn-primary" data-action="submitJob">Send To Relay Dispatch</button>
     <div style="height:20px"></div>
   </div>
   ${tabs('submit')}`;
@@ -653,9 +653,9 @@ function sConfirm() {
         Google review request sent after payment â
       </div>
     </div>
-    ${j.docId ? `<button class="btn btn-outline" onclick="(function(){navigator.clipboard.writeText('https://portal-relay.com/doc/'+j.docId);this.textContent='✓ Link copied!';setTimeout(()=>this.textContent='📋 Copy customer link',2000)}).call(this)" style="margin-bottom:10px">📋 Copy customer link</button>` : ''}
-    <button class="btn btn-primary" data-nav="dashboard" style="margin-bottom:10px">Back to dashboard</button>
-    <button class="btn btn-outline" data-nav="submit">Submit another job</button>
+    ${j.docId ? `<button class="btn btn-outline" onclick="(function(){navigator.clipboard.writeText('https://portal-relay.com/doc/'+j.docId);this.textContent='✓ Link Copied!';setTimeout(()=>this.textContent='📋 Copy Customer Link',2000)}).call(this)" style="margin-bottom:10px">📋 Copy Customer Link</button>` : ''}
+    <button class="btn btn-primary" data-nav="dashboard" style="margin-bottom:10px">Back To Dashboard</button>
+    <button class="btn btn-outline" data-nav="submit">Submit Another Job</button>
   </div>`;
 }
 
@@ -700,6 +700,13 @@ function sCustomers() {
   const cxs = S.customers || [];
   return topbar({title:'Customers', sub:`${cxs.length} total`, right:`<button class="topbar-btn">${I.bell}</button>`}) +
   `<div class="scroll" style="padding:12px 16px">
+    <button class="add-customer-cta" data-nav="addCustomer">
+      <span class="add-customer-icon">+</span>
+      <span class="add-customer-text">
+        <span class="add-customer-title">Add New Customer</span>
+        <span class="add-customer-sub">Log Contact, Billing &amp; Dispatch Info</span>
+      </span>
+    </button>
     <div class="card">
       ${cxs.length
         ? cxs.map(cx => {
@@ -721,6 +728,68 @@ function sCustomers() {
   </div>
   ${tabs('customers')}`;
 }
+function sAddCustomer() {
+  const platform = S.profile?.platform === 'zoho' ? 'Zoho' : 'QuickBooks';
+  return topbar({title: 'Add New Customer', back: 'customers'}) +
+  `<div class="scroll">
+    <p class="sh" style="margin-top:2px">Contact Info</p>
+    <div class="form-group"><label class="form-lbl" for="cx-name">Customer name <span class="req">*</span></label><input id="cx-name" type="text" class="input" placeholder="e.g. Jeff Smith" autocomplete="off"></div>
+    <div class="form-group"><label class="form-lbl" for="cx-phone">Phone <span class="req">*</span></label><input id="cx-phone" type="tel" class="input" placeholder="(616) 248-1977"></div>
+    <div class="form-group"><label class="form-lbl" for="cx-email">Email</label><input id="cx-email" type="email" class="input" placeholder="Optional for document delivery"></div>
+
+    <p class="sh">Service Address</p>
+    <div class="form-group"><label class="form-lbl" for="cx-addr">Primary service address <span class="req">*</span></label><input id="cx-addr" type="text" class="input" placeholder="412 Oak St, Grand Rapids MI" autocomplete="off"></div>
+    <div class="form-group"><label class="form-lbl" for="cx-addr2">Additional service address</label><input id="cx-addr2" type="text" class="input" placeholder="For customers with more than one property"></div>
+
+    <p class="sh">Billing</p>
+    <div class="form-group"><label class="form-lbl" for="cx-billname">Billing name / company</label><input id="cx-billname" type="text" class="input" placeholder="Leave blank if same as customer name"></div>
+    <div class="form-group"><label class="form-lbl" for="cx-billaddr">Billing address</label><input id="cx-billaddr" type="text" class="input" placeholder="Leave blank if same as service address"></div>
+    <div class="input-row">
+      <div class="form-group"><label class="form-lbl" for="cx-paymethod">Preferred payment method</label>
+        <select id="cx-paymethod" class="input">
+          <option value="">Not set</option>
+          <option>Cash</option><option>Check</option><option>Zelle</option><option>Venmo</option><option>CashApp</option><option>Credit / Debit Card</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-lbl" for="cx-terms">Default payment terms</label>
+        <select id="cx-terms" class="input">
+          <option value="">Not set</option>
+          <option>Due on receipt</option><option>Net 15</option><option>Net 30</option>
+        </select>
+      </div>
+    </div>
+
+    <p class="sh">Accounting</p>
+    <div class="form-group"><label class="form-lbl" for="cx-acctid">${platform} customer ID</label><input id="cx-acctid" type="text" class="input" placeholder="Prevents duplicate customer records on sync"></div>
+    <label class="check-row-lbl">
+      <input type="checkbox" id="cx-taxexempt">
+      <span>This customer is tax-exempt</span>
+    </label>
+
+    <p class="sh">Dispatch Details</p>
+    <div class="form-group"><label class="form-lbl" for="cx-type">Customer type</label>
+      <select id="cx-type" class="input">
+        <option value="">Not set</option>
+        <option>Residential</option><option>Commercial</option><option>Property Manager</option><option>Insurance</option>
+      </select>
+    </div>
+    <div class="input-row">
+      <div class="form-group"><label class="form-lbl" for="cx-sec-name">Secondary contact name</label><input id="cx-sec-name" type="text" class="input" placeholder="e.g. property manager"></div>
+      <div class="form-group"><label class="form-lbl" for="cx-sec-phone">Secondary contact phone</label><input id="cx-sec-phone" type="tel" class="input" placeholder="Optional"></div>
+    </div>
+    <div class="form-group"><label class="form-lbl" for="cx-access">Access notes</label><textarea id="cx-access" class="input" placeholder="Gate code, pets, parking, entry instructions"></textarea></div>
+
+    <p class="sh">Notes</p>
+    <div class="form-group"><label class="form-lbl" for="cx-referral">Referral source</label><input id="cx-referral" type="text" class="input" placeholder="How did they find you?"></div>
+    <div class="form-group"><label class="form-lbl" for="cx-notes">General notes</label><textarea id="cx-notes" class="input" placeholder="Anything else worth remembering about this customer"></textarea></div>
+
+    <div id="cx-err" class="auth-error" style="display:none;margin-bottom:10px"></div>
+    <button id="cx-save-btn" class="btn btn-primary" data-action="saveCustomer">Save Customer</button>
+    <div style="height:20px"></div>
+  </div>
+  ${tabs('customers')}`;
+}
+
 function sProfile() {
   const p    = S.profile || {};
   const plan = (p.plan || 'starter').toLowerCase();
@@ -931,15 +1000,15 @@ function sProfile() {
       </div>` : '')}
 
       <!-- ── Connect Invoicing Software ── -->
-      <p class="sh" style="margin-top:4px">Connect your invoicing software</p>
+      <p class="sh" style="margin-top:4px">Connect Your Invoicing Software</p>
       <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:14px;padding:14px;margin-bottom:16px">
         <p style="font-size:12px;color:#6b7280;margin-bottom:12px;line-height:1.5">Connect QuickBooks or Zoho Books and Relay will automatically log every invoice into your accounting software on your behalf — no double entry.</p>
         ${acctSoftwareHtml}
       </div>
 
-      <button id="pf-save" class="btn btn-primary" data-action="saveProfile" style="margin-bottom:12px">Save changes</button>
+      <button id="pf-save" class="btn btn-primary" data-action="saveProfile" style="margin-bottom:12px">Save Changes</button>
       ${billingRow}
-      <button class="btn btn-outline" data-action="signOut" style="margin-bottom:28px">${I.logout} Sign out</button>
+      <button class="btn btn-outline" data-action="signOut" style="margin-bottom:28px">${I.logout} Sign Out</button>
     </div>
     ${tabs('profile')}`;
 }
@@ -956,6 +1025,7 @@ const SCREENS = {
   confirm:   sConfirm,
   invoices:  sInvoices,
   customers: sCustomers,
+  addCustomer: sAddCustomer,
   profile:   sProfile,
 };
 function render() {
@@ -1010,12 +1080,12 @@ document.addEventListener('click', async e => {
     const email = $('lg-email')?.value?.trim();
     const pw    = $('lg-pw')?.value;
     if (!email || !pw) { showErr('lg-err', 'Please enter your email and password.'); return; }
-    setBtn('lg-btn', true, 'Sign in to Relay');
+    setBtn('lg-btn', true, 'Sign In To Relay');
     try {
       await auth.signInWithEmailAndPassword(email, pw);
     } catch(err) {
       showErr('lg-err', friendlyAuthError(err.code));
-      setBtn('lg-btn', false, 'Sign in to Relay');
+      setBtn('lg-btn', false, 'Sign In To Relay');
     }
     return;
   }
@@ -1040,7 +1110,7 @@ document.addEventListener('click', async e => {
     if (!co)          { showErr('sg-err', 'Please enter your company name.'); return; }
     if (!email)       { showErr('sg-err', 'Please enter your email.'); return; }
     if (pw !== pw2)   { showErr('sg-err', 'Passwords do not match.'); return; }
-    setBtn('sg-btn', true, 'Create my Relay account');
+    setBtn('sg-btn', true, 'Create My Relay Account');
     try {
       const cred = await auth.createUserWithEmailAndPassword(email, pw);
       const phone      = ($('sg-phone')?.value || '').trim();
@@ -1064,7 +1134,7 @@ document.addEventListener('click', async e => {
       }
     } catch(err) {
       showErr('sg-err', friendlyAuthError(err.code));
-      setBtn('sg-btn', false, 'Create my Relay account');
+      setBtn('sg-btn', false, 'Create My Relay Account');
     }
     return;
   }
@@ -1097,7 +1167,7 @@ document.addEventListener('click', async e => {
       const mat = parseFloat(($('f-mat')?.value || '0').replace(/[^0-9.]/g, '')) || 0;
       const lab = parseFloat(($('f-lab')?.value || '0').replace(/[^0-9.]/g, '')) || 0;
       amount = mat + lab;
-    }    setBtn('sub-btn', true, 'Send to Relay dispatch');
+    }    setBtn('sub-btn', true, 'Send To Relay Dispatch');
     try {
       const uid  = S.user.uid;
       const plan = (S.profile?.plan || 'starter').toLowerCase();
@@ -1106,7 +1176,7 @@ document.addEventListener('click', async e => {
       } catch(limitErr) {
         if (limitErr.message === 'DOC_LIMIT_REACHED') {
           showErr('sub-err', `Monthly document limit reached (${limitErr.limit} docs/mo on your plan). Please upgrade to continue.`);
-          setBtn('sub-btn', false, 'Send to Relay dispatch');
+          setBtn('sub-btn', false, 'Send To Relay Dispatch');
           return;
         }
         throw limitErr;
@@ -1178,7 +1248,51 @@ document.addEventListener('click', async e => {
     } catch(err) {
       console.error('submitJob:', err);
       showErr('sub-err', 'Submission failed â please try again.');
-      setBtn('sub-btn', false, 'Send to Relay dispatch');
+      setBtn('sub-btn', false, 'Send To Relay Dispatch');
+    }
+    return;
+  }
+
+  // ── SAVE CUSTOMER ──
+  if (action === 'saveCustomer') {
+    const uid = S.user?.uid;
+    if (!uid) return;
+    const name  = $('cx-name')?.value?.trim();
+    const phone = $('cx-phone')?.value?.trim();
+    const addr  = $('cx-addr')?.value?.trim();
+    if (!name || !phone || !addr) {
+      showErr('cx-err', 'Please fill in all required fields (*).');
+      return;
+    }
+    showErr('cx-err', '');
+    setBtn('cx-save-btn', true, 'Save customer');
+    try {
+      await db.collection('users').doc(uid).collection('customers').add({
+        name,
+        phone,
+        email:           $('cx-email')?.value?.trim() || '',
+        address:         addr,
+        address2:        $('cx-addr2')?.value?.trim() || '',
+        billingName:     $('cx-billname')?.value?.trim() || '',
+        billingAddress:  $('cx-billaddr')?.value?.trim() || '',
+        paymentMethod:   $('cx-paymethod')?.value || '',
+        paymentTerms:    $('cx-terms')?.value || '',
+        acctCustomerId:  $('cx-acctid')?.value?.trim() || '',
+        taxExempt:       !!$('cx-taxexempt')?.checked,
+        customerType:    $('cx-type')?.value || '',
+        secondaryName:   $('cx-sec-name')?.value?.trim() || '',
+        secondaryPhone:  $('cx-sec-phone')?.value?.trim() || '',
+        accessNotes:     $('cx-access')?.value?.trim() || '',
+        referralSource:  $('cx-referral')?.value?.trim() || '',
+        notes:           $('cx-notes')?.value?.trim() || '',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      await loadUserData(uid);
+      nav('customers');
+    } catch (err) {
+      console.error('saveCustomer:', err);
+      showErr('cx-err', 'Failed to save customer — please try again.');
+      setBtn('cx-save-btn', false, 'Save Customer');
     }
     return;
   }
