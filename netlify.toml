@@ -1,1 +1,8 @@
+[functions]
+directory = "netlify/functions"
 
+# Daily OAuth token refresh sweep -- keeps every customer's Zoho/QuickBooks
+# connection alive and flags anything broken before it silently fails an
+# invoice sync. See netlify/functions/oauth-refresh-sweep.js.
+[functions."oauth-refresh-sweep"]
+schedule = "@daily"
