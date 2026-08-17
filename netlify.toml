@@ -6,3 +6,9 @@ directory = "netlify/functions"
 # invoice sync. See netlify/functions/oauth-refresh-sweep.js.
 [functions."oauth-refresh-sweep"]
 schedule = "@daily"
+
+# Review-request sweep -- runs every 30 minutes, sends the customer's
+# review-request text once their scheduledFor time (24hr after invoice)
+# has passed. See netlify/functions/review-request-sweep.js.
+[functions."review-request-sweep"]
+schedule = "*/30 * * * *"
