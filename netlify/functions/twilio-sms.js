@@ -2,23 +2,24 @@
 // Receives inbound SMS from Twilio, dispatches AI-generated invoice/quote
 // Tier gating: Starter → upgrade prompt | Essential → AI dispatch | Essential+ → AI + auto-forward + review SMS
 
-const twilio    = require('twilio');
+const twilio = require('twilio');
 const Anthropic = require('@anthropic-ai/sdk');
-const admin     = require('firebase-admin');
+const admin = require('firebase-admin');
+const { syncInvoiceToAccounting } = require('./lib/accountingSync');
 
-// ── Firebase Admin init ──────────────────────────────────────────────────────
+// ── Firebase Admin init ────────────────────────────────────────────────────────────
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert({
-      projectId:   process.env.FIREBASE_PROJECT_ID,
+      projectId: process.env.FIREBASE_PROJECT_ID,
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey:  (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
+      privateKey: (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
     }),
   });
 }
 const db = admin.firestore();
 
-// ── Clients ──────────────────────────────────────────────────────────────────
+// ── Clients ───────────────────────────────────────────────────────────────────────────
 const twilioClient = twilio(
   process.env.TWILIO_ACCOUNT_SID,
   process.env.TWILIO_AUTH_TOKEN
@@ -26,7 +27,7 @@ const twilioClient = twilio(
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const TWILIO_FROM = process.env.TWILIO_PHONE_NUMBER || '+18447291376';
 
-// ── Plan helpers ─────────────────────────────────────────────────────────────
+// ── Plan helpers ─────────────────────────────────────────────────────────────────────
 function canSMSDispatch(plan) {
   return ['essential', 'essential+'].includes((plan || '').toLowerCase());
 }
@@ -37,7 +38,7 @@ function isActiveStatus(status) {
   return ['active', 'trialing', 'past_due'].includes(status);
 }
 
-// ── TwiML reply ──────────────────────────────────────────────────────────────
+// ── TwiML reply ─────────────────────────────────────────────────────────────────────
 function twiml(msg) {
   return {
     statusCode: 200,
@@ -46,17 +47,17 @@ function twiml(msg) {
   };
 }
 
-// ── Main handler ─────────────────────────────────────────────────────────────
+// ── Main handler ─────────────────────────────────────────────────────────────────────
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method not allowed' };
 
   const params = new URLSearchParams(event.body || '');
   const fromPhone = params.get('From') || '';
-  const body      = (params.get('Body') || '').trim();
+  const body = (params.get('Body') || '').trim();
 
   if (!fromPhone || !body) return twiml('Missing phone or message body.');
 
-  // ── Look up Relay user by phoneNumber field ────────────────────────────────
+  // ── Look up Relay user by phoneNumber field ────────────────────────────────────
   const normalised = fromPhone.replace(/\D/g, '');
   const snaps = await Promise.all([
     db.collection('users').where('phoneNumber', '==', fromPhone).limit(1).get(),
@@ -66,27 +67,27 @@ exports.handler = async (event) => {
   const match = snaps.find(s => !s.empty);
   if (!match) return twiml('Phone number not registered with Relay. Visit portal-relay.com to set up your account.');
 
-  const userDoc  = match.docs[0];
-  const uid      = userDoc.id;
-  const profile  = userDoc.data();
-  const plan     = (profile.plan || 'starter').toLowerCase();
+  const userDoc = match.docs[0];
+  const uid = userDoc.id;
+  const profile = userDoc.data();
+  const plan = (profile.plan || 'starter').toLowerCase();
   const subStatus = profile.subscriptionStatus || 'unpaid';
 
-  // ── Tier gate: Starter ────────────────────────────────────────────────────
+  // ── Tier gate: Starter ──────────────────────────────────────────────────────
   if (!canSMSDispatch(plan)) {
     return twiml('SMS Dispatch requires an Essential or Essential+ plan. Upgrade at portal-relay.com');
   }
 
-  // ── Subscription active check ─────────────────────────────────────────────
+  // ── Subscription active check ──────────────────────────────────────────────
   if (!isActiveStatus(subStatus)) {
     return twiml('Your Relay subscription is inactive. Visit portal-relay.com to reactivate.');
   }
 
-  // ── AI: parse + professionalize raw SMS ──────────────────────────────────
+  // ── AI: parse + professionalize raw SMS ────────────────────────────────────
   let parsed;
   try {
     const aiRes = await anthropic.messages.create({
-      model:      'claude-haiku-4-5-20251001',
+      model: 'claude-haiku-4-5-20251001',
       max_tokens: 512,
       messages: [{
         role: 'user',
@@ -96,14 +97,14 @@ exports.handler = async (event) => {
 
 Extract job details and return ONLY valid JSON (no markdown, no explanation):
 {
-  "job_type": "repair|install|inspection|quote|other",
-  "customer_name": "",
-  "customer_phone": "",
-  "customer_email": "",
-  "address": "",
-  "amount": 0,
-  "professional_description": "2-4 sentence professional write-up of the work performed",
-  "confidence": 0.0
+"job_type": "repair|install|inspection|quote|other",
+"customer_name": "",
+"customer_phone": "",
+"customer_email": "",
+"address": "",
+"amount": 0,
+"professional_description": "2-4 sentence professional write-up of the work performed",
+"confidence": 0.0
 }
 If a field is unknown, use empty string or 0.`,
       }],
@@ -114,24 +115,32 @@ If a field is unknown, use empty string or 0.`,
     return twiml('Relay AI could not process your message. Please try again with more detail.');
   }
 
-  // ── Save invoice to Firestore ─────────────────────────────────────────────
+  // ── Save invoice to Firestore ──────────────────────────────────────────────
   const invoiceData = {
-    customer:       parsed.customer_name    || 'Unknown',
-    phone:          parsed.customer_phone   || '',
-    email:          parsed.customer_email   || '',
-    address:        parsed.address          || '',
-    amount:         parsed.amount           || 0,
-    work:           parsed.professional_description || body,
-    rawSms:         body,
-    type:           parsed.job_type === 'quote' ? 'quote' : 'invoice',
-    status:         'pending',
-    source:         'sms',
+    customer: parsed.customer_name || 'Unknown',
+    phone: parsed.customer_phone || '',
+    email: parsed.customer_email || '',
+    address: parsed.address || '',
+    amount: parsed.amount || 0,
+    work: parsed.professional_description || body,
+    rawSms: body,
+    type: parsed.job_type === 'quote' ? 'quote' : 'invoice',
+    status: 'pending',
+    source: 'sms',
     plan,
-    createdAt:      admin.firestore.FieldValue.serverTimestamp(),
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
   };
   const invRef = await db.collection('users').doc(uid).collection('invoices').add(invoiceData);
 
-  // ── Essential+: auto-forward doc to customer ──────────────────────────────
+  // ── Push the invoice into the connected accounting software (Zoho/QuickBooks) ─
+  // Never lets a sync failure block the technician's SMS reply -- syncInvoiceToAccounting
+  // always resolves, never throws, and records the outcome on the invoice doc itself.
+  let syncResult = { synced: false, reason: 'not_connected' };
+  if (invoiceData.type !== 'quote') {
+    syncResult = await syncInvoiceToAccounting(db, uid, invRef.id, invoiceData, profile);
+  }
+
+  // ── Essential+: auto-forward doc to customer ─────────────────────────────────
   if (canAutoForward(plan) && profile.autoForwardToCustomer && parsed.customer_phone) {
     const docType = invoiceData.type === 'quote' ? 'Quote' : 'Invoice';
     const fwdMsg = `Hi ${parsed.customer_name || 'there'}, your ${docType} from ${profile.companyName || 'your contractor'} is ready:
@@ -143,7 +152,7 @@ Amount: $${parsed.amount || 'TBD'}
 Questions? Reply to this message.`;
     await twilioClient.messages.create({
       from: TWILIO_FROM,
-      to:   parsed.customer_phone,
+      to: parsed.customer_phone,
       body: fwdMsg,
     }).catch(e => console.error('Auto-forward failed:', e));
   }
@@ -154,17 +163,17 @@ Questions? Reply to this message.`;
     await db.collection('review_requests').add({
       uid,
       customerPhone: parsed.customer_phone,
-      customerName:  parsed.customer_name || 'there',
-      companyName:   profile.companyName  || 'your contractor',
-      reviewUrl:     profile.reviewUrl,
-      invoiceId:     invRef.id,
-      status:        'pending',
-      scheduledFor:  new Date(Date.now() + 24 * 60 * 60 * 1000), // 24hr later
-      createdAt:     admin.firestore.FieldValue.serverTimestamp(),
+      customerName: parsed.customer_name || 'there',
+      companyName: profile.companyName || 'your contractor',
+      reviewUrl: profile.reviewUrl,
+      invoiceId: invRef.id,
+      status: 'pending',
+      scheduledFor: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24hr later
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
   }
 
-  // ── Reply to technician ───────────────────────────────────────────────────
+  // ── Reply to technician ──────────────────────────────────────────────────────
   const preview = (parsed.professional_description || '').slice(0, 120);
   const replyLines = [
     'Relay AI dispatched your job.',
@@ -173,6 +182,16 @@ Questions? Reply to this message.`;
   ];
   if (canAutoForward(plan) && profile.autoForwardToCustomer && parsed.customer_phone) {
     replyLines.push('Doc sent to customer via SMS.');
+  }
+  if (invoiceData.type !== 'quote') {
+    if (syncResult.synced) {
+      const label = syncResult.provider === 'quickbooks' ? 'QuickBooks' : 'Zoho Books';
+      replyLines.push(`Synced to ${label} (#${syncResult.externalNumber || syncResult.externalId}).`);
+    } else if (syncResult.reason === 'not_connected') {
+      replyLines.push('Connect your accounting software at portal-relay.com to auto-sync invoices.');
+    } else {
+      replyLines.push('Saved, but accounting sync failed -- check portal-relay.com.');
+    }
   }
   return twiml(replyLines.join('\n'));
 };
