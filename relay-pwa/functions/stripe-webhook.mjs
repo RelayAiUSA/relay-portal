@@ -14,8 +14,7 @@
 // Required env vars (Netlify dashboard > Site > Environment variables):
 //   STRIPE_SECRET_KEY         (Stripe dashboard > API keys)
 //   STRIPE_WEBHOOK_SECRET     (Stripe dashboard > Webhooks > signing secret)
-//   STRIPE_PRICE_STARTER      (price_... ID for the $19/mo plan)
-//   STRIPE_PRICE_ESSENTIAL    (price_... ID for the $49/mo plan)
+//   STRIPE_PRICE_ESSENTIAL    (price_... ID for the $49/mo plan — entry tier)
 //   STRIPE_PRICE_PRO          (price_... ID for the $99/mo plan)
 //   FIREBASE_PROJECT_ID
 //   FIREBASE_CLIENT_EMAIL
@@ -54,9 +53,8 @@ function getDb() {
 function planFromPriceId(priceId) {
   if (priceId === process.env.STRIPE_PRICE_PRO)       return 'pro';
   if (priceId === process.env.STRIPE_PRICE_ESSENTIAL) return 'essential';
-  if (priceId === process.env.STRIPE_PRICE_STARTER)   return 'starter';
-  console.warn('[stripe-webhook] Unknown price ID:', priceId, '— defaulting to starter');
-  return 'starter';
+  console.warn('[stripe-webhook] Unknown price ID:', priceId, '— defaulting to essential');
+  return 'essential';
 }
 
 // Find Firestore user doc by Stripe customer ID, with email fallback
@@ -87,7 +85,7 @@ async function handleCheckoutCompleted(db, session) {
   if (snap.empty) { console.warn('[stripe-webhook] No Firestore user for email:', email); return; }
   const userDoc = snap.docs[0];
 
-  let plan = 'starter', status = 'active', trialEnd = null;
+  let plan = 'essential', status = 'active', trialEnd = null;
   if (subscriptionId) {
     try {
       const sub = await stripe.subscriptions.retrieve(subscriptionId);
@@ -126,10 +124,10 @@ async function handleSubscriptionDeleted(db, sub) {
   const userDoc = await findUserDoc(db, sub.customer);
   if (!userDoc) return;
   await userDoc.ref.update({
-    plan: 'starter', subscriptionStatus: 'canceled',
+    plan: 'unpaid', subscriptionStatus: 'canceled',
     stripeSubscriptionId: null, trialEnd: null, planUpdatedAt: new Date(),
   });
-  console.log('[stripe-webhook] Canceled — downgraded to starter:', userDoc.id);
+  console.log('[stripe-webhook] Canceled — downgraded to unpaid:', userDoc.id);
 }
 
 // invoice.payment_failed — flag account so app can show payment warning banner

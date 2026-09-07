@@ -44,7 +44,7 @@ const ADMIN_EMAIL = 'pryorpropertysolutions269@gmail.com';
 
 // ââ STRIPE PAYMENT LINKS ââââââââââââââââââââââââââââââââââââââââââââââââââ
 // Replace these with your real links from stripe.com/payment-links
-const STRIPE_STARTER   = 'https://buy.stripe.com/7sYaEZ51C4i8aW58HC6g801'; // $19/mo Starter
+// Starter plan removed — two tiers only: Essential ($49) and Pro ($99)
 const STRIPE_ESSENTIAL = 'https://buy.stripe.com/00w4gB79K9CsaW59LG6g802'; // $49/mo Essential+
 const STRIPE_PRO       = 'https://buy.stripe.com/6oU6oJdy82a0aW59LG6g800'; // $99/mo RelayPRO
 const STRIPE_BILLING   = 'https://billing.stripe.com/p/login/6oU6oJdy82a0aW59LG6g800';
@@ -58,7 +58,7 @@ const ZOHO_CLIENT_ID   = '1000.HPTPX3D50HAMNOOBYEV4LWZJ045Z7L';
 const OAUTH_REDIRECT   = 'https://portal-relay.com/oauth-callback.html';
 
 // Plan tier constants — must match stripe-webhook.mjs planFromPriceId()
-const PLAN_STARTER   = 'starter';   // $19/mo — portal access only
+// PLAN_STARTER removed — Essential ($49) is the entry paid tier
 const PLAN_ESSENTIAL = 'essential'; // $49/mo Essential+ — full SMS dispatch + accounting sync
 const PLAN_PRO       = 'pro';       // $99/mo RelayPRO — all Essential features + future advanced
 
@@ -208,7 +208,7 @@ async function loadUserData(uid) {
 
     S.profile = profSnap.exists ? profSnap.data() : {
       companyName: S.user.displayName || 'My Company',
-      plan: 'Starter',
+      plan: 'unpaid',
       platform: 'quickbooks',
       laborRate: 100,
       materialMarkup: 15,
@@ -234,7 +234,7 @@ async function loadUserData(uid) {
     S.docCountThisMonth = dcSnap.exists ? (dcSnap.data().count || 0) : 0;
   } catch(e) {
     console.error('loadUserData:', e);
-    if (!S.profile) S.profile = {companyName: 'My Company', plan: 'starter', platform: 'quickbooks'};
+    if (!S.profile) S.profile = {companyName: 'My Company', plan: 'unpaid', platform: 'quickbooks'};
     S.invoices  = S.invoices  || [];
     S.customers = S.customers || [];
     S.docCountThisMonth = S.docCountThisMonth || 0;
@@ -372,31 +372,19 @@ function sLocked(featureName) {
         <p style="font-size:14px;color:#6b7280">This feature requires an upgraded plan. Choose a plan below to get started.</p>
       </div>
       <div style="display:flex;flex-direction:column;gap:12px">
-        <div class="plan-card">
-          <div class="plan-name">Starter</div>
-          <div class="plan-price">$19<span>/mo</span></div>
-          <div class="plan-feat">
-            <div class="plan-feat-item">${I.check}Portal access &amp; manual doc creation</div>
-            <div class="plan-feat-item">${I.check}Up to 250 documents/month</div>
-            <div class="plan-feat-item">${I.check}QuickBooks &amp; Zoho Books sync</div>
-          </div>
-          <a href="${STRIPE_STARTER}" target="_blank" rel="noopener"
-             class="btn btn-outline" style="margin-top:12px;display:block;text-align:center">
-            Get Starter
-          </a>
-        </div>
         <div class="plan-card featured">
           <div style="margin-bottom:8px"><span class="badge paid">Most popular</span></div>
           <div class="plan-name">Essential</div>
           <div class="plan-price">$49<span>/mo</span></div>
           <div class="plan-feat">
-            <div class="plan-feat-item">${I.check}Everything in Starter</div>
-            <div class="plan-feat-item">${I.check}AI SMS Dispatch</div>
+            <div class="plan-feat-item">${I.check}AI SMS Dispatch — text a job, get an invoice</div>
             <div class="plan-feat-item">${I.check}Up to 250 documents/month</div>
+            <div class="plan-feat-item">${I.check}QuickBooks &amp; Zoho Books sync</div>
+            <div class="plan-feat-item">${I.check}14-day free trial</div>
           </div>
           <a href="${STRIPE_ESSENTIAL}" target="_blank" rel="noopener"
              class="btn btn-primary" style="margin-top:12px;display:block;text-align:center">
-            Get Essential
+            Start Free Trial
           </a>
         </div>
         <div class="plan-card">
@@ -421,24 +409,14 @@ function sPlans() {
   return topbar({title:'Choose Your Plan', back:'signup'}) +
     `<div class="scroll">
       <p style="font-size:13px;color:#6b7280;margin-bottom:14px">Billed directly via Stripe — no app store cut. Cancel anytime.</p>
-      <div class="plan-card">
-        <div class="plan-name">Starter</div>
-        <div class="plan-price">$19<span>/mo</span></div>
-        <div class="plan-feat">
-          <div class="plan-feat-item">${I.check}Job submissions &amp; customer portal</div>
-          <div class="plan-feat-item">${I.check}Invoice creation and tracking</div>
-          <div class="plan-feat-item">${I.check}Customer registry</div>
-          <div class="plan-feat-item">${I.check}Basic dispatch management</div>
-        </div>
-        <a href="${STRIPE_STARTER}" target="_blank" rel="noopener" class="btn btn-outline" style="margin-top:12px;display:block;text-align:center;text-decoration:none">Get Started</a>
-      </div>
       <div class="plan-card featured">
         <div style="margin-bottom:8px"><span class="badge paid">Most popular</span></div>
-        <div class="plan-name">Essential+</div>
+        <div class="plan-name">Essential</div>
         <div class="plan-price">$49<span>/mo</span></div>
         <div class="plan-feat">
-          <div class="plan-feat-item">${I.check}Everything in Starter</div>
-          <div class="plan-feat-item">${I.check}AI writes your invoices, estimates &amp; documents</div>
+          <div class="plan-feat-item">${I.check}AI SMS Dispatch — text a job, get an invoice</div>
+          <div class="plan-feat-item">${I.check}Invoice creation and tracking</div>
+          <div class="plan-feat-item">${I.check}Customer registry &amp; portal</div>
           <div class="plan-feat-item">${I.check}Connect QuickBooks or Zoho — no double entry ever</div>
           <div class="plan-feat-item">${I.check}14-day free trial included</div>
         </div>
@@ -460,7 +438,7 @@ function sPlans() {
 }
 function sDashboard() {
   const name    = S.profile?.companyName || 'My Company';
-  const plan    = S.profile?.plan        || 'Starter';
+  const plan    = S.profile?.plan        || 'Essential';
   const invs    = S.invoices || [];
   const recent  = invs.slice(0, 3);
   const _now = new Date();
@@ -792,7 +770,7 @@ function sAddCustomer() {
 
 function sProfile() {
   const p    = S.profile || {};
-  const plan = (p.plan || 'starter').toLowerCase();
+  const plan = (p.plan || 'unpaid').toLowerCase();
   const sub  = p.subscriptionStatus || 'unpaid';
   const isEssentialPlus = canAutoForward(plan);
   const canSMS = canSMSDispatch(plan);
@@ -807,7 +785,7 @@ function sProfile() {
   const planBadge = isAdmin
     ? `<span class="badge paid">Admin</span>`
     : sub === 'active' || sub === 'trialing'
-      ? `<span class="badge paid">${p.plan || 'Starter'} Plan · Active</span>`
+      ? `<span class="badge paid">${p.plan || 'Essential'} Plan · Active</span>`
       : `<span class="badge overdue">No active plan</span>`;
 
   const bizTypes = ['Plumbing','Electrical','HVAC / Mechanical','Roofing','General Contracting',
@@ -1171,7 +1149,7 @@ document.addEventListener('click', async e => {
     }    setBtn('sub-btn', true, 'Send To Relay Dispatch');
     try {
       const uid  = S.user.uid;
-      const plan = (S.profile?.plan || 'starter').toLowerCase();
+      const plan = (S.profile?.plan || 'unpaid').toLowerCase();
       try {
         await checkAndIncrementDocCount(uid, plan);
       } catch(limitErr) {
