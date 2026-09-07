@@ -10,6 +10,7 @@ import twilio from 'twilio';
 import Anthropic from '@anthropic-ai/sdk';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { withLambda } from '@netlify/aws-lambda-compat';
 import { syncInvoiceToAccounting } from './lib/accounting-sync.mjs';
 
 // ── Firebase Admin init ───────────────────────────────────────────────────────
@@ -61,14 +62,14 @@ function twiml(msg) {
   };
 }
 
-// ── Main handler ──────────────────────────────────────────────────────────────
+// ── Main handler (withLambda: event.body is a plain string) ───────────────────
 
-export default async function handler(req) {
-  if (req.method !== 'POST') {
+async function smsHandler(event) {
+  if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method not allowed' };
   }
 
-  const params    = new URLSearchParams(req.body || '');
+  const params    = new URLSearchParams(event.body || '');
   const fromPhone = params.get('From') || '';
   const body      = (params.get('Body') || '').trim();
 
@@ -180,10 +181,8 @@ If a field is unknown, use empty string or 0.`,
     }).catch(e => console.error('[twilio-sms] Auto-forward failed:', e));
   }
 
-  // ── Pro: queue review request for the scheduled review-request function ───
-  // review-request.mjs picks up documents in the invoices collection where
-  // reviewRequestSent == false — no separate collection needed.
-  // (reviewRequestSent is already false in invoiceData above)
+  // ── Pro: review request — flag on invoice doc; review-request.mjs picks it up
+  // reviewRequestSent is already false in invoiceData above — no extra write needed.
 
   // ── Reply to technician ───────────────────────────────────────────────────
   const description = parsed.professional_description || '';
@@ -211,3 +210,5 @@ If a field is unknown, use empty string or 0.`,
 
   return twiml(replyLines.join('\n'));
 }
+
+export const handler = withLambda(smsHandler);

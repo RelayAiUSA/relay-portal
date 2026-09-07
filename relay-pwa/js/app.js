@@ -67,8 +67,8 @@ function isAdminUser() { return S.user?.email === ADMIN_EMAIL; }
 function canSMSDispatch(plan) {
   return isAdminUser() || ['essential','pro'].includes((plan||'').toLowerCase());
 }
-function canAutoForward(plan) { return isAdminUser() || ['essential','pro'].includes((plan||'').toLowerCase()); }
-function canReviewRequest(plan) { return isAdminUser() || ['essential','pro'].includes((plan||'').toLowerCase()); }
+function canAutoForward(plan) { return isAdminUser() || (plan||'').toLowerCase() === 'pro'; }
+function canReviewRequest(plan) { return isAdminUser() || (plan||'').toLowerCase() === 'pro'; }
 function docLimit(plan) { return (isAdminUser() || ['essential','pro'].includes((plan||'').toLowerCase())) ? 500 : 250; }
 function getMonthKey() { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
 async function checkAndIncrementDocCount(uid, plan) {
@@ -215,11 +215,11 @@ async function loadUserData(uid) {
       paymentTerms: 'Due on receipt',
     };
 
-    // Admin always gets Essential+ regardless of Firestore plan field
+    // Admin always gets pro regardless of Firestore plan field
     if (S.user?.email === ADMIN_EMAIL) {
       S.profile = {
         ...S.profile,
-        plan: 'Essential+',
+        plan: 'pro',
         subscriptionStatus: 'active',
         autoForwardToCustomer: S.profile?.autoForwardToCustomer ?? false,
         reviewUrl: S.profile?.reviewUrl || '',
@@ -234,7 +234,7 @@ async function loadUserData(uid) {
     S.docCountThisMonth = dcSnap.exists ? (dcSnap.data().count || 0) : 0;
   } catch(e) {
     console.error('loadUserData:', e);
-    if (!S.profile) S.profile = {companyName: 'My Company', plan: 'Essential+', platform: 'quickbooks'};
+    if (!S.profile) S.profile = {companyName: 'My Company', plan: 'starter', platform: 'quickbooks'};
     S.invoices  = S.invoices  || [];
     S.customers = S.customers || [];
     S.docCountThisMonth = S.docCountThisMonth || 0;
@@ -388,7 +388,7 @@ function sLocked(featureName) {
         <div class="plan-card featured">
           <div style="margin-bottom:8px"><span class="badge paid">Most popular</span></div>
           <div class="plan-name">Essential</div>
-          <div class="plan-price">$59<span>/mo</span></div>
+          <div class="plan-price">$49<span>/mo</span></div>
           <div class="plan-feat">
             <div class="plan-feat-item">${I.check}Everything in Starter</div>
             <div class="plan-feat-item">${I.check}AI SMS Dispatch</div>
@@ -400,7 +400,7 @@ function sLocked(featureName) {
           </a>
         </div>
         <div class="plan-card">
-          <div class="plan-name">Essential+</div>
+          <div class="plan-name">Relay Pro</div>
           <div class="plan-price">$99<span>/mo</span></div>
           <div class="plan-feat">
             <div class="plan-feat-item">${I.check}Everything in Essential</div>
@@ -408,9 +408,9 @@ function sLocked(featureName) {
             <div class="plan-feat-item">${I.check}Auto-forward docs to customers</div>
             <div class="plan-feat-item">${I.check}Automated review request SMS</div>
           </div>
-          <a href="${STRIPE_ESSENTIAL}" target="_blank" rel="noopener"
+          <a href="${STRIPE_PRO}" target="_blank" rel="noopener"
              class="btn btn-outline" style="margin-top:12px;display:block;text-align:center">
-            Get Essential+
+            Get Pro
           </a>
         </div>
       </div>
@@ -980,7 +980,7 @@ function sProfile() {
       </div>` : ''}
 
       ${isEssentialPlus ? `
-      <p class="sh">Essential+ <span class="badge paid" style="font-size:11px;margin-left:4px">Essential+</span></p>
+      <p class="sh">Relay Pro <span class="badge paid" style="font-size:11px;margin-left:4px">Pro</span></p>
       <div class="form-group">
         <label class="form-lbl" for="pf-review-url">Google / Yelp review link</label>
         <input id="pf-review-url" type="url" class="input" value="${p.reviewUrl||''}" placeholder="https://g.page/your-business/review">
@@ -994,9 +994,9 @@ function sProfile() {
         </div>
       </label>` : (canSMS ? `
       <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:12px 14px;margin-bottom:14px">
-        <div style="font-size:13px;font-weight:600;color:#92400e;margin-bottom:4px">Essential+ features locked</div>
-        <div style="font-size:12px;color:#92400e">Upgrade to unlock auto-forward and review SMS.</div>
-        <a href="${STRIPE_ESSENTIAL}" target="_blank" rel="noopener" style="font-size:12px;color:#1a2f5e;font-weight:600;text-decoration:underline">Upgrade now →</a>
+        <div style="font-size:13px;font-weight:600;color:#92400e;margin-bottom:4px">Pro features locked</div>
+        <div style="font-size:12px;color:#92400e">Upgrade to Pro to unlock auto-forward and review SMS.</div>
+        <a href="${STRIPE_PRO}" target="_blank" rel="noopener" style="font-size:12px;color:#1a2f5e;font-weight:600;text-decoration:underline">Upgrade now →</a>
       </div>` : '')}
 
       <!-- ── Connect Invoicing Software ── -->
@@ -1014,6 +1014,13 @@ function sProfile() {
 }
 
 
+function sAdmin() {
+  return topbar({title:'Admin', back:'dashboard'}) +
+    `<div class="scroll">
+      <p style="font-size:13px;color:#6b7280;margin-bottom:14px">Admin panel — coming soon.</p>
+    </div>`;
+}
+
 const SCREENS = {
   loading:   sLoading,
   login:     sLogin,
@@ -1027,6 +1034,7 @@ const SCREENS = {
   customers: sCustomers,
   addCustomer: sAddCustomer,
   profile:   sProfile,
+  admin:     sAdmin,
 };
 function render() {
   const fn = SCREENS[S.screen] || sLoading;
@@ -1118,20 +1126,13 @@ document.addEventListener('click', async e => {
       await db.collection('users').doc(cred.user.uid).set({
         companyName:        co,
         platform:           plat,
-        plan:               'Essential+',
+        plan:               'starter',
         subscriptionStatus: 'unpaid',
         phone:              phone,
         smsConsent:         smsConsent,
         createdAt:          firebase.firestore.FieldValue.serverTimestamp(),
       });
-      // Send welcome SMS if user opted in
-      if (smsConsent && phone) {
-        fetch('/.netlify/functions/send-welcome-sms', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone, name: co, companyName: co }),
-        }).catch(e => console.warn('Welcome SMS failed:', e));
-      }
+      // send-welcome-sms function not yet deployed — skip for now
     } catch(err) {
       showErr('sg-err', friendlyAuthError(err.code));
       setBtn('sg-btn', false, 'Create My Relay Account');
@@ -1411,20 +1412,7 @@ async function handleTemplateUpload(input) {
     return;
   }
 
-  status.textContent = "Uploading…";
+  // Template upload via Firebase Storage — coming soon
+  status.textContent = "Template upload coming soon.";
   status.style.color = "#718096";
-
-  try {
-    const uid  = firebase.auth().currentUser?.uid;
-    if (!uid) throw new Error("Not signed in");
-    const ref  = firebase.storage().ref(`users/${uid}/template/${file.name}`);
-    await ref.put(file);
-    const url  = await ref.getDownloadURL();
-    await db.collection("users").doc(uid).update({ templateFile: url, templateFileName: file.name });
-    status.textContent = "✓ Template saved: " + file.name;
-    status.style.color = "#38a169";
-  } catch (err) {
-    status.textContent = "Upload failed: " + err.message;
-    status.style.color = "#e53e3e";
-  }
 }

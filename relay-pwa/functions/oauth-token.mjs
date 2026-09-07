@@ -11,6 +11,7 @@
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore }                   from 'firebase-admin/firestore';
 import { getAuth }                        from 'firebase-admin/auth';
+import { withLambda }                     from '@netlify/aws-lambda-compat';
 import { encrypt }                        from './lib/token-helpers.mjs';
 
 // ── Firebase Admin init ───────────────────────────────────────────────────────
@@ -35,18 +36,18 @@ const HEADERS = {
   'Content-Type':                 'application/json',
 };
 
-// ── Main handler ──────────────────────────────────────────────────────────────
+// ── Main handler (withLambda: event.body is a plain string, event.headers is a plain object) ──
 
-export default async function handler(req) {
-  if (req.method === 'OPTIONS') {
+async function oauthTokenHandler(event) {
+  if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers: HEADERS, body: '' };
   }
-  if (req.method !== 'POST') {
+  if (event.httpMethod !== 'POST') {
     return { statusCode: 405, headers: HEADERS, body: JSON.stringify({ error: 'Method not allowed' }) };
   }
 
   // ── Verify Firebase ID token ──────────────────────────────────────────────
-  const authHeader = req.headers?.authorization || req.headers?.Authorization || '';
+  const authHeader = event.headers?.authorization || event.headers?.Authorization || '';
   const idToken    = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
   if (!idToken) {
     return { statusCode: 401, headers: HEADERS, body: JSON.stringify({ error: 'Missing Authorization header' }) };
@@ -64,7 +65,7 @@ export default async function handler(req) {
   // ── Parse body ────────────────────────────────────────────────────────────
   let body;
   try {
-    body = JSON.parse(req.body);
+    body = JSON.parse(event.body || '{}');
   } catch {
     return { statusCode: 400, headers: HEADERS, body: JSON.stringify({ error: 'Invalid JSON' }) };
   }
@@ -202,3 +203,5 @@ export default async function handler(req) {
     };
   }
 }
+
+export const handler = withLambda(oauthTokenHandler);

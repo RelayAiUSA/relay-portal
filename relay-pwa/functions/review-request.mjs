@@ -8,7 +8,7 @@
 // Required env vars (Netlify dashboard > Site > Environment variables):
 //   TWILIO_ACCOUNT_SID
 //   TWILIO_AUTH_TOKEN
-//   TWILIO_FROM_NUMBER
+//   TWILIO_PHONE_NUMBER
 //   FIREBASE_PROJECT_ID
 //   FIREBASE_CLIENT_EMAIL
 //   FIREBASE_PRIVATE_KEY      (full private key string)
@@ -43,7 +43,7 @@ function getDb() {
 async function sendSms(to, body) {
   const sid   = process.env.TWILIO_ACCOUNT_SID;
   const token = process.env.TWILIO_AUTH_TOKEN;
-  const from  = process.env.TWILIO_FROM_NUMBER;
+  const from  = process.env.TWILIO_PHONE_NUMBER;
   if (!sid || !token || !from) throw new Error('Twilio env vars not configured');
   const res = await fetch(
     `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`,
