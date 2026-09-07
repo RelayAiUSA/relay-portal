@@ -44,10 +44,10 @@ const ADMIN_EMAIL = 'pryorpropertysolutions269@gmail.com';
 
 // ââ STRIPE PAYMENT LINKS ââââââââââââââââââââââââââââââââââââââââââââââââââ
 // Replace these with your real links from stripe.com/payment-links
-const STRIPE_STARTER        = 'https://buy.stripe.com/7sYaEZ51C4i8aW58HC6g801';
-const STRIPE_ESSENTIAL      = 'https://buy.stripe.com/00w4gB79K9CsaW59LG6g802';
-const STRIPE_ESSENTIAL_PLUS = 'https://buy.stripe.com/6oU6oJdy82a0aW59LG6g800';
-const STRIPE_BILLING        = 'https://billing.stripe.com/p/login/6oU6oJdy82a0aW59LG6g800';
+const STRIPE_STARTER   = 'https://buy.stripe.com/7sYaEZ51C4i8aW58HC6g801'; // $19/mo Starter
+const STRIPE_ESSENTIAL = 'https://buy.stripe.com/00w4gB79K9CsaW59LG6g802'; // $49/mo Essential+
+const STRIPE_PRO       = 'https://buy.stripe.com/6oU6oJdy82a0aW59LG6g800'; // $99/mo RelayPRO
+const STRIPE_BILLING   = 'https://billing.stripe.com/p/login/6oU6oJdy82a0aW59LG6g800';
 
 // ── ACCOUNTING INTEGRATION OAUTH ─────────────────────────────────────────────
 // Register at developer.intuit.com (QuickBooks) and
@@ -57,19 +57,19 @@ const INTUIT_CLIENT_ID = 'AB1iFjPkATxEZB6AjRd4i8SEdSW9GMCH7FCPzYHb2jOzLRyOxr';
 const ZOHO_CLIENT_ID   = '1000.HPTPX3D50HAMNOOBYEV4LWZJ045Z7L';
 const OAUTH_REDIRECT   = 'https://portal-relay.com/oauth-callback.html';
 
-// Plan tier constants
-const PLAN_STARTER       = 'starter';
-const PLAN_ESSENTIAL     = 'essential';
-const PLAN_ESSENTIAL_PLUS = 'essential_plus';
+// Plan tier constants — must match stripe-webhook.mjs planFromPriceId()
+const PLAN_STARTER   = 'starter';   // $19/mo — portal access only
+const PLAN_ESSENTIAL = 'essential'; // $49/mo Essential+ — full SMS dispatch + accounting sync
+const PLAN_PRO       = 'pro';       // $99/mo RelayPRO — all Essential features + future advanced
 
-// Feature gate helpers — checked server-side in twilio-sms.js AND client-side in portal
+// Feature gate helpers — checked server-side in twilio-sms.mjs AND client-side in portal
 function isAdminUser() { return S.user?.email === ADMIN_EMAIL; }
 function canSMSDispatch(plan) {
-  return isAdminUser() || ['essential','essential+','essential_plus'].includes((plan||'').toLowerCase());
+  return isAdminUser() || ['essential','pro'].includes((plan||'').toLowerCase());
 }
-function canAutoForward(plan) { return isAdminUser() || ['essential+','essential_plus'].includes((plan||'').toLowerCase()); }
-function canReviewRequest(plan) { return isAdminUser() || ['essential+','essential_plus'].includes((plan||'').toLowerCase()); }
-function docLimit(plan) { return (isAdminUser() || ['essential+','essential_plus'].includes((plan||'').toLowerCase())) ? 500 : 250; }
+function canAutoForward(plan) { return isAdminUser() || ['essential','pro'].includes((plan||'').toLowerCase()); }
+function canReviewRequest(plan) { return isAdminUser() || ['essential','pro'].includes((plan||'').toLowerCase()); }
+function docLimit(plan) { return (isAdminUser() || ['essential','pro'].includes((plan||'').toLowerCase())) ? 500 : 250; }
 function getMonthKey() { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
 async function checkAndIncrementDocCount(uid, plan) {
   if (isAdminUser()) return; // admin unlimited
@@ -408,7 +408,7 @@ function sLocked(featureName) {
             <div class="plan-feat-item">${I.check}Auto-forward docs to customers</div>
             <div class="plan-feat-item">${I.check}Automated review request SMS</div>
           </div>
-          <a href="${STRIPE_ESSENTIAL_PLUS}" target="_blank" rel="noopener"
+          <a href="${STRIPE_ESSENTIAL}" target="_blank" rel="noopener"
              class="btn btn-outline" style="margin-top:12px;display:block;text-align:center">
             Get Essential+
           </a>
@@ -996,7 +996,7 @@ function sProfile() {
       <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:12px 14px;margin-bottom:14px">
         <div style="font-size:13px;font-weight:600;color:#92400e;margin-bottom:4px">Essential+ features locked</div>
         <div style="font-size:12px;color:#92400e">Upgrade to unlock auto-forward and review SMS.</div>
-        <a href="${STRIPE_ESSENTIAL_PLUS}" target="_blank" rel="noopener" style="font-size:12px;color:#1a2f5e;font-weight:600;text-decoration:underline">Upgrade now →</a>
+        <a href="${STRIPE_ESSENTIAL}" target="_blank" rel="noopener" style="font-size:12px;color:#1a2f5e;font-weight:600;text-decoration:underline">Upgrade now →</a>
       </div>` : '')}
 
       <!-- ── Connect Invoicing Software ── -->
