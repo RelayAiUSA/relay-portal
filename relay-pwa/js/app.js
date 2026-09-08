@@ -539,14 +539,6 @@ function sDashboard() {
   const plan    = S.profile?.plan        || 'Essential';
   const invs    = S.invoices || [];
   const recent  = invs.slice(0, 3);
-  const _now = new Date();
-  const _monthInvs = invs.filter(inv => {
-    const d = inv.createdAt?.toDate ? inv.createdAt.toDate() : (inv.createdAt ? new Date(inv.createdAt) : null);
-    return d && d.getMonth() === _now.getMonth() && d.getFullYear() === _now.getFullYear();
-  });
-  const _paidThisMonth = _monthInvs.filter(inv => inv.status === 'paid');
-  const _revenueThisMonth = _paidThisMonth.reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0);
-  const _completedThisMonth = _paidThisMonth.length;
   const isAdmin = S.user?.email === ADMIN_EMAIL;
   const subStatus = S.profile?.subscriptionStatus || 'unpaid';
 
@@ -643,18 +635,7 @@ function sDashboard() {
         <text x="28" y="276" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="10" fill="rgba(255,255,255,0.42)">*Missing details may result in an incomplete or failed document.</text>
       </svg>
     </div>
-        <p class="sh" style="margin-top:20px">This Month</p>
-    <div class="stats-grid">
-      <div class="stat-card good">
-        <div class="stat-lbl">Revenue collected</div>
-        <div class="stat-val g">${fmt(_revenueThisMonth)}</div>
-      </div>
-      <div class="stat-card good">
-        <div class="stat-lbl">Jobs completed</div>
-        <div class="stat-val g">${_completedThisMonth}</div>
-      </div>
-    </div>
-    <p class="sh">Recent Activity</p>
+    <p class="sh" style="margin-top:20px">Recent Activity</p>
     <div class="card">
       ${recent.length
         ? recent.map(inv => {
