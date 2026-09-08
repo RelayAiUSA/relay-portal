@@ -165,6 +165,20 @@ carrier's verdict with the error code. Never report a send as a delivery.
 webhook endpoints but cannot write any of them. Do not plan work that depends
 on writing to Stripe; ask the user.
 
+**The brand name must be identical in three places.** A toll-free verification
+reviewer compares the brand in your SMS message sample against the brand on the
+opt-in page against the legal entity on the form. The SMS said "Relay AI" - a
+retired name appearing nowhere else in the product - while the site said "Relay"
+and the entity is Pryor Digital Ventures LLC. Three names is a standard
+rejection. Current state: legal entity **Pryor Digital Ventures LLC**, brand
+**Relay**, assumed name **"Relay Dispatch" filed with Michigan LARA and
+processing** (the DBA "Relay" was DENIED - an entity with that name already
+exists in Michigan). When the DBA clears, rename in the product copy only -
+footer, page titles, landing hero, legal pages, signup consent and the SMS
+strings in twilio-sms.mjs. Do NOT rename env vars, function names, Firestore
+collections or CSS classes: pure regression risk, zero benefit. The domain
+portal-relay.com stays either way.
+
 ## Verify before claiming
 
 Four wrong diagnoses in one session all came from inferring configuration from a

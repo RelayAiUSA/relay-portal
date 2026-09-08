@@ -330,7 +330,7 @@ If a field is unknown, use empty string or 0.`,
   } catch (err) {
     console.error('[twilio-sms] AI parse error:', err);
     await alertError('twilio-sms:ai-parse', err, `from=${fromPhone}`);
-    return twimlResponse('Relay AI could not process your message. Please try again with more detail.');
+    return twimlResponse('Relay could not process your message. Please try again with more detail.');
   }
 
   // ── Sanity-check the model's output before it becomes a real document ────
@@ -469,7 +469,7 @@ If a field is unknown, use empty string or 0.`,
   const description = job.professional_description || '';
   const preview     = description.length > 120 ? description.slice(0, 120) + '...' : description;
   const replyLines  = [
-    'Relay AI dispatched your job.',
+    'Relay dispatched your job.',
     `Type: ${invoiceData.type} | Amount: $${job.amount || 'TBD'}`,
     `"${preview}"`,
   ];
