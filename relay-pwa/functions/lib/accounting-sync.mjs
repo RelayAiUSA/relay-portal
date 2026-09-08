@@ -195,7 +195,31 @@ async function createQuickBooksInvoice(db, uid, invoiceData) {
  * Never throws — errors are caught and written to the invoice doc.
  */
 export async function syncInvoiceToAccounting(db, uid, invoiceId, invoiceData, profile) {
-  const provider = profile?.accountingProvider || profile?.platform;
+  let provider = profile?.accountingProvider || profile?.platform;
+
+  // A contractor who connected their accounting software but never re-saved the
+  // profile form could end up with no provider recorded at all, and every
+  // invoice was then silently skipped while the portal showed a healthy
+  // connection. If nothing is recorded, believe the tokens: whichever platform
+  // actually has credentials on file is the one they connected.
+  //
+  // An explicit 'none' is a real choice and is still honoured.
+  if (!provider) {
+    for (const candidate of ['zoho', 'quickbooks']) {
+      const snap = await db.collection('users').doc(uid)
+        .collection('oauth_tokens').doc(candidate).get();
+      if (snap.exists) {
+        provider = candidate;
+        console.log(`[accounting-sync] uid=${uid} had no provider recorded; using connected ${candidate}`);
+        // Repair the profile so the portal and the next sync agree.
+        try {
+          await db.collection('users').doc(uid).update({ accountingProvider: candidate });
+        } catch (_) { /* the sync matters more than the repair */ }
+        break;
+      }
+    }
+  }
+
   if (!provider || provider === 'none') {
     console.log(`[accounting-sync] uid=${uid} has no accounting provider — skipping sync`);
     return { synced: false, reason: 'no_provider' };

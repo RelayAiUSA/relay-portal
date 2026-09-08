@@ -115,6 +115,21 @@ credential's value, list the site's env vars and confirm the key is present -
 and curl the provider directly with the pair to see whether the provider
 accepts it.
 
+**Every page that touches Firestore needs the SAME firebaseConfig.** `doc.html`
+shipped with a placeholder project (`relay-portal-7f8c2`) while `js/app.js` and
+`oauth-callback.html` used the real one (`relay-portal-68417`). The page looked
+fine, the rules were right, the document existed - and every single share link
+and every View / Print PDF click failed with "Could not load document", because
+the read went to a project that does not exist. When a Firestore read fails
+from one page but works from another, diff the configs before touching rules.
+
+**A default of `platform: 'quickbooks'` is not a safe default.** New profiles
+were created pointing at QuickBooks, so accounting-sync pushed invoices at an
+account that was never connected. The default is now `'none'`, the profile form
+writes `accountingProvider` alongside `platform` so the two cannot disagree, and
+accounting-sync falls back to whichever platform actually has tokens on file
+when no provider is recorded. An explicit `'none'` is still honoured.
+
 **The Stripe connector is read-only.** It can read prices, subscriptions and
 webhook endpoints but cannot write any of them. Do not plan work that depends
 on writing to Stripe; ask the user.

@@ -267,7 +267,7 @@ async function loadUserData(uid) {
     S.profile = profSnap.exists ? profSnap.data() : {
       companyName: S.user.displayName || 'My Company',
       plan: 'unpaid',
-      platform: 'quickbooks',
+      platform: 'none',
       laborRate: 100,
       materialMarkup: 15,
       paymentTerms: 'Due on receipt',
@@ -309,7 +309,7 @@ async function loadUserData(uid) {
     }
   } catch(e) {
     console.error('loadUserData:', e);
-    if (!S.profile) S.profile = {companyName: 'My Company', plan: 'unpaid', platform: 'quickbooks'};
+    if (!S.profile) S.profile = {companyName: 'My Company', plan: 'unpaid', platform: 'none'};
     S.invoices  = S.invoices  || [];
     S.customers = S.customers || [];
     S.docCountThisMonth = S.docCountThisMonth || 0;
@@ -1564,7 +1564,7 @@ document.addEventListener('click', async e => {
         warranty,
         deposit,
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        platform:  S.profile?.platform || 'quickbooks',
+        platform:  S.profile?.accountingProvider || S.profile?.platform || 'none',
         sentAt:              new Date(),
         reviewRequestSent:   false,
       });
@@ -1887,7 +1887,8 @@ document.addEventListener('click', async e => {
       }
       const updates = {
         phoneNumber: phoneE164, phoneDigits: phoneDigits(phoneE164), phone: phoneRaw,
-        companyName: co, platform: plat, businessType: bizType, businessTypeOther: bizTypeOther,
+        companyName: co, platform: plat, accountingProvider: plat,
+        businessType: bizType, businessTypeOther: bizTypeOther,
         licenseNumber: license, minCallFee: callFee, taxRate: taxRate,
         paymentTerms: terms, estimateValidity: validity, invoicePrefix: invPrefix,
         invoiceFooter: footer, paymentMethods: payMethods, paymentMethodOther: payMethodOther,

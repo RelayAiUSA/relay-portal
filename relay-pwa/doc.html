@@ -122,13 +122,18 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script>
 // ── Firebase config (same as portal) ──────────────────────────────────────
+// This MUST stay identical to the config in js/app.js. It previously pointed at
+// a placeholder project (relay-portal-7f8c2) that does not exist, so every
+// share link threw on the very first Firestore read and every customer who
+// opened /doc/<id> - and every contractor who clicked View / Print PDF - saw
+// "Could not load document" no matter what was actually stored.
 const firebaseConfig = {
-  apiKey:            "AIzaSyBiJkZGFMGOr_FvAjwT_e0lD1-jEkjv1as",
-  authDomain:        "relay-portal-7f8c2.firebaseapp.com",
-  projectId:         "relay-portal-7f8c2",
-  storageBucket:     "relay-portal-7f8c2.appspot.com",
-  messagingSenderId: "549083726419",
-  appId:             "1:549083726419:web:2c4f8e3d1a5b9f0e4c7d6a"
+  apiKey:            "AIzaSyAG6yO3waIb6MvdQPZDIGWu_hC8yo5Tfw8",
+  authDomain:        "relay-portal-68417.firebaseapp.com",
+  projectId:         "relay-portal-68417",
+  storageBucket:     "relay-portal-68417.firebasestorage.app",
+  messagingSenderId: "171869808653",
+  appId:             "1:171869808653:web:312170791ff12180e30d44"
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
