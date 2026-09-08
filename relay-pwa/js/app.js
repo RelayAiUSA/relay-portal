@@ -250,6 +250,30 @@ function fmtDate(ts) {
   return d.toLocaleDateString('en-US', {month:'short', day:'numeric'});
 }
 
+// Plan names arrive from Firestore in whatever case was written - Stripe's
+// webhook stores 'pro', older records hold 'Starter' - so interpolating the raw
+// value produced "pro Plan · Active" in the top bar. Never print a stored plan
+// value directly; print its label.
+const PLAN_LABELS = { pro: 'Pro', essential: 'Essential', starter: 'Starter' };
+function planLabel(plan) {
+  const p = (plan || '').toLowerCase();
+  return PLAN_LABELS[p] || (p ? p.charAt(0).toUpperCase() + p.slice(1) : 'Essential');
+}
+
+// The top bar said "· Active" unconditionally, so a contractor on a free trial
+// or with a failed payment was told their plan was active when it was not.
+const SUB_LABELS = {
+  active:   'Active',
+  trialing: 'Free Trial',
+  past_due: 'Payment Due',
+  canceled: 'Canceled',
+  unpaid:   'Inactive',
+};
+function subLabel(status) {
+  const t = (status || '').toLowerCase();
+  return SUB_LABELS[t] || (t ? t.charAt(0).toUpperCase() + t.slice(1).replace(/_/g, ' ') : 'Inactive');
+}
+
 function badge(status) {
   // 'needs_review' is set by the SMS parse guard when the model's output looked
   // implausible. It reuses the overdue styling because it needs the same
@@ -279,7 +303,7 @@ function friendlyAuthError(code) {
     'auth/weak-password':        'Password must be at least 6 characters.',
     'auth/invalid-email':        'Please enter a valid email address.',
     'auth/too-many-requests':    'Too many attempts. Please try again later.',
-    'auth/popup-closed-by-user': 'Google sign-in was cancelled.',
+    'auth/popup-closed-by-user': 'Google sign-in was canceled.',
     'auth/network-request-failed': 'Network error — check your connection.',
   };
   return map[code] || 'Something went wrong. Please try again.';
@@ -647,7 +671,7 @@ function sDashboard() {
       <span data-nav="profile" class="past-due-banner-btn" style="cursor:pointer">Add it \u2192</span>
     </div>` : '';
 
-  return topbar({title: name, sub: `${plan} Plan · Active`, right:
+  return topbar({title: name, sub: `${planLabel(plan)} Plan · ${subLabel(subStatus)}`, right:
     isAdmin ? `<button class="topbar-btn" data-action="goAdmin" title="Admin" aria-label="Admin">${I.shield}</button>` : ''
   }) +
   `<div class="scroll">${noPhoneBanner}${trialBanner}${pastDueBanner}
@@ -1254,7 +1278,7 @@ function sProfile() {
   const planBadge = isAdmin
     ? `<span class="badge paid">Admin</span>`
     : sub === 'active' || sub === 'trialing'
-      ? `<span class="badge paid">${p.plan || 'Essential'} Plan · Active</span>`
+      ? `<span class="badge paid">${planLabel(p.plan)} Plan · ${subLabel(sub)}</span>`
       : `<span class="badge overdue">No active plan</span>`;
 
   const bizTypes = ['Plumbing','Electrical','HVAC / Mechanical','Roofing','General Contracting',
