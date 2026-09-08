@@ -109,11 +109,35 @@ async function createZohoInvoice(db, uid, invoiceData) {
   const amount      = parseFloat(invoiceData.amount) || 0;
   const description = invoiceData.professional_description || invoiceData.job_type || 'Service';
 
+  // Zoho's line-item `name` is the short item label, and it rejects anything
+  // long: HTTP 400 code 15, 'Please ensure that the "Item" has less than 200
+  // characters.' The AI writes a full paragraph of work performed, so putting
+  // that paragraph in `name` failed every real invoice while passing on short
+  // test data. The paragraph belongs in `description`, which is the long field.
+  //
+  // The label prefers the job type ("Plumbing", "Drywall") and otherwise takes
+  // the opening clause of the description, cut on a word boundary so it never
+  // ends mid-word.
+  const ZOHO_ITEM_NAME_MAX = 100;   // well inside Zoho's limit
+  const ZOHO_ITEM_DESC_MAX = 2000;
+
+  function shortLabel(text) {
+    const clean = String(text).replace(/\s+/g, ' ').trim();
+    if (clean.length <= ZOHO_ITEM_NAME_MAX) return clean;
+    const cut = clean.slice(0, ZOHO_ITEM_NAME_MAX);
+    const lastSpace = cut.lastIndexOf(' ');
+    return (lastSpace > 40 ? cut.slice(0, lastSpace) : cut).trim() + '…';
+  }
+
+  const itemName = shortLabel(invoiceData.job_type || description || 'Service');
+  const itemDesc = `${description}${invoiceData.address ? ' at ' + invoiceData.address : ''}`
+    .slice(0, ZOHO_ITEM_DESC_MAX);
+
   const invoiceBody = {
     customer_id: contactId,
     line_items: [{
-      name:        description,
-      description: `${description}${invoiceData.address ? ' at ' + invoiceData.address : ''}`,
+      name:        itemName,
+      description: itemDesc,
       quantity:    1,
       rate:        amount,
     }],
@@ -181,7 +205,9 @@ async function createQuickBooksInvoice(db, uid, invoiceData) {
   const headers    = { Authorization: `Bearer ${accessToken}`, Accept: 'application/json', 'Content-Type': 'application/json' };
   const customerId = await findOrCreateQBCustomer(accessToken, realmId, invoiceData);
   const amount     = parseFloat(invoiceData.amount) || 0;
-  const description = invoiceData.professional_description || invoiceData.job_type || 'Service';
+  // QuickBooks caps a line Description at 4000 characters and rejects the whole
+  // invoice past it - the same class of failure Zoho hit at 200.
+  const description = (invoiceData.professional_description || invoiceData.job_type || 'Service').slice(0, 3900);
 
   // Use a generic Service item (fallback to inline detail if item not found)
   let lineItem = {
