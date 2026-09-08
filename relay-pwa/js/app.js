@@ -674,10 +674,51 @@ function sInvoices() {
   ${tabs('invoices')}`;
 }
 
+// A customer needs a consent answer if one was never recorded at all.
+// Someone who was deliberately marked "Not yet" has been answered for and is
+// not swept up by the bulk attestation.
+function needsConsentAnswer(cx) {
+  return !cx.smsConsent && !cx.smsConsentMethod;
+}
+
 function sCustomers() {
-  const cxs = S.customers || [];
+  const cxs     = S.customers || [];
+  const pending = cxs.filter(needsConsentAnswer);
+
+  const bulkBanner = pending.length ? `
+    <div class="card" style="padding:14px;margin-bottom:12px;border-left:3px solid #f59e0b">
+      <div style="font-weight:600;font-size:14px;margin-bottom:6px">
+        ${pending.length} customer${pending.length === 1 ? '' : 's'} can't be texted yet
+      </div>
+      <div style="font-size:12px;color:#6b7280;line-height:1.55;margin-bottom:10px">
+        These were added or imported without a text message permission answer, so
+        Relay will not text them. If they are past or existing customers you have
+        done work for, you can confirm permission for all of them at once.
+      </div>
+      <label class="check-row-lbl" for="bulk-consent-ack" style="align-items:flex-start">
+        <input type="checkbox" id="bulk-consent-ack">
+        <span style="font-size:12px;line-height:1.55">
+          I confirm each of these is a past or existing customer of my business who
+          gave me their phone number in the course of that work, and agreed to
+          receive text messages from <strong>my company</strong> about work I have
+          performed for them. I am the sender of record and I keep my own records
+          of that permission.
+        </span>
+      </label>
+      <div id="bulk-consent-err" class="auth-error" style="display:none;margin:8px 0"></div>
+      <button id="bulk-consent-btn" class="btn btn-outline" style="margin-top:10px"
+              data-action="bulkConsent">
+        Confirm permission for ${pending.length} customer${pending.length === 1 ? '' : 's'}
+      </button>
+      <div style="font-size:11px;color:#9ca3af;margin-top:8px;line-height:1.5">
+        Applies only to the ${pending.length} without an answer. Anyone you marked
+        "Not yet" stays blocked. You can change any customer individually later.
+      </div>
+    </div>` : '';
+
   return topbar({title:'Customers', sub:`${cxs.length} total`, right:`<button class="topbar-btn">${I.bell}</button>`}) +
   `<div class="scroll" style="padding:12px 16px">
+    ${bulkBanner}
     <button class="add-customer-cta" data-nav="addCustomer">
       <span class="add-customer-icon">+</span>
       <span class="add-customer-text">
@@ -695,6 +736,9 @@ function sCustomers() {
               <div class="inv-info">
                 <div class="inv-name">${cx.name || 'Unknown'}</div>
                 <div class="inv-meta">${cx.phone || ''}${cx.email ? ' Â· ' + cx.email : ''}</div>
+                <div class="inv-meta" style="margin-top:2px;font-size:11px;color:${cx.smsConsent ? '#059669' : '#9ca3af'}">
+                  ${cx.smsConsent ? 'Texting allowed' : 'Texting blocked \u2014 no permission on file'}
+                </div>
               </div>
             </div>`;
           }).join('')
@@ -1253,6 +1297,60 @@ document.addEventListener('click', async e => {
   }
 
   // ── SAVE CUSTOMER ──
+  // ── BULK CONSENT ATTESTATION ──
+  // One affirmative act covering every customer with no consent answer on file.
+  // Recorded distinctly from per-customer consent (method 'bulk_prior_relationship')
+  // so the two are never confused in an audit, and the exact wording the user
+  // agreed to is stored alongside it.
+  if (action === 'bulkConsent') {
+    const uid = S.user?.uid;
+    if (!uid) return;
+
+    if (!$('bulk-consent-ack')?.checked) {
+      showErr('bulk-consent-err', 'Please tick the confirmation box first.');
+      return;
+    }
+    const pending = (S.customers || []).filter(needsConsentAnswer);
+    if (!pending.length) { nav('customers'); return; }
+
+    showErr('bulk-consent-err', '');
+    setBtn('bulk-consent-btn', true, 'Confirming...');
+
+    const ATTESTATION = 'Past or existing customer of my business who gave me their '
+      + 'phone number in the course of that work, and agreed to receive text messages '
+      + 'from my company about work I have performed for them.';
+    const batchId = 'bulk-' + Date.now();
+
+    try {
+      // Firestore caps a write batch at 500 operations.
+      for (let i = 0; i < pending.length; i += 400) {
+        const batch = db.batch();
+        for (const cx of pending.slice(i, i + 400)) {
+          batch.update(
+            db.collection('users').doc(uid).collection('customers').doc(cx.docId),
+            {
+              smsConsent:          true,
+              smsConsentMethod:    'bulk_prior_relationship',
+              smsConsentScope:     'transactional',
+              smsConsentText:      ATTESTATION,
+              smsConsentBatchId:   batchId,
+              smsConsentAt:        firebase.firestore.FieldValue.serverTimestamp(),
+              smsConsentBy:        S.user?.email || '',
+            }
+          );
+        }
+        await batch.commit();
+      }
+      await loadUserData(uid);
+      nav('customers');
+    } catch (err) {
+      console.error('bulkConsent:', err);
+      showErr('bulk-consent-err', 'Could not update all customers — please try again.');
+      setBtn('bulk-consent-btn', false, 'Confirm permission for ' + pending.length + ' customers');
+    }
+    return;
+  }
+
   if (action === 'saveCustomer') {
     const uid = S.user?.uid;
     if (!uid) return;
