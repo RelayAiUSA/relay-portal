@@ -762,13 +762,43 @@ function sAddCustomer() {
   const platform = S.profile?.platform === 'zoho' ? 'Zoho' : 'QuickBooks';
   return topbar({title: 'Add New Customer', back: 'customers'}) +
   `<div class="scroll">
-    <p class="sh" style="margin-top:2px">Contact Info</p>
+
+    <!-- ── Required. Everything needed to save is above the fold. ── -->
+    <p class="sh" style="margin-top:2px">Required</p>
     <div class="form-group"><label class="form-lbl" for="cx-name">Customer name <span class="req">*</span></label><input id="cx-name" type="text" class="input" placeholder="e.g. Jeff Smith" autocomplete="off"></div>
     <div class="form-group"><label class="form-lbl" for="cx-phone">Phone <span class="req">*</span></label><input id="cx-phone" type="tel" class="input" placeholder="(616) 248-1977"></div>
-    <div class="form-group"><label class="form-lbl" for="cx-email">Email</label><input id="cx-email" type="email" class="input" placeholder="Optional for document delivery"></div>
-
-    <p class="sh">Service Address</p>
     <div class="form-group"><label class="form-lbl" for="cx-addr">Primary service address <span class="req">*</span></label><input id="cx-addr" type="text" class="input" placeholder="412 Oak St, Grand Rapids MI" autocomplete="off"></div>
+
+    <div class="form-group">
+      <label class="form-lbl" for="cx-consent-how">Text message permission <span class="req">*</span></label>
+      <select id="cx-consent-how" class="input">
+        <option value="">Select one &mdash; required</option>
+        <option value="verbal">Verbally &mdash; in person or by phone</option>
+        <option value="inbound">They texted or called me first</option>
+        <option value="written">In writing &mdash; signed form, email, or online</option>
+        <option value="other">Other</option>
+        <option value="none">Not yet &mdash; do not text this customer</option>
+      </select>
+      <span style="font-size:12px;color:#6b7280;line-height:1.5;display:block;margin-top:6px;">
+        Relay will not text this customer unless one of the first four is selected.
+        Pick the one that is actually true &mdash; you are the sender of record, and
+        this is the record that protects you. Answering here covers both job
+        documents and review request texts. Customers can reply STOP at any time.
+      </span>
+    </div>
+
+    <div id="cx-err" class="auth-error" style="display:none;margin-bottom:10px"></div>
+    <button id="cx-save-btn" class="btn btn-primary" data-action="saveCustomer">Save Customer</button>
+    <p style="font-size:12px;color:#9ca3af;text-align:center;margin:8px 0 0;line-height:1.5">
+      That&rsquo;s everything required. Anything below is optional &mdash; add it now
+      or update it later from the customer&rsquo;s page.
+    </p>
+
+    <div style="height:1px;background:#e5e7eb;margin:22px 0 4px"></div>
+
+    <!-- ── Optional. Same fields as before, ordered by how often they matter. ── -->
+    <p class="sh">Contact</p>
+    <div class="form-group"><label class="form-lbl" for="cx-email">Email</label><input id="cx-email" type="email" class="input" placeholder="For document delivery"></div>
     <div class="form-group"><label class="form-lbl" for="cx-addr2">Additional service address</label><input id="cx-addr2" type="text" class="input" placeholder="For customers with more than one property"></div>
 
     <p class="sh">Billing</p>
@@ -809,33 +839,12 @@ function sAddCustomer() {
     </div>
     <div class="form-group"><label class="form-lbl" for="cx-access">Access notes</label><textarea id="cx-access" class="input" placeholder="Gate code, pets, parking, entry instructions"></textarea></div>
 
-    <p class="sh">Text Message Consent <span class="req">*</span></p>
-    <div class="form-group">
-      <label class="form-lbl" for="cx-consent-how">How did this customer agree to receive texts from your business?</label>
-      <select id="cx-consent-how" class="input">
-        <option value="">Select one &mdash; required</option>
-        <option value="verbal">Verbally &mdash; in person or by phone</option>
-        <option value="inbound">They texted or called me first</option>
-        <option value="written">In writing &mdash; signed form, email, or online</option>
-        <option value="other">Other</option>
-        <option value="none">Not yet &mdash; do not text this customer</option>
-      </select>
-      <span style="font-size:12px;color:#6b7280;line-height:1.5;display:block;margin-top:6px;">
-        Relay will not text this customer unless one of the first four is selected.
-        Pick the one that is actually true &mdash; you are the sender of record, and
-        this is the record that protects you. Answering here covers both job
-        documents and review request texts. Relay stores your answer and the date.
-        Customers can reply STOP at any time. You can change this later from the
-        customer's page.
-      </span>
-    </div>
-
     <p class="sh">Notes</p>
     <div class="form-group"><label class="form-lbl" for="cx-referral">Referral source</label><input id="cx-referral" type="text" class="input" placeholder="How did they find you?"></div>
     <div class="form-group"><label class="form-lbl" for="cx-notes">General notes</label><textarea id="cx-notes" class="input" placeholder="Anything else worth remembering about this customer"></textarea></div>
 
-    <div id="cx-err" class="auth-error" style="display:none;margin-bottom:10px"></div>
-    <button id="cx-save-btn" class="btn btn-primary" data-action="saveCustomer">Save Customer</button>
+    <div id="cx-err2" class="auth-error" style="display:none;margin-bottom:10px"></div>
+    <button id="cx-save-btn2" class="btn btn-primary" data-action="saveCustomer">Save Customer</button>
     <div style="height:20px"></div>
   </div>
   ${tabs('customers')}`;
@@ -1380,6 +1389,10 @@ document.addEventListener('click', async e => {
   if (action === 'saveCustomer') {
     const uid = S.user?.uid;
     if (!uid) return;
+    // The form has a Save button after the required fields and another at the
+    // bottom, so feedback has to reach whichever one the user is looking at.
+    const cxErr = (msg) => { showErr('cx-err', msg); showErr('cx-err2', msg); };
+    const cxBtn = (loading, label) => { setBtn('cx-save-btn', loading, label); setBtn('cx-save-btn2', loading, label); };
     const name  = $('cx-name')?.value?.trim();
     const phone = $('cx-phone')?.value?.trim();
     const addr  = $('cx-addr')?.value?.trim();
@@ -1387,15 +1400,15 @@ document.addEventListener('click', async e => {
     // 'none' is a deliberate, honest answer; empty is an unanswered required field.
     const smsConsent    = !!smsConsentHow && smsConsentHow !== 'none';
     if (!name || !phone || !addr) {
-      showErr('cx-err', 'Please fill in all required fields (*).');
+      cxErr('Please fill in all required fields (*).');
       return;
     }
     if (!smsConsentHow) {
-      showErr('cx-err', 'Please select how this customer agreed to receive text messages.');
+      cxErr('Please select how this customer agreed to receive text messages.');
       return;
     }
-    showErr('cx-err', '');
-    setBtn('cx-save-btn', true, 'Save customer');
+    cxErr('');
+    cxBtn(true, 'Save customer');
     try {
       await db.collection('users').doc(uid).collection('customers').add({
         name,
@@ -1432,8 +1445,8 @@ document.addEventListener('click', async e => {
       nav('customers');
     } catch (err) {
       console.error('saveCustomer:', err);
-      showErr('cx-err', 'Failed to save customer — please try again.');
-      setBtn('cx-save-btn', false, 'Save Customer');
+      cxErr('Failed to save customer — please try again.');
+      cxBtn(false, 'Save Customer');
     }
     return;
   }
