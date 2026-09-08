@@ -130,6 +130,37 @@ writes `accountingProvider` alongside `platform` so the two cannot disagree, and
 accounting-sync falls back to whichever platform actually has tokens on file
 when no provider is recorded. An explicit `'none'` is still honoured.
 
+**A valid OAuth token does not mean the right account.** Zoho answered HTTP 200
+with an EMPTY `organizations` list: the token worked, the API host was right,
+and the Zoho login that authorized simply owned no Zoho Books organization. The
+portal showed a healthy connection and every invoice failed. Relay now requests
+`AaaServer.profile.READ`, stores the connected account's email on the token
+document, and REFUSES to report a successful connection when the account owns
+no organization - naming the account in the error. When an integration is
+"connected" but nothing syncs, ask which account, not which credential.
+
+**`organizationId` and `realmId` were computed at connect time and never
+stored.** They were absent from `tokenDoc`, so `ensureFreshToken` always
+returned undefined for both: Zoho re-looked-up the organization on every single
+invoice, and QuickBooks failed outright with "QuickBooks realmId missing" for
+every customer. If a value is looked up during OAuth, confirm it is actually in
+the document that gets written.
+
+**Zoho's line-item `name` is a short label, max ~200 characters.** The AI writes
+a paragraph of work performed, and that paragraph was being sent as the item
+name, so Zoho answered `HTTP 400 code 15` on every real job while short test
+data passed. The paragraph belongs in `description`. `name` now prefers
+`job_type` and otherwise takes the first 100 characters cut on a word boundary.
+QuickBooks caps `Description` at 4000 for the same class of failure. When an
+integration works on test data and fails on real data, suspect a length limit.
+
+**Sending an SMS is not delivering one.** Twilio accepts a message, returns a
+SID, and learns the carrier's verdict later. Relay logged "reply sent" while the
+handset stayed silent, which is indistinguishable from a bug in our own code.
+The TwiML reply made this worse - no SID at all. The contractor reply now goes
+through the REST API with a `StatusCallback`, and `sms-status.mjs` records the
+carrier's verdict with the error code. Never report a send as a delivery.
+
 **The Stripe connector is read-only.** It can read prices, subscriptions and
 webhook endpoints but cannot write any of them. Do not plan work that depends
 on writing to Stripe; ask the user.
@@ -167,6 +198,59 @@ Firebase project `relay-portal-68417` is under **c.pryor006@gmail.com** — use
 
 Update this section when something moves. It is the answer to "what's done?"
 
+### Live service configuration — verified 2026-09-08
+
+The authoritative record of how the external services are wired, so no future
+session has to re-derive it from symptoms. Re-verify a line before trusting it
+if the behaviour it describes has changed.
+
+**Netlify** — project `deft-torrone-d9b9f8`, site id
+`daf53c3c-d84e-46b2-b6ff-c75da02a8e27`, primary URL `https://portal-relay.com`,
+team plan `nf_team_pro`. Base directory `relay-pwa`. Auto-deploys from GitHub
+`RelayAiUSA/relay-portal` on push to `main`. **An empty commit does NOT trigger
+a build** — Netlify cancels it; push a real file change or use Trigger deploy.
+Six functions: twilio-sms, oauth-token, oauth-refresh-sweep, review-request,
+stripe-webhook, sms-status. Scheduled: `review-request` hourly,
+`oauth-refresh-sweep` daily 08:00 UTC.
+
+**Netlify env vars** — scope matters. `ZOHO_CLIENT_ID`, `ZOHO_CLIENT_SECRET`,
+`FIREBASE_PROJECT_ID`, `INTUIT_CLIENT_ID`, `QUICKBOOKS_CLIENT_ID`, `QB_CLIENT_ID`
+are Functions-scope. Everything else is builds+functions+runtime. Function env
+vars are **baked in at deploy time**: adding or changing one does nothing until
+the site is rebuilt. `SECRETS_SCAN_OMIT_KEYS=TWILIO_FROM_NUMBER`.
+Note: `ZOHO_CLIENT_SECRET` and `STRIPE_WEBHOOK_SECRET` are NOT flagged
+`is_secret`, so their values are readable in the Netlify UI — worth toggling on.
+
+**Firebase** — project `relay-portal-68417` (console under c.pryor006@gmail.com).
+Every page that reads Firestore must carry this same config: app.js,
+oauth-callback.html and doc.html. Collections: users, invoices, customers,
+dispatch, docCounts, oauth_tokens, publicDocs. `publicDocs` is world-readable by
+design — presentation fields only, never tokens or billing.
+
+**Twilio** — the account SID is in Netlify as `TWILIO_ACCOUNT_SID`; it is
+deliberately NOT written here, because GitHub push protection rejects a commit
+containing one. From number
+`+18447291376` (`TWILIO_PHONE_NUMBER`; `TWILIO_FROM_NUMBER` also exists and is
+NOT what `sendSms` reads). Alert destination `+17137025744`. Toll-free
+verification PENDING — see L-TF. Inbound webhook and StatusCallback both hit
+portal-relay.com functions and both validate X-Twilio-Signature.
+
+**Zoho Books** — API console app `RelayUSA`, client id
+`1000.HPTPX3D50HAMNOOBYEV4LWZJ045Z7L`, US data centre (`accounts.zoho.com`).
+Two redirect URIs registered; the one Relay uses is
+`https://portal-relay.com/oauth-callback.html`. Scope
+`ZohoBooks.fullaccess.all,AaaServer.profile.READ`. **API host is
+`https://www.zohoapis.com/books/v3`, NOT the legacy `books.zoho.com/api/v3`.**
+Organization `874815967` — "Pryor Property Solutions", US edition, owned by
+PryorPropertySolutions269@Gmail.com. Connecting from any other Zoho login
+produces a working token and zero organizations.
+
+**Stripe** — Starter $19 / Essential+ $49 / RelayPRO $99 payment links match
+their env vars. Webhook secret set, 5 events registered. The MCP connector is
+READ-ONLY.
+
+**Sentry** — DSN set in Netlify, reporting via the SDK-free envelope endpoint.
+
 ### Done and verified
 
 - [x] All Netlify Functions load. Root cause was `command = "true"` (a no-op) so
@@ -190,10 +274,14 @@ Update this section when something moves. It is the answer to "what's done?"
 
 ### Open
 
-- [ ] **Twilio toll-free verification** for +1 844-729-1376 — carrier registration.
-      Blocks reliable SMS delivery at volume. Biggest remaining launch blocker.
-- [ ] **End-to-end SMS dispatch test** — text a real job in, confirm the invoice
-      is created in Firestore and syncs to Zoho/QuickBooks. Never run start to finish.
+- [ ] **L-TF. Twilio toll-free verification** for +1 844-729-1376. THE launch
+      blocker, and now confirmed rather than assumed: every outbound message is
+      rejected with **error 30032, Toll-Free Verification Required**, verified
+      on message SID SMc81832da5f4c95be0d6a62c92cac2bd9. Submitted; awaiting
+      Twilio approval. Nothing in the code can work around it. Until it clears,
+      Relay receives and processes texts perfectly and cannot reply to them.
+- [x] **End-to-end SMS dispatch** — DONE 2026-09-08, Zoho invoice INV-000101
+      created from a texted job. See L2. Outbound reply still blocked by L-TF.
 - [ ] **Michigan LARA** — Articles of Organization for Pryor Digital Ventures LLC;
       Relay DBA filing.
 - [ ] **InVideo commercial** — voiceover audio issue.
@@ -222,11 +310,22 @@ note on how it was verified, not just that it was done.
       lookup, the AI call and the invoice write, so a forged request costs
       nothing. Escape hatch: `TWILIO_SIGNATURE_VALIDATION=off`.
 
-- [ ] **L2. Run one end-to-end SMS dispatch, start to finish.**
-      Every component is verified in isolation; the whole chain never has been.
-      Text a real job -> AI parse -> invoice in Firestore -> accounting sync ->
-      document to the customer -> review request 24h later. Use Pryor Property
-      Solutions as customer zero. This is the highest-value hour available.
+- [x] **L2. End-to-end SMS dispatch - PROVEN 2026-09-08.**
+      Text in -> AI parse -> invoice in Firestore -> printable public document
+      -> Zoho Books. Verified in the live function log:
+      `[accounting-sync] Synced invoice 178ezhOqabbeTHi8kqS5 to zoho: INV-000101`.
+      Four separate bugs stood between the components and a working chain, all
+      in Landmines above: doc.html pointed at a nonexistent Firebase project;
+      the accounting provider defaulted to QuickBooks; the Zoho connection was
+      authorized by an account with no Books organization; and the work
+      description was being sent as Zoho's short item name.
+
+      Still outstanding on this item: the contractor's reply SMS is built and
+      accepted by Twilio but **undelivered - error 30032, Toll-Free
+      Verification Required**. That is a carrier block, not a code path, and it
+      clears with L-TF below. The customer-facing document forward and the 24h
+      review request are gated behind the same verification and remain
+      unproven end to end.
 
 - [x] **L3. Real error monitoring.**
       Two problems, both fixed.
@@ -369,10 +468,15 @@ note on how it was verified, not just that it was done.
       Sending texts on other businesses' behalf and holding their customers'
       data is the risk category that ends a solo company.
 
-- [ ] **L10. Deliverability monitoring.**
-      Toll-free approval is not the finish line; carriers still filter. Wire
-      Twilio's delivery-status webhook, and audit that STOP propagates into
-      Firestore rather than living only in Twilio.
+- [x] **L10. Deliverability monitoring - delivery-status webhook live.**
+      `sms-status.mjs` receives Twilio's status callbacks, validates
+      X-Twilio-Signature the same way twilio-sms does, and logs failures at
+      ERROR level with the code and a plain-English cause (30032 unverified
+      toll-free, 30007 carrier spam filter, 21610 recipient replied STOP, and
+      others). Proven against the real case: the reply to +17137025744 came
+      back undelivered with 30032.
+      Still outstanding: audit that STOP propagates into Firestore rather than
+      living only in Twilio.
 
 ### Tier 3 - professional polish.
 
