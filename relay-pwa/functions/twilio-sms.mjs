@@ -77,6 +77,33 @@ function isActiveStatus(status) {
 
 // ── TwiML reply — Netlify Functions v2 returns a Response ────────────────────
 
+// The contractor's confirmation used to go back as TwiML: Relay handed Twilio
+// the text and learned nothing more. When the message never arrived there was
+// no message SID, no status and no error anywhere in our logs - the only
+// evidence was a contractor saying "I got nothing", which is indistinguishable
+// from the function never running at all.
+//
+// Sending it through the REST API instead means Twilio's answer - a SID, or a
+// specific error such as an unverified toll-free number - lands in our log at
+// the moment it happens. TwiML remains the fallback so a failure of the API
+// call still gets the contractor their confirmation.
+async function replyToContractor(to, text) {
+  try {
+    const sid = await sendSms(to, text);
+    console.log(`[twilio-sms] reply sent to ${to} sid=${sid}`);
+    // The reply is already on its way; an empty TwiML document prevents Twilio
+    // from sending it a second time.
+    return new Response(
+      '<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
+      { status: 200, headers: { 'Content-Type': 'text/xml' } }
+    );
+  } catch (err) {
+    console.error(`[twilio-sms] reply to ${to} failed, falling back to TwiML: ${err.message}`);
+    await alertError('twilio-sms:reply', err, `to=${to}`);
+    return twimlResponse(text);
+  }
+}
+
 function twimlResponse(msg) {
   const safe = String(msg)
     .replace(/&/g, '&amp;')
@@ -491,5 +518,5 @@ If a field is unknown, use empty string or 0.`,
     }
   }
 
-  return twimlResponse(replyLines.join('\n'));
+  return replyToContractor(fromPhone, replyLines.join('\n'));
 }

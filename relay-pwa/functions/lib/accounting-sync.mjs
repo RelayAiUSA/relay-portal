@@ -90,9 +90,20 @@ async function findOrCreateZohoContact(accessToken, orgId, invoiceData) {
 async function createZohoInvoice(db, uid, invoiceData) {
   const tokens = await ensureFreshToken(db, uid, 'zoho');
   if (!tokens) throw new Error('Zoho not connected or token revoked');
-  const { accessToken } = tokens;
+  const { accessToken, accountEmail } = tokens;
 
-  const orgId     = tokens.organizationId || await getZohoOrgId(accessToken);
+  let orgId = tokens.organizationId;
+  if (!orgId) {
+    try {
+      orgId = await getZohoOrgId(accessToken);
+    } catch (err) {
+      // Say which Zoho login this connection belongs to. Without it the error
+      // reads as a Relay fault when the real cause is that the contractor
+      // authorized with the wrong Zoho account.
+      const who = accountEmail ? ` The connection is authorized as ${accountEmail}.` : '';
+      throw new Error(`${err.message}${who}`);
+    }
+  }
   const contactId = await findOrCreateZohoContact(accessToken, orgId, invoiceData);
 
   const amount      = parseFloat(invoiceData.amount) || 0;

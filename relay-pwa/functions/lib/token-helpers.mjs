@@ -106,6 +106,7 @@ export async function ensureFreshToken(db, uid, provider) {
       accessToken:    decrypt(fd.accessToken),
       realmId:        fd.realmId,
       organizationId: fd.organizationId,
+      accountEmail:   fd.accountEmail || '',
     };
   }
 
@@ -113,6 +114,7 @@ export async function ensureFreshToken(db, uid, provider) {
     accessToken:    decrypt(data.accessToken),
     realmId:        data.realmId,
     organizationId: data.organizationId,
+    accountEmail:   data.accountEmail || '',
   };
 }
 

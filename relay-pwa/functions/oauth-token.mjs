@@ -205,7 +205,24 @@ async function handleOauthToken(req, context) {
       // books.zoho.com/api/v3 is the legacy host; www.zohoapis.com/books/v3 is
       // the current one and the only one accounting-sync uses. Keep them the
       // same so a token that works at connect time works at sync time.
+      // Which Zoho login actually authorized. A contractor signed into a
+      // personal Zoho account while their Books organization lives under a
+      // different one connects "successfully" and then never syncs a single
+      // invoice, with nothing anywhere naming the account at fault.
+      let accountEmail = '';
+      try {
+        const meResp = await fetch('https://accounts.zoho.com/oauth/user/info', {
+          headers: { Authorization: `Zoho-oauthtoken ${data.access_token}` },
+        });
+        const meData = await meResp.json();
+        accountEmail = meData.Email || meData.email || '';
+      } catch (e) {
+        console.warn('[oauth-token] Could not read Zoho account email:', e.message);
+      }
+
       let organizationId = '';
+      let orgLookupNote  = '';
+      let orgLookupThrew = false;
       try {
         const orgResp = await fetch('https://www.zohoapis.com/books/v3/organizations', {
           headers: { Authorization: `Zoho-oauthtoken ${data.access_token}` },
@@ -214,13 +231,27 @@ async function handleOauthToken(req, context) {
         const orgData = JSON.parse(orgText);
         organizationId = orgData.organizations?.[0]?.organization_id || '';
         if (!organizationId) {
-          // Not fatal - the connection is still worth saving, and sync will
-          // look the org up again - but this is the single most useful line in
-          // the log when invoices later fail to reach Zoho Books.
-          console.error(`[oauth-token] Zoho org lookup returned none [HTTP ${orgResp.status}]: ${orgText.slice(0, 300)}`);
+          orgLookupNote = `HTTP ${orgResp.status}: ${orgText.slice(0, 200)}`;
+          console.error(`[oauth-token] Zoho org lookup returned none for ${accountEmail || 'unknown account'} [${orgLookupNote}]`);
         }
       } catch (e) {
+        orgLookupNote  = e.message;
+        orgLookupThrew = true;
         console.error('[oauth-token] Could not fetch Zoho org ID:', e.message);
+      }
+
+      // Refuse to report success for a connection that provably cannot sync.
+      // The tokens are NOT saved: a stored connection with no organization is
+      // exactly the state that produced a healthy-looking portal and a silent
+      // failure on every invoice.
+      if (!organizationId) {
+        // Distinguish "we could not reach Zoho" from "Zoho answered, and this
+        // login owns nothing". Blaming the wrong one sends the contractor off
+        // to change an account setting that was never the problem.
+        const message = orgLookupThrew
+          ? `Could not reach Zoho Books to confirm your organization (${orgLookupNote}). Please try connecting again in a moment.`
+          : `${accountEmail ? `The Zoho account you signed in with (${accountEmail})` : 'The Zoho account you signed in with'} has no Zoho Books organization. Sign out of Zoho, sign back in with the account that owns your Zoho Books organization, and connect again.`;
+        return new Response(JSON.stringify({ success: false, error: message }), { status: 200, headers: HEADERS });
       }
 
       rawTokens = {
@@ -228,6 +259,7 @@ async function handleOauthToken(req, context) {
         refreshToken:   data.refresh_token,
         expiresIn:      data.expires_in || 3600,
         organizationId,
+        accountEmail,
       };
 
     } else {
@@ -279,6 +311,15 @@ async function handleOauthToken(req, context) {
     const tokenDoc   = {
       accessToken:      encrypt(rawTokens.accessToken),
       refreshToken:     refreshToken ? encrypt(refreshToken) : keptEncryptedRefresh,
+      // Not a secret, and the fastest answer to "why isn't anything syncing?"
+      accountEmail:     rawTokens.accountEmail || '',
+      // These were looked up at connect time and then thrown away: the token
+      // document never carried them, so ensureFreshToken always returned
+      // undefined for both. Zoho re-fetched the org on every single invoice,
+      // and QuickBooks failed outright with "QuickBooks realmId missing"
+      // because there was no realmId to find.
+      organizationId:   rawTokens.organizationId || '',
+      realmId:          rawTokens.realmId || '',
       expiresAt,
       connectionStatus: 'connected',
       connectedAt:      new Date(),

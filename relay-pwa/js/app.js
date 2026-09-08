@@ -1185,7 +1185,7 @@ function sProfile() {
   const _plat = p.platform || 'none';
   const _uid  = S.user?.uid || '';
   const _iqUrl = `https://appcenter.intuit.com/connect/oauth2?client_id=${INTUIT_CLIENT_ID}&redirect_uri=${encodeURIComponent(OAUTH_REDIRECT)}&scope=com.intuit.quickbooks.accounting&response_type=code&state=qb_${_uid}`;
-  const _zhUrl = `https://accounts.zoho.com/oauth/v2/auth?client_id=${ZOHO_CLIENT_ID}&redirect_uri=${encodeURIComponent(OAUTH_REDIRECT)}&scope=ZohoBooks.fullaccess.all&response_type=code&access_type=offline&prompt=consent&state=zoho_${_uid}`;
+  const _zhUrl = `https://accounts.zoho.com/oauth/v2/auth?client_id=${ZOHO_CLIENT_ID}&redirect_uri=${encodeURIComponent(OAUTH_REDIRECT)}&scope=ZohoBooks.fullaccess.all,AaaServer.profile.READ&response_type=code&access_type=offline&prompt=consent&state=zoho_${_uid}`;
   const acctSoftwareHtml = `<div style="display:flex;flex-direction:column;gap:8px">
       <button type="button" class="acct-plat-btn" onclick="(function(b){document.getElementById('pf-platform').value='quickbooks';document.querySelectorAll('.acct-plat-btn').forEach(x=>x.removeAttribute('data-sel'));b.setAttribute('data-sel','1');if('${INTUIT_CLIENT_ID}'!=='YOUR_INTUIT_CLIENT_ID_HERE')window.open('${_iqUrl}','_blank');})(this)"
         style="display:flex;align-items:center;gap:12px;padding:13px 14px;border:2px solid ${_plat==='quickbooks'?'#2ca01c':'#e5e7eb'};border-radius:11px;background:${_plat==='quickbooks'?'#f0fdf4':'#fff'};cursor:pointer;text-align:left">
