@@ -40,7 +40,33 @@ const HEADERS = {
 
 // ── Main handler — Netlify Functions v2 ──────────────────────────────────────
 
-export default async (req) => {
+// Catch-all. Every handler below had an unguarded prologue - work that ran
+// before its own try block, such as getDb() or reading the request - so an
+// error there escaped with no alert at all: the function 500'd, nobody was
+// told, and the failure was only discoverable by a customer complaining.
+//
+// This wrapper is the last line of defence. It never swallows the error
+// silently: it logs, alerts, and returns a response appropriate to this
+// endpoint's protocol.
+export default async (req, context) => {
+  try {
+    return await handleOauthToken(req, context);
+  } catch (err) {
+    console.error('[oauth-token] unhandled error:', err);
+    // An alert failure must not mask the original error.
+    try {
+      await alertError('oauth-token:unhandled', err);
+    } catch (alertErr) {
+      console.error('[oauth-token] alert failed:', alertErr?.message);
+    }
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      { status: 500, headers: HEADERS }
+    );
+  }
+};
+
+async function handleOauthToken(req, context) {
   if (req.method === 'OPTIONS') {
     return new Response('', { status: 200, headers: HEADERS });
   }
@@ -201,4 +227,4 @@ export default async (req) => {
       { status: 500, headers: HEADERS }
     );
   }
-};
+}

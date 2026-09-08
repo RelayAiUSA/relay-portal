@@ -90,7 +90,33 @@ function twimlResponse(msg) {
 
 // ── Main handler — Netlify Functions v2 ──────────────────────────────────────
 
-export default async (req) => {
+// Catch-all. Every handler below had an unguarded prologue - work that ran
+// before its own try block, such as getDb() or reading the request - so an
+// error there escaped with no alert at all: the function 500'd, nobody was
+// told, and the failure was only discoverable by a customer complaining.
+//
+// This wrapper is the last line of defence. It never swallows the error
+// silently: it logs, alerts, and returns a response appropriate to this
+// endpoint's protocol.
+export default async (req, context) => {
+  try {
+    return await handleInboundSms(req, context);
+  } catch (err) {
+    console.error('[twilio-sms] unhandled error:', err);
+    // An alert failure must not mask the original error.
+    try {
+      await alertError('twilio-sms:unhandled', err);
+    } catch (alertErr) {
+      console.error('[twilio-sms] alert failed:', alertErr?.message);
+    }
+    return twimlResponse(
+      'Relay hit an unexpected error handling that message. Nothing was charged. ' +
+      'Please try again, or submit it at portal-relay.com.'
+    );
+  }
+};
+
+async function handleInboundSms(req, context) {
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
   }
@@ -392,4 +418,4 @@ If a field is unknown, use empty string or 0.`,
   }
 
   return twimlResponse(replyLines.join('\n'));
-};
+}

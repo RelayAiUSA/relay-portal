@@ -144,7 +144,30 @@ async function processCollection(db, uid, collName, userData, results) {
   }
 }
 
+// Catch-all. Every handler below had an unguarded prologue - work that ran
+// before its own try block, such as getDb() or reading the request - so an
+// error there escaped with no alert at all: the function 500'd, nobody was
+// told, and the failure was only discoverable by a customer complaining.
+//
+// This wrapper is the last line of defence. It never swallows the error
+// silently: it logs, alerts, and returns a response appropriate to this
+// endpoint's protocol.
 export default async (req, context) => {
+  try {
+    return await handleReviewRequest(req, context);
+  } catch (err) {
+    console.error('[review-request] unhandled error:', err);
+    // An alert failure must not mask the original error.
+    try {
+      await alertError('review-request:unhandled', err);
+    } catch (alertErr) {
+      console.error('[review-request] alert failed:', alertErr?.message);
+    }
+    return new Response('Internal error', { status: 500 });
+  }
+};
+
+async function handleReviewRequest(req, context) {
   const db      = getDb();
   const results = { sent: [], skipped: [], errors: [] };
   try {
@@ -172,4 +195,4 @@ export default async (req, context) => {
     await alertError('review-request', err);
     return new Response(err.message, { status: 500 });
   }
-};
+}

@@ -158,9 +158,19 @@ note on how it was verified, not just that it was done.
       document to the customer -> review request 24h later. Use Pryor Property
       Solutions as customer zero. This is the highest-value hour available.
 
-- [ ] **L3. Real error monitoring.**
-      `alertError()` sends one SMS to ALERT_PHONE. A function failing at 3am for
-      one customer is otherwise invisible. Sentry free tier, ~20 minutes.
+- [ ] **L3. Real error monitoring.** Half done.
+      DONE: all five functions now have a true top-level catch-all. Each one
+      previously had an unguarded prologue - work before its own try block, such
+      as getDb() or reading the request - so an error there escaped with no
+      alert: the function 500'd and nobody was told. Each handler is now an inner
+      function wrapped by `export default` with try/catch that logs, calls
+      alertError, and returns a protocol-appropriate response (TwiML for
+      twilio-sms, 500 for stripe-webhook so Stripe retries). An alert that itself
+      fails cannot mask the original error.
+      REMAINING: Sentry. alertError still has no stack traces, no grouping (one
+      bug hitting 200 times = 200 SMS and 200 Twilio charges), and it sends
+      through Twilio, so a Twilio outage silences the alarm about itself.
+      Free Developer plan: $0, 1 user, 5,000 errors/month, 30-day retention.
 
 - [ ] **L4. Enable Firestore backups.**
       Holding other businesses' customer lists with no recovery path.
