@@ -1,6 +1,7 @@
 # Relay portal configuration
 [build]
   publish = "."
+  command = "echo 'Static site — no build step'"
 
 [functions]
   directory = "functions"
