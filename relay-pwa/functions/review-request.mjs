@@ -18,6 +18,7 @@
 
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { alertError } from './lib/alert.mjs';
 
 // Firebase Admin — lazy singleton with duplicate-init guard
 let _db;
@@ -144,6 +145,7 @@ export default async (req, context) => {
     return Response.json(results);
   } catch (err) {
     console.error('[review-request] fatal:', err);
+    await alertError('review-request', err);
     return new Response(err.message, { status: 500 });
   }
 };

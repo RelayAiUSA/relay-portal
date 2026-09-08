@@ -25,6 +25,7 @@
 import StripeLib from 'stripe';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { alertError } from './lib/alert.mjs';
 
 const stripe = StripeLib(process.env.STRIPE_SECRET_KEY);
 
@@ -164,6 +165,7 @@ export default async (req) => {
     return new Response('ok', { status: 200 });
   } catch (err) {
     console.error('[stripe-webhook] Handler error:', err);
+    await alertError('stripe-webhook', err, `event=${stripeEvent?.type}`);
     return new Response(err.message, { status: 500 });
   }
 };

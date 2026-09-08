@@ -14,6 +14,7 @@ import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore }                   from 'firebase-admin/firestore';
 import { getAuth }                        from 'firebase-admin/auth';
 import { encrypt }                        from './lib/token-helpers.mjs';
+import { alertError }                     from './lib/alert.mjs';
 
 // ── Firebase Admin init ───────────────────────────────────────────────────────
 
@@ -194,6 +195,7 @@ export default async (req) => {
 
   } catch (err) {
     console.error('[oauth-token] Unhandled error:', err.message);
+    await alertError('oauth-token', err, `platform=${body?.platform}`);
     return new Response(
       JSON.stringify({ error: 'Internal server error', detail: err.message }),
       { status: 500, headers: HEADERS }

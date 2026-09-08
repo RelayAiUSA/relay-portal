@@ -13,6 +13,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { syncInvoiceToAccounting } from './lib/accounting-sync.mjs';
+import { alertError } from './lib/alert.mjs';
 
 // ── Firebase Admin init ───────────────────────────────────────────────────────
 
@@ -132,6 +133,7 @@ If a field is unknown, use empty string or 0.`,
     parsed = JSON.parse(aiRes.content[0].text.trim());
   } catch (err) {
     console.error('[twilio-sms] AI parse error:', err);
+    await alertError('twilio-sms:ai-parse', err, `from=${fromPhone}`);
     return twimlResponse('Relay AI could not process your message. Please try again with more detail.');
   }
 
