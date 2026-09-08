@@ -150,6 +150,18 @@ async function handleOauthToken(req, context) {
       const clientId     = process.env.ZOHO_CLIENT_ID || '1000.HPTPX3D50HAMNOOBYEV4LWZJ045Z7L';
       const clientSecret = process.env.ZOHO_CLIENT_SECRET;
 
+      // Fail fast and say the actual cause. When this variable is simply not
+      // set in Netlify, URLSearchParams stringifies undefined to the literal
+      // text "undefined", Zoho answers invalid_client_secret, and the message
+      // sends you hunting for a wrong secret that was never there at all.
+      if (!clientSecret) {
+        console.error('[oauth-token] ZOHO_CLIENT_SECRET is not set on this site');
+        return new Response(
+          JSON.stringify({ error: 'Zoho is not configured on the server (missing client secret). Please contact support.' }),
+          { status: 500, headers: HEADERS }
+        );
+      }
+
       const params = new URLSearchParams({
         grant_type:    'authorization_code',
         client_id:     clientId,
