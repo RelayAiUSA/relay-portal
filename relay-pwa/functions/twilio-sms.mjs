@@ -14,6 +14,7 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { syncInvoiceToAccounting } from './lib/accounting-sync.mjs';
 import { alertError } from './lib/alert.mjs';
 import { canTextCustomer, normalizePhone } from './lib/consent.mjs';
+import { isStopKeyword, isStartKeyword, suppressNumber, unsuppressNumber } from './lib/suppression.mjs';
 import { validateTwilioSignature } from './lib/twilio-signature.mjs';
 import { guardParsedJob, extractJson } from './lib/parse-guard.mjs';
 
@@ -222,6 +223,33 @@ async function handleInboundSms(req, context) {
   const body       = (params.get('Body') || '').trim();
 
   if (!fromPhone || !body) return twimlResponse('Missing phone or message body.');
+
+  // ── STOP / START, before anything else ────────────────────────────────────
+  // Handled ahead of the contractor lookup on purpose: the person opting out is
+  // usually a CONSUMER, not one of our accounts, so an opt-out that ran after
+  // the lookup would hit "Phone number not registered" and be thrown away - the
+  // single worst possible response to someone asking not to be texted.
+  //
+  // Twilio also intercepts these keywords itself. Recording them here as well
+  // means the opt-out lives in Relay's own data, so it survives a change of
+  // provider or a second sending number, and it outranks any consent record a
+  // contractor holds.
+  if (isStopKeyword(body)) {
+    await suppressNumber(db, fromPhone, { reason: 'stop_keyword' });
+    // Twilio sends its own STOP confirmation; returning empty TwiML avoids a
+    // second message to someone who just asked for none.
+    return new Response(
+      '<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
+      { status: 200, headers: { 'Content-Type': 'text/xml' } }
+    );
+  }
+  if (isStartKeyword(body)) {
+    await unsuppressNumber(db, fromPhone);
+    return new Response(
+      '<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
+      { status: 200, headers: { 'Content-Type': 'text/xml' } }
+    );
+  }
 
   // ── Identify the contractor by the number they texted from ────────────────
   // This is the single point of failure for the whole product: if the stored

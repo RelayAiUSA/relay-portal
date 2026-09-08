@@ -17,6 +17,8 @@
 // contractor's own inbound text are not affected — they initiated that
 // conversation and consented at signup.
 
+import { isSuppressed, withinQuietHours } from './suppression.mjs';
+
 // Normalize a phone to its last 10 digits so "(616) 248-1977", "6162481977"
 // and "+16162481977" all compare equal.
 export function normalizePhone(raw) {
@@ -45,6 +47,23 @@ export function normalizePhone(raw) {
 export async function canTextCustomer(db, uid, phone, requiredScope = 'transactional') {
   const key = normalizePhone(phone);
   if (!key) return { allowed: false, reason: 'invalid_phone' };
+
+  // An opt-out belongs to the CONSUMER and outranks every consent record. It is
+  // checked first and deliberately here, in the one gate every customer-facing
+  // message already passes through, rather than at each call site where the
+  // next sender added would forget it. isSuppressed() fails closed.
+  if (await isSuppressed(db, key)) {
+    return { allowed: false, reason: 'suppressed_opted_out' };
+  }
+
+  // Quiet hours. The TCPA restricts texts before 8am and after 9pm in the
+  // RECIPIENT'S local time, inferred from their area code. This is a "not yet",
+  // not a "never" - review-request runs hourly and will pick the message up in
+  // the morning.
+  const quiet = withinQuietHours(key);
+  if (!quiet.ok) {
+    return { allowed: false, reason: `quiet_hours_${quiet.hour}h_${quiet.zone}` };
+  }
 
   let snap;
   try {

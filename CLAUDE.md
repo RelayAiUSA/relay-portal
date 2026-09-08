@@ -204,6 +204,29 @@ thing being counted also increments it - there are two writers of the invoices
 collection in this codebase and there have now been three separate bugs caused
 by only updating one of them.
 
+**An opt-out belongs to the consumer, not to a contractor's customer record.**
+STOP was handled only by Twilio, so Relay's own data still believed an
+opted-out consumer was textable - and a contractor could re-add or edit that
+customer record and Relay would text them again, which is exactly the fact
+pattern a TCPA claim is built on. `lib/suppression.mjs` keeps a top-level
+`smsSuppressions` collection keyed by the last 10 digits, written by the Admin
+SDK only (no client rule, so the deny-all covers it, which is correct). It is
+captured on BOTH paths - an inbound STOP handled before the contractor lookup
+(the person opting out is usually not one of our accounts, so a lookup-first
+order would answer "not registered" and throw the opt-out away) and Twilio error
+21610 on the status callback. It is checked inside `canTextCustomer()`, the one
+gate every customer-facing message already passes, rather than at each call
+site. `isSuppressed()` fails CLOSED.
+
+**Quiet hours are enforced in the same gate.** The TCPA restricts texts before
+8am and after 9pm in the RECIPIENT'S local time, and Relay sent whenever a job
+happened to be texted in - a contractor finishing at 9:30pm generated a
+violation automatically. The recipient's zone is inferred from their area code;
+unknown codes fall back to Eastern deliberately, because Eastern reaches 9pm
+first, so holding to it never sends late anywhere else in the country. A quiet
+-hours block is a "not yet", not a "never": review-request runs hourly and picks
+the message up in the morning.
+
 ## Verify before claiming
 
 Four wrong diagnoses in one session all came from inferring configuration from a

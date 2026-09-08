@@ -18,8 +18,22 @@
 // The endpoint is public, so it validates X-Twilio-Signature exactly as
 // twilio-sms does - otherwise anyone could forge failures and trigger alerts.
 
-import { validateTwilioSignature } from './lib/twilio-signature.mjs';
-import { alertError }              from './lib/alert.mjs';
+import { initializeApp, cert, getApps } from 'firebase-admin/app';
+import { getFirestore }                   from 'firebase-admin/firestore';
+import { validateTwilioSignature }        from './lib/twilio-signature.mjs';
+import { alertError }                     from './lib/alert.mjs';
+import { suppressNumber }                 from './lib/suppression.mjs';
+
+if (!getApps().length) {
+  initializeApp({
+    credential: cert({
+      projectId:   process.env.FIREBASE_PROJECT_ID,
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      privateKey:  (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
+    }),
+  });
+}
+const db = getFirestore();
 
 // Delivery outcomes that mean the recipient did NOT get the message.
 const FAILED_STATUSES = new Set(['failed', 'undelivered']);
@@ -71,6 +85,15 @@ async function handleStatus(req) {
   const status    = params.MessageStatus || params.SmsStatus || '';
   const to        = params.To || '';
   const errorCode = params.ErrorCode || '';
+
+  // 21610 means the carrier refused because this consumer replied STOP. That is
+  // the only notification Relay gets when the STOP went to Twilio rather than to
+  // our webhook, so it is where the opt-out has to be captured - otherwise the
+  // suppression lives only inside Twilio and is lost the moment we add a second
+  // sending number or change providers.
+  if (errorCode === '21610') {
+    await suppressNumber(db, to, { reason: 'carrier_21610', sid });
+  }
 
   if (FAILED_STATUSES.has(status)) {
     const hint = ERROR_HINTS[errorCode] || 'See Twilio error code reference.';
