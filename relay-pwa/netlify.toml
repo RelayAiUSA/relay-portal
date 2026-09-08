@@ -1,10 +1,39 @@
 # Relay portal configuration
+#
+# THIS IS THE ONLY netlify.toml THAT NETLIFY READS.
+#
+# The Netlify UI sets "Base directory" to relay-pwa, so Netlify resolves its
+# config from relay-pwa/netlify.toml — not from the repo root. A second
+# netlify.toml used to sit at the repo root; it was silently ignored on every
+# build, which made root-level config changes look applied when they were not.
+# It has been deleted. Keep all build config here.
+#
+# All paths below are relative to this directory (the base directory).
+
 [build]
   publish = "."
-  command = "true"
+  # Install the functions' production dependencies. This was previously
+  # command = "true" (a no-op), so npm install never ran and every function
+  # crashed at import with ERR_MODULE_NOT_FOUND on stripe / firebase-admin.
+  command = "cd functions && npm install --omit=dev"
 
 [functions]
   directory = "functions"
+  # Bundle each function with its dependencies into a self-contained bundle.
+  node_bundler = "esbuild"
+
+# ── Scheduled functions ──────────────────────────────────────────────────────
+# oauth-refresh-sweep also declares its own schedule via `export const config`
+# in the function file, which is the authoritative v2 mechanism. Listed here
+# too so both scheduled jobs are visible in one place.
+
+[functions."review-request"]
+  schedule = "0 * * * *"
+
+[functions."oauth-refresh-sweep"]
+  schedule = "0 8 * * *"
+
+# ── Redirects ────────────────────────────────────────────────────────────────
 
 [[redirects]]
   from = "/doc/*"
@@ -28,6 +57,8 @@
   to = "/index.html"
   status = 200
 
+# ── Headers ──────────────────────────────────────────────────────────────────
+
 [[headers]]
   for = "/sw.js"
   [headers.values]
@@ -37,8 +68,3 @@
   for = "/manifest.json"
   [headers.values]
     Content-Type = "application/manifest+json"
-
-[functions.review-request]
-  schedule = "0 * * * *"
-
-# deps pre-installed in functions/node_modules — no plugin needed

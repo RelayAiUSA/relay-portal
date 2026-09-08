@@ -2,3 +2,11 @@ node_modules/
 .netlify/
 package-lock.json
 relay-pwa/functions/package-lock.json
+
+# Stale build copy that was being served publicly from the publish dir
+relay-pwa/sessions/
+# Superseded CommonJS functions + the ignored root netlify.toml
+/netlify/
+/netlify.toml
+# Stray deploy archives
+deploy-*.zip
