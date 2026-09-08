@@ -47,7 +47,16 @@ async function sendSms(to, body) {
         'Authorization': 'Basic ' + Buffer.from(`${sid}:${token}`).toString('base64'),
         'Content-Type':  'application/x-www-form-urlencoded',
       },
-      body: new URLSearchParams({ From: TWILIO_FROM, To: to, Body: body }).toString(),
+      // StatusCallback closes the loop. Without it Twilio's 202 was the last
+      // thing Relay ever heard about a message: 'reply sent' in the log and
+      // silence on the handset looked identical to a bug in this function.
+      // sms-status now records the carrier's verdict and its error code.
+      body: new URLSearchParams({
+        From: TWILIO_FROM,
+        To: to,
+        Body: body,
+        StatusCallback: 'https://portal-relay.com/.netlify/functions/sms-status',
+      }).toString(),
     }
   );
   const data = await res.json();
