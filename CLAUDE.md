@@ -60,6 +60,17 @@ Before deploying rules, enumerate and compare:
 against `grep -oE "match /[a-zA-Z_]+/" firestore.rules`. Current collections:
 users, invoices, customers, dispatch, docCounts, oauth_tokens, publicDocs.
 
+**The contractor's phone number is the only thing identifying an inbound job
+text**, and the field names did not line up. Signup wrote `phone`; every
+function reads `phoneNumber`, which appeared ZERO times in app.js. Every account
+created through the portal was therefore unable to text a job in from the moment
+it was created - the reply was always "Phone number not registered with Relay".
+Canonical fields are now `phoneNumber` (E.164) and `phoneDigits` (last 10, the
+lookup key, immune to formatting). `phone` is still written for older readers.
+Frontend `toE164`/`phoneDigits` and backend `normalizePhone` must agree; there
+is a test that checks they do. If you add a new place a phone is stored, write
+all three.
+
 **The Stripe connector is read-only.** It can read prices, subscriptions and
 webhook endpoints but cannot write any of them. Do not plan work that depends
 on writing to Stripe; ask the user.
@@ -218,6 +229,21 @@ note on how it was verified, not just that it was done.
       `loadUserData()` switched to `Promise.allSettled` so one failing read can
       never blank a whole profile again - only the profile read is treated as
       load-bearing.
+
+- [x] **L16. Business phone capture, the identity for every inbound text.**
+      Signup wrote `phone`; twilio-sms and oauth-refresh-sweep read
+      `phoneNumber`, a field app.js never wrote. Every portal signup was unable
+      to text in. Fixed: signup and profile both write phoneNumber (E.164) and
+      phoneDigits (last 10); the profile gains a required "Your business phone
+      number" field that rejects unusable input rather than saving junk that
+      silently never matches; the SMS lookup queries phoneDigits first, so
+      formatting cannot break it, with the old exact-string queries kept as
+      fallbacks for legacy documents; a dashboard banner appears when the number
+      is missing, because otherwise the failure is only discoverable by texting
+      from a roof and getting "not registered"; and existing accounts holding
+      only `phone` are silently backfilled on next load rather than being asked
+      to re-enter it. Verified: frontend and backend normalisation agree across
+      7 input formats and reject 3 invalid ones.
 
 ### Tier 2 - before roughly the tenth customer.
 

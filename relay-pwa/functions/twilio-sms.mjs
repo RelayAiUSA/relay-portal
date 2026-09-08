@@ -147,14 +147,31 @@ async function handleInboundSms(req, context) {
 
   if (!fromPhone || !body) return twimlResponse('Missing phone or message body.');
 
-  // ── Look up Relay user by phoneNumber field ───────────────────────────────
-  const normalised = fromPhone.replace(/\D/g, '');
+  // ── Identify the contractor by the number they texted from ────────────────
+  // This is the single point of failure for the whole product: if the stored
+  // number does not match what Twilio sends, the reply is "not registered" and
+  // nothing is created, which reads as a broken product rather than a settings
+  // problem.
+  //
+  // phoneDigits (last 10) is the canonical key precisely because it is immune
+  // to formatting: '(616) 248-1977', '616-248-1977' and '+16162481977' all
+  // reduce to the same value. The exact-string queries below it are legacy
+  // fallbacks for documents written before phoneDigits existed.
+  const digits = normalizePhone(fromPhone);
   const snaps = await Promise.all([
+    digits
+      ? db.collection('users').where('phoneDigits', '==', digits).limit(1).get()
+      : Promise.resolve({ empty: true, docs: [] }),
     db.collection('users').where('phoneNumber', '==', fromPhone).limit(1).get(),
-    db.collection('users').where('phoneNumber', '==', '+' + normalised).limit(1).get(),
-    db.collection('users').where('phoneNumber', '==', normalised).limit(1).get(),
+    db.collection('users').where('phoneNumber', '==', '+' + fromPhone.replace(/\D/g, '')).limit(1).get(),
+    db.collection('users').where('phoneNumber', '==', fromPhone.replace(/\D/g, '')).limit(1).get(),
+    // Oldest accounts only ever had `phone`, written raw as the user typed it.
+    db.collection('users').where('phone', '==', fromPhone).limit(1).get(),
   ]);
   const match = snaps.find(s => !s.empty);
+  if (!match) {
+    console.warn(`[twilio-sms] no account for ${fromPhone} (digits=${digits})`);
+  }
   if (!match) {
     return twimlResponse('Phone number not registered with Relay. Visit portal-relay.com to set up your account.');
   }

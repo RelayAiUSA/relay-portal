@@ -70,6 +70,32 @@ function canSMSDispatch(plan) {
 function canAutoForward(plan) { return isAdminUser() || (plan||'').toLowerCase() === 'pro'; }
 function canReviewRequest(plan) { return isAdminUser() || (plan||'').toLowerCase() === 'pro'; }
 function docLimit(plan) { return (isAdminUser() || ['essential','pro'].includes((plan||'').toLowerCase())) ? 500 : 250; }
+// ── Phone normalisation ──────────────────────────────────────────────────────
+// The contractor's business phone is the ONLY thing that identifies who is
+// texting in. Twilio delivers From in E.164 (+16162481977), so what we store
+// has to be in that exact shape or the lookup silently fails and the reply is
+// "Phone number not registered with Relay" - which looks like a broken product.
+//
+// toE164 returns '' for anything that cannot be a real US number, so callers
+// can treat empty as "not usable" rather than storing junk that never matches.
+function toE164(raw) {
+  const d = String(raw ?? '').replace(/\D/g, '');
+  if (d.length === 10) return '+1' + d;
+  if (d.length === 11 && d[0] === '1') return '+' + d;
+  if (d.length > 11 && d.length <= 15) return '+' + d;   // plausible international
+  return '';
+}
+// Last 10 digits. Stored alongside the E.164 value and used as the lookup key,
+// so a number saved in one format still matches a number sent in another.
+function phoneDigits(raw) {
+  const d = String(raw ?? '').replace(/\D/g, '');
+  return d.length >= 10 ? d.slice(-10) : '';
+}
+function formatPhone(raw) {
+  const d = phoneDigits(raw);
+  return d ? `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}` : String(raw || '');
+}
+
 function getMonthKey() { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
 async function checkAndIncrementDocCount(uid, plan) {
   if (isAdminUser()) return; // admin unlimited
@@ -249,6 +275,21 @@ async function loadUserData(uid) {
 
     S.customers = cxSnap.docs.map(d => ({docId: d.id, ...d.data()}));
     S.docCountThisMonth = dcSnap.exists ? (dcSnap.data().count || 0) : 0;
+
+    // Backfill. Accounts created before this existed stored only `phone`, a
+    // field no function reads, so they could never text in. If a usable number
+    // is already on file, promote it to the canonical fields silently rather
+    // than making the contractor re-enter something they already gave us.
+    if (S.profile && !S.profile.phoneNumber && S.profile.phone) {
+      const e164 = toE164(S.profile.phone);
+      if (e164) {
+        const patch = { phoneNumber: e164, phoneDigits: phoneDigits(e164) };
+        S.profile = { ...S.profile, ...patch };
+        db.collection('users').doc(uid).update(patch)
+          .then(() => console.log('[backfill] promoted phone -> phoneNumber'))
+          .catch(e => console.error('[backfill] failed:', e.message));
+      }
+    }
   } catch(e) {
     console.error('loadUserData:', e);
     if (!S.profile) S.profile = {companyName: 'My Company', plan: 'unpaid', platform: 'quickbooks'};
@@ -489,11 +530,24 @@ function sDashboard() {
       <a href="${STRIPE_BILLING}" target="_blank" rel="noopener" class="past-due-banner-btn">Update Payment →</a>
     </div>` : '';
 
+  // Without a stored business phone, texting a job returns "not registered".
+  // That reads as a broken product, so it is surfaced as loudly as a billing
+  // problem rather than left for the contractor to discover from a roof.
+  const noPhoneBanner = (!S.profile?.phoneNumber && canSMSDispatch(plan)) ? `
+    <div class="past-due-banner">
+      <span style="font-size:20px">\u{1F4F1}</span>
+      <div style="flex:1">
+        <div class="past-due-banner-title">Add your business phone number</div>
+        <div class="past-due-banner-sub">Relay identifies your job texts by the number you send them from. Until it is saved, texting (844) 729-1376 replies &ldquo;not registered&rdquo; and no invoice is created.</div>
+      </div>
+      <span data-nav="profile" class="past-due-banner-btn" style="cursor:pointer">Add it \u2192</span>
+    </div>` : '';
+
   return topbar({title: name, sub: `${plan} Plan · Active`, right:`
     ${isAdmin ? `<button class="topbar-btn" data-action="goAdmin" title="Admin">${I.shield}</button>` : ''}
     <button class="topbar-btn" data-nav="profile" title="Settings">${I.settings}</button>
     <button class="topbar-btn" title="Notifications">${I.bell}</button>`}) +
-  `<div class="scroll">${trialBanner}${pastDueBanner}
+  `<div class="scroll">${noPhoneBanner}${trialBanner}${pastDueBanner}
 
     <div style="margin-bottom:4px">
       <svg viewBox="0 0 390 298" xmlns="http://www.w3.org/2000/svg" style="width:100%;border-radius:18px;display:block">
@@ -1054,6 +1108,15 @@ function sProfile() {
       <!-- ── Business Info ── -->
       <p class="sh">Business Info</p>
       <div class="form-group">
+        <label class="form-lbl" for="pf-phone">Your business phone number <span class="req">*</span></label>
+        <input id="pf-phone" type="tel" class="input" value="${p.phoneNumber ? formatPhone(p.phoneNumber) : ''}" placeholder="(616) 248-1977">
+        <div style="font-size:12px;color:#6b7280;margin-top:4px;line-height:1.5">
+          This is how Relay knows a job text is from you. It must be the phone you
+          text from. Without it, texting a job to (844) 729-1376
+          returns &ldquo;not registered&rdquo; and nothing is created.
+        </div>
+      </div>
+      <div class="form-group">
         <label class="form-lbl" for="pf-co">Company / DBA name</label>
         <input id="pf-co" type="text" class="input" value="${p.companyName||''}" placeholder="Your business name">
       </div>
@@ -1160,6 +1223,7 @@ function sProfile() {
         ${acctSoftwareHtml}
       </div>
 
+      <div id="pf-err" class="auth-error" style="display:none;margin-bottom:10px"></div>
       <button id="pf-save" class="btn btn-primary" data-action="saveProfile" style="margin-bottom:12px">Save Changes</button>
       ${billingRow}
       <button class="btn btn-outline" data-action="signOut" style="margin-bottom:28px">${I.logout} Sign Out</button>
@@ -1285,7 +1349,14 @@ document.addEventListener('click', async e => {
         platform:           plat,
         plan:               'starter',
         subscriptionStatus: 'unpaid',
+        // phoneNumber is what twilio-sms and oauth-refresh-sweep query. Signup
+        // previously wrote only `phone`, a field NOTHING reads, so every new
+        // account was unable to text in from the moment it was created.
+        // Both are written: phoneNumber/phoneDigits are canonical, `phone`
+        // stays for older code paths that still read it.
         phone:              phone,
+        phoneNumber:        toE164(phone),
+        phoneDigits:        phoneDigits(phone),
         smsConsent:         smsConsent,
         createdAt:          firebase.firestore.FieldValue.serverTimestamp(),
       });
@@ -1609,7 +1680,20 @@ document.addEventListener('click', async e => {
     const saveBtn = document.getElementById('pf-save');
     if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
     try {
+      // The business phone identifies every inbound job text. Reject anything
+      // that is not a usable number rather than saving junk that will never
+      // match, which would fail silently at the worst possible moment.
+      const phoneRaw = ($('pf-phone')?.value || '').trim();
+      const phoneE164 = toE164(phoneRaw);
+      if (!phoneE164) {
+        showErr('pf-err', phoneRaw
+          ? 'That does not look like a valid phone number. Use the number you text from, e.g. (616) 248-1977.'
+          : 'Your business phone number is required — it is how Relay knows a job text is from you.');
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save changes'; }
+        return;
+      }
       const updates = {
+        phoneNumber: phoneE164, phoneDigits: phoneDigits(phoneE164), phone: phoneRaw,
         companyName: co, platform: plat, businessType: bizType, businessTypeOther: bizTypeOther,
         licenseNumber: license, minCallFee: callFee, taxRate: taxRate,
         paymentTerms: terms, estimateValidity: validity, invoicePrefix: invPrefix,
