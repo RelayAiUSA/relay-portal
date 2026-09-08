@@ -67,6 +67,14 @@
   status = 200
   force = true
 
+# The public SMS opt-in form. Named explicitly rather than relying on the
+# catch-all so it is unmistakably a real, linkable page - this URL goes on the
+# Twilio toll-free verification submission.
+[[redirects]]
+  from = "/signup"
+  to = "/index.html"
+  status = 200
+
 [[redirects]]
   from = "/login"
   to = "/index.html"

@@ -423,11 +423,34 @@ function sSignup() {
       <label class="form-lbl" for="sg-phone">Mobile phone <span class="req">*</span></label>
       <input id="sg-phone" type="tel" class="input" placeholder="(555) 867-5309" autocomplete="tel">
     </div>
-    <label style="display:flex;align-items:flex-start;gap:10px;margin-bottom:16px;cursor:pointer;">
+    <!-- Carrier-facing SMS consent.
+         A toll-free verification reviewer opens the public signup page and
+         checks for all of this: an unchecked box, what messages are sent, how
+         often, the rates disclaimer, HELP and STOP, and links to the Terms and
+         Privacy Policy. The previous copy named none of the message types, gave
+         no frequency and no HELP keyword, and linked to nothing - and the box
+         was recorded but never enforced, so an account could be created without
+         consent and still be texted. Do not shorten this without checking the
+         requirement it satisfies. -->
+    <label id="sg-consent-box" style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;cursor:pointer;">
       <input id="sg-sms" type="checkbox" style="margin-top:3px;flex-shrink:0;width:16px;height:16px;accent-color:#6366f1;">
-      <span style="font-size:12px;color:#6b7280;line-height:1.5;">I agree to receive SMS text messages from Relay with setup info and dispatch instructions. Msg &amp; data rates may apply. Reply STOP to opt out anytime.</span>
+      <span style="font-size:12px;color:#4b5563;line-height:1.6;">
+        <strong>Yes, text me at the number above.</strong> I agree to receive SMS from
+        Relay about my account: job confirmations, invoice and quote notifications,
+        and account alerts. Message frequency varies by how many jobs you submit —
+        typically 5&ndash;20 messages per month. Msg &amp; data rates may apply.
+        Reply STOP to unsubscribe or HELP for help.
+      </span>
     </label>
-    <button id="sg-btn" class="btn btn-primary" data-action="signup" style="margin-bottom:8px">Create My Relay Account</button>
+    <p style="font-size:11px;color:#9ca3af;line-height:1.6;margin:0 0 16px 26px;">
+      By creating an account you agree to our
+      <a href="/terms.html" target="_blank" rel="noopener" style="color:#6366f1;text-decoration:underline">Terms of Service</a>
+      and
+      <a href="/privacy.html" target="_blank" rel="noopener" style="color:#6366f1;text-decoration:underline">Privacy Policy</a>.
+      We never sell your information, and consent to receive text messages is
+      not a condition of any purchase.
+    </p>
+    <button id="sg-btn" class="btn btn-primary" data-action="signup" style="margin-bottom:8px">Yes, Create My Relay Account</button>
     <div class="divider"><span class="divider-line"></span><span class="divider-text">or</span><span class="divider-line"></span></div>
     <button class="btn btn-outline" data-action="googleLogin" style="gap:10px">
       ${I.google} Sign up with Google
@@ -1479,6 +1502,20 @@ document.addEventListener('click', async e => {
     if (!co)          { showErr('sg-err', 'Please enter your company name.'); return; }
     if (!email)       { showErr('sg-err', 'Please enter your email.'); return; }
     if (pw !== pw2)   { showErr('sg-err', 'Passwords do not match.'); return; }
+
+    // The phone number is the identity every inbound job text is matched on,
+    // and the consent box is the record that authorises texting it. Both were
+    // read and stored but neither was ever checked, so accounts existed that
+    // could not text in and accounts existed that we texted without consent.
+    const sgPhoneRaw = ($('sg-phone')?.value || '').trim();
+    if (!toE164(sgPhoneRaw)) {
+      showErr('sg-err', 'Please enter a valid 10-digit mobile number — this is the number you text jobs from.');
+      return;
+    }
+    if (!$('sg-sms')?.checked) {
+      showErr('sg-err', 'Please check the box agreeing to receive text messages — Relay works over SMS, so we cannot set up your account without it.');
+      return;
+    }
     setBtn('sg-btn', true, 'Create My Relay Account');
     try {
       const cred = await auth.createUserWithEmailAndPassword(email, pw);
@@ -1939,11 +1976,20 @@ if (location.search.includes('payment=success') || location.hash.includes('payme
 $('app').innerHTML = sLoading();
 
 // Firebase auth state — single source of truth for routing
+// /signup must land directly on the opt-in form. Toll-free verification
+// reviewers are given one URL and will not click through a single-page app to
+// find the consent checkbox; an opt-in they cannot see is an opt-in that does
+// not count.
+function initialSignedOutScreen() {
+  const p = (window.location.pathname || '').toLowerCase();
+  return (p === '/signup' || p === '/signup/') ? 'signup' : 'login';
+}
+
 auth.onAuthStateChanged(async user => {
   if (!user) {
     S.user    = null;
     S.profile = null;
-    nav('login');
+    nav(initialSignedOutScreen());
     return;
   }
 
