@@ -15,6 +15,7 @@ import { syncInvoiceToAccounting } from './lib/accounting-sync.mjs';
 import { alertError } from './lib/alert.mjs';
 import { canTextCustomer, normalizePhone } from './lib/consent.mjs';
 import { validateTwilioSignature } from './lib/twilio-signature.mjs';
+import { guardParsedJob, extractJson } from './lib/parse-guard.mjs';
 
 // ── Firebase Admin init ───────────────────────────────────────────────────────
 
@@ -246,25 +247,48 @@ Extract job details and return ONLY valid JSON (no markdown, no explanation):
 If a field is unknown, use empty string or 0.`,
       }],
     });
-    parsed = JSON.parse(aiRes.content[0].text.trim());
+    parsed = extractJson(aiRes.content[0].text);
   } catch (err) {
     console.error('[twilio-sms] AI parse error:', err);
     await alertError('twilio-sms:ai-parse', err, `from=${fromPhone}`);
     return twimlResponse('Relay AI could not process your message. Please try again with more detail.');
   }
 
+  // ── Sanity-check the model's output before it becomes a real document ────
+  // Untrusted output: it goes onto an invoice sent under the CONTRACTOR'S name,
+  // so a misparse costs them their customer relationship, not ours. Coerce what
+  // is usable, discard what is not, and refuse to auto-send anything flagged.
+  const guard = guardParsedJob(parsed, body);
+  if (guard.fatal) {
+    console.error('[twilio-sms] parse rejected:', guard.fatal, guard.flags);
+    await alertError('twilio-sms:parse-guard',
+      new Error(`rejected: ${guard.fatal}`), `from=${fromPhone} flags=${guard.flags.join(',')}`);
+    return twimlResponse(
+      'Relay could not read a sensible amount from that. Please resend with the ' +
+      'price written plainly, e.g. "$450".'
+    );
+  }
+  const job = guard.clean;
+  if (guard.flags.length) {
+    console.warn('[twilio-sms] parse flags:', guard.flags.join(','), 'uid=' + uid);
+  }
+
   // ── Save invoice to Firestore ─────────────────────────────────────────────
   const invoiceData = {
-    customer_name:            parsed.customer_name  || 'Unknown',
-    customer_phone:           parsed.customer_phone || '',
-    customer_email:           parsed.customer_email || '',
-    address:                  parsed.address        || '',
-    amount:                   parsed.amount         || 0,
-    professional_description: parsed.professional_description || body,
-    job_type:                 parsed.job_type       || 'other',
+    customer_name:            job.customer_name,
+    customer_phone:           job.customer_phone,
+    customer_email:           job.customer_email,
+    address:                  job.address,
+    amount:                   job.amount,
+    professional_description: job.professional_description,
+    job_type:                 job.job_type,
     rawSms:                   body,
-    type:                     parsed.job_type === 'quote' ? 'quote' : 'invoice',
-    status:                   'pending',
+    type:                     job.job_type === 'quote' ? 'quote' : 'invoice',
+    // 'needs_review' means the parse was implausible or low-confidence. The
+    // document is still saved so nothing is lost, but it is not auto-sent.
+    status:                   guard.needsReview ? 'needs_review' : 'pending',
+    parseFlags:               guard.flags,
+    parseConfidence:          job.confidence,
     source:                   'sms',
     plan,
     reviewRequestSent:        false,
@@ -282,8 +306,10 @@ If a field is unknown, use empty string or 0.`,
   // ── Pro: auto-forward doc to customer via SMS ─────────────────────────────
   // Consent gate: never auto-forward to a customer without a consent record.
   let fwdConsent = { allowed: false, reason: 'not_attempted' };
-  if (canAutoForward(plan) && profile.autoForwardToCustomer && parsed.customer_phone) {
-    fwdConsent = await canTextCustomer(db, uid, parsed.customer_phone, 'transactional');
+  // A flagged document is never auto-sent: the contractor sees it first.
+  if (canAutoForward(plan) && profile.autoForwardToCustomer && job.customer_phone
+      && !guard.needsReview) {
+    fwdConsent = await canTextCustomer(db, uid, job.customer_phone, 'transactional');
     if (!fwdConsent.allowed) {
       console.log(`[twilio-sms] auto-forward blocked uid=${uid} reason=${fwdConsent.reason}`);
     }
@@ -291,30 +317,30 @@ If a field is unknown, use empty string or 0.`,
   if (fwdConsent.allowed) {
     const docType = invoiceData.type === 'quote' ? 'Quote' : 'Invoice';
     const fwdMsg  = [
-      `Hi ${parsed.customer_name || 'there'}, your ${docType} from ${profile.companyName || 'your contractor'} is ready:`,
+      `Hi ${job.customer_name || 'there'}, your ${docType} from ${profile.companyName || 'your contractor'} is ready:`,
       '',
-      parsed.professional_description,
+      job.professional_description,
       '',
-      `Amount: $${parsed.amount || 'TBD'}`,
+      `Amount: $${job.amount || 'TBD'}`,
       '',
       'Questions? Reply to this message.',
     ].join('\n');
-    await sendSms(parsed.customer_phone, fwdMsg)
+    await sendSms(job.customer_phone, fwdMsg)
       .catch(e => console.error('[twilio-sms] Auto-forward failed:', e.message));
   }
 
   // ── Reply to technician ───────────────────────────────────────────────────
-  const description = parsed.professional_description || '';
+  const description = job.professional_description || '';
   const preview     = description.length > 120 ? description.slice(0, 120) + '...' : description;
   const replyLines  = [
     'Relay AI dispatched your job.',
-    `Type: ${invoiceData.type} | Amount: $${parsed.amount || 'TBD'}`,
+    `Type: ${invoiceData.type} | Amount: $${job.amount || 'TBD'}`,
     `"${preview}"`,
   ];
 
   if (fwdConsent.allowed) {
     replyLines.push('Doc sent to customer via SMS.');
-  } else if (canAutoForward(plan) && profile.autoForwardToCustomer && parsed.customer_phone) {
+  } else if (canAutoForward(plan) && profile.autoForwardToCustomer && job.customer_phone) {
     const blockMsg = {
       opted_out:            'Not texted — this customer opted out (replied STOP).',
       no_customer_record:   'Not texted — this customer is not in your portal yet. Add them at portal-relay.com and set their text message permission.',
@@ -335,23 +361,27 @@ If a field is unknown, use empty string or 0.`,
     }
   }
 
+  if (guard.needsReview) {
+    replyLines.push('Held for your review before sending — open it at portal-relay.com.');
+  }
+
   // ── RelayPRO: ask about review consent for a customer we cannot text yet ──
   // Only Pro accounts get automated review requests, so only Pro accounts are
   // asked. Review texts need per-customer consent ('promotional' scope), which
   // a bulk import attestation deliberately does not satisfy.
-  if (canReviewRequest(plan) && parsed.customer_phone) {
-    const revConsent = await canTextCustomer(db, uid, parsed.customer_phone, 'promotional');
+  if (canReviewRequest(plan) && job.customer_phone) {
+    const revConsent = await canTextCustomer(db, uid, job.customer_phone, 'promotional');
     if (!revConsent.allowed && revConsent.reason !== 'opted_out') {
       try {
         await userDoc.ref.update({
           pendingReviewConsent: {
-            phone:        parsed.customer_phone,
-            customerName: parsed.customer_name || '',
+            phone:        job.customer_phone,
+            customerName: job.customer_name || '',
             invoiceId:    invRef.id,
             askedAt:      new Date(),
           },
         });
-        const who = parsed.customer_name || 'this customer';
+        const who = job.customer_name || 'this customer';
         replyLines.push(
           `Has ${who} agreed to receive review request texts from you? Reply YES or NO.`
         );

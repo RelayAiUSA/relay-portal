@@ -150,8 +150,11 @@ function fmtDate(ts) {
 }
 
 function badge(status) {
-  const map = {paid:'paid',sent:'sent',overdue:'overdue',quote:'quote',pending:'pending'};
-  const lbl = {paid:'Paid',sent:'Sent',overdue:'Overdue',quote:'Quote',pending:'Pending'};
+  // 'needs_review' is set by the SMS parse guard when the model's output looked
+  // implausible. It reuses the overdue styling because it needs the same
+  // attention; there is no dedicated CSS class for it.
+  const map = {paid:'paid',sent:'sent',overdue:'overdue',quote:'quote',pending:'pending',needs_review:'overdue'};
+  const lbl = {paid:'Paid',sent:'Sent',overdue:'Overdue',quote:'Quote',pending:'Pending',needs_review:'Needs Review'};
   return `<span class="badge ${map[status]||''}">${lbl[status]||status}</span>`;
 }
 
@@ -640,12 +643,12 @@ function sConfirm() {
 
 function sInvoices() {
   const invs    = S.invoices || [];
-  const filters = ['all','pending','sent','overdue','paid','quote'];
+  const filters = ['all','needs_review','pending','sent','overdue','paid','quote'];
   const list    = S.filter === 'all' ? invs : invs.filter(i => i.status === S.filter);
 
   return topbar({title:'Invoices', sub:`${invs.length} total`, right:`<button class="topbar-btn">${I.bell}</button>`}) +
   `<div class="filter-row">
-    ${filters.map(f=>`<button class="fp${S.filter===f?' on':''}" data-filter="${f}">${f.charAt(0).toUpperCase()+f.slice(1)}</button>`).join('')}
+    ${filters.map(f=>`<button class="fp${S.filter===f?' on':''}" data-filter="${f}">${f==='needs_review'?'Needs Review':f.charAt(0).toUpperCase()+f.slice(1)}</button>`).join('')}
   </div>
   <div class="scroll" style="padding:12px 16px">
     <div class="card">

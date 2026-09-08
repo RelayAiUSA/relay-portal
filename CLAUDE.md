@@ -158,11 +158,17 @@ note on how it was verified, not just that it was done.
 
 ### Tier 2 - before roughly the tenth customer.
 
-- [ ] **L6. Validate the model's parsed output before it becomes a document.**
-      `parsed.amount` is written straight onto the invoice with no type or range
-      check. One bad parse bills a customer $999,999 under the contractor's name.
-      Clamp the amount, check the phone format, hold low-confidence parses for
-      review instead of dispatching them.
+- [x] **L6. Validate the model's parsed output before it becomes a document.**
+      `parsed.amount` went straight onto the invoice with no type or range check,
+      so one bad parse could bill a customer $999,999 under the CONTRACTOR'S name
+      - their relationship, not ours. `functions/lib/parse-guard.mjs` now coerces
+      what is usable ("$1,250.00", "250"), zeroes what is not, normalises phone
+      to E.164, validates email, clamps the description, constrains job_type, and
+      unwraps markdown-fenced JSON. Amounts over $50k or confidence under 0.4 save
+      as status 'needs_review' and are NOT auto-forwarded to the customer; over
+      $10M is refused outright with a plain-English retry message. 32 assertions
+      passing. Frontend renders the new status with a Needs Review badge and
+      filter chip.
 
 - [ ] **L7. Onboarding checklist in the app.**
       An account needs phone number, active plan, accounting connection and
