@@ -82,7 +82,7 @@ async function checkAndIncrementDocCount(uid, plan) {
   await ref.set({ count: firebase.firestore.FieldValue.increment(1), updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
 }
 // Protected screens — require active subscription
-const PROTECTED = new Set(['dashboard','submit','invoices','customers','profile','addCustomer']);
+const PROTECTED = new Set(['dashboard','submit','invoices','customers','profile','addCustomer','editCustomer']);
 
 // ── STATE ─────────────────────────────────────────────────────────────────
 
@@ -93,6 +93,7 @@ const S = {
   formType: 'invoice',
   formPrice:'flat',
   lastJob:  null,
+  editCxId: null,      // docId of the customer open on the editCustomer screen
   user:     null,
   profile:  null,
   invoices: [],
@@ -681,6 +682,79 @@ function needsConsentAnswer(cx) {
   return !cx.smsConsent && !cx.smsConsentMethod;
 }
 
+
+// How a stored consent method reads on screen. 'sms_confirmed_by_contractor' and
+// 'bulk_prior_relationship' are recorded by the SMS reply flow and the bulk
+// attestation, so they are not offered in the dropdown but must still display.
+const CONSENT_LABELS = {
+  verbal:                      'Verbally - in person or by phone',
+  inbound:                     'They texted or called me first',
+  written:                     'In writing - signed form, email, or online',
+  other:                       'Other',
+  none:                        'Not yet - do not text this customer',
+  sms_confirmed_by_contractor: 'Confirmed by you over text',
+  bulk_prior_relationship:     'Bulk confirmation for imported customers',
+};
+
+function sEditCustomer() {
+  const cx = (S.customers || []).find(c => c.docId === S.editCxId);
+  if (!cx) return topbar({title: 'Customer', back: 'customers'}) +
+    `<div class="scroll"><div class="card" style="padding:24px;text-align:center;color:#9ca3af">
+      Customer not found. <span data-nav="customers" style="cursor:pointer;text-decoration:underline">Back to customers</span>
+    </div></div>${tabs('customers')}`;
+
+  const method = cx.smsConsentMethod || '';
+  const scope  = cx.smsConsentScope || (cx.smsConsent ? 'all' : '');
+  const known  = ['verbal','inbound','written','other','none'].includes(method);
+
+  const statusLine = !cx.smsConsent
+    ? `<span style="color:#9ca3af">Texting blocked - no permission on file</span>`
+    : scope !== 'all'
+      ? `<span style="color:#b45309">Documents only - review texts need permission answered here</span>`
+      : `<span style="color:#059669">Texting allowed, including review requests</span>`;
+
+  const recorded = method
+    ? `<div style="font-size:12px;color:#6b7280;margin-top:6px;line-height:1.5">
+         On file: ${CONSENT_LABELS[method] || method}
+         ${cx.smsConsentBy ? `<br>Recorded by ${cx.smsConsentBy}` : ''}
+       </div>`
+    : '';
+
+  return topbar({title: cx.name || 'Customer', back: 'customers'}) +
+  `<div class="scroll">
+    <div class="card" style="padding:14px;margin-bottom:12px">
+      <div style="font-weight:600;font-size:15px">${cx.name || 'Unknown'}</div>
+      <div style="font-size:13px;color:#6b7280;margin-top:2px">${cx.phone || ''}${cx.email ? ' &middot; ' + cx.email : ''}</div>
+      ${cx.address ? `<div style="font-size:13px;color:#6b7280;margin-top:2px">${cx.address}</div>` : ''}
+    </div>
+
+    <p class="sh">Text Message Consent</p>
+    <div class="card" style="padding:14px">
+      <div style="font-size:13px;margin-bottom:10px">${statusLine}</div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-lbl" for="ecx-consent">How did this customer agree to receive texts from your business?</label>
+        <select id="ecx-consent" class="input">
+          <option value="">Select one</option>
+          <option value="verbal"${method === 'verbal' ? ' selected' : ''}>Verbally &mdash; in person or by phone</option>
+          <option value="inbound"${method === 'inbound' ? ' selected' : ''}>They texted or called me first</option>
+          <option value="written"${method === 'written' ? ' selected' : ''}>In writing &mdash; signed form, email, or online</option>
+          <option value="other"${method === 'other' ? ' selected' : ''}>Other</option>
+          <option value="none"${method === 'none' ? ' selected' : ''}>Not yet &mdash; do not text this customer</option>
+        </select>
+        ${!known && method ? `<div style="font-size:12px;color:#b45309;margin-top:6px;line-height:1.5">
+          Currently set by ${CONSENT_LABELS[method] || method}. Choosing an option above
+          replaces it with a per-customer answer, which also unlocks review requests.
+        </div>` : ''}
+        ${recorded}
+      </div>
+      <div id="ecx-err" class="auth-error" style="display:none;margin:10px 0 0"></div>
+      <button id="ecx-save-btn" class="btn btn-primary" style="margin-top:12px" data-action="saveCustomerConsent">Save Permission</button>
+    </div>
+    <div style="height:20px"></div>
+  </div>
+  ${tabs('customers')}`;
+}
+
 function sCustomers() {
   const cxs     = S.customers || [];
   const pending = cxs.filter(needsConsentAnswer);
@@ -735,7 +809,7 @@ function sCustomers() {
         ? cxs.map(cx => {
             const ini = getInitials(cx.name || '?');
             const col = avatarColor(cx.name || '');
-            return `<div class="inv-item">
+            return `<div class="inv-item" data-cx="${cx.docId}" style="cursor:pointer">
               <div class="inv-av" style="background:${col.bg};color:${col.fg}">${ini}</div>
               <div class="inv-info">
                 <div class="inv-name">${cx.name || 'Unknown'}</div>
@@ -1097,6 +1171,7 @@ const SCREENS = {
   invoices:  sInvoices,
   customers: sCustomers,
   addCustomer: sAddCustomer,
+  editCustomer: sEditCustomer,
   profile:   sProfile,
   admin:     sAdmin,
 };
@@ -1134,6 +1209,8 @@ document.addEventListener('click', async e => {
   const toggleEl = e.target.closest('[data-toggle]');
   const filterEl = e.target.closest('[data-filter]');
 
+  const cxEl = e.target.closest('[data-cx]');
+  if (cxEl)     { e.preventDefault(); S.editCxId = cxEl.dataset.cx; nav('editCustomer'); return; }
   if (navEl)    { e.preventDefault(); nav(navEl.dataset.nav); return; }
   if (filterEl) { S.filter = filterEl.dataset.filter; render(); return; }
   if (toggleEl) {
@@ -1386,6 +1463,35 @@ document.addEventListener('click', async e => {
       console.error('bulkConsent:', err);
       showErr('bulk-consent-err', 'Could not update all customers — please try again.');
       setBtn('bulk-consent-btn', false, 'Confirm permission for ' + pending.length + ' customers');
+    }
+    return;
+  }
+
+  // ── SAVE CONSENT FOR AN EXISTING CUSTOMER ──
+  // A per-customer answer always records scope 'all', so it also unlocks review
+  // requests - which is the only way to upgrade a bulk-attested customer.
+  if (action === 'saveCustomerConsent') {
+    const uid = S.user?.uid;
+    if (!uid || !S.editCxId) return;
+    const how = $('ecx-consent')?.value || '';
+    if (!how) { showErr('ecx-err', 'Please select an option.'); return; }
+    showErr('ecx-err', '');
+    setBtn('ecx-save-btn', true, 'Save Permission');
+    const consent = how !== 'none';
+    try {
+      await db.collection('users').doc(uid).collection('customers').doc(S.editCxId).update({
+        smsConsent:       consent,
+        smsConsentMethod: how,
+        smsConsentScope:  consent ? 'all' : '',
+        smsConsentAt:     firebase.firestore.FieldValue.serverTimestamp(),
+        smsConsentBy:     S.user?.email || '',
+      });
+      await loadUserData(uid);
+      nav('customers');
+    } catch (err) {
+      console.error('saveCustomerConsent:', err);
+      showErr('ecx-err', 'Could not save - please try again.');
+      setBtn('ecx-save-btn', false, 'Save Permission');
     }
     return;
   }
