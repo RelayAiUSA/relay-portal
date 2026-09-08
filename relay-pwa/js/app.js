@@ -436,8 +436,8 @@ function sSignup() {
       <input id="sg-sms" type="checkbox" style="margin-top:3px;flex-shrink:0;width:16px;height:16px;accent-color:#6366f1;">
       <span style="font-size:12px;color:#4b5563;line-height:1.6;">
         <strong>Yes, text me at the number above.</strong> I agree to receive SMS from
-        Relay about my account: job confirmations, invoice and quote notifications,
-        and account alerts. Message frequency varies by how many jobs you submit —
+        Relay (Pryor Digital Ventures LLC) about my account: job confirmations,
+        invoice and quote notifications, and account alerts. Message frequency varies by how many jobs you submit —
         typically 5&ndash;20 messages per month. Msg &amp; data rates may apply.
         Reply STOP to unsubscribe or HELP for help.
       </span>
