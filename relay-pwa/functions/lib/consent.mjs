@@ -26,11 +26,23 @@ export function normalizePhone(raw) {
 
 /**
  * Look up the customer record for a phone number and decide whether Relay may
- * send them an automated text.
+ * send them an automated text of a given kind.
+ *
+ * Scopes:
+ *   'transactional' — documents about work already done (invoices, quotes).
+ *   'promotional'   — review requests. Carriers commonly treat review
+ *                     solicitation as marketing, a higher consent bar, so this
+ *                     scope requires per-customer consent and is NOT satisfied
+ *                     by a bulk attestation.
+ *
+ * A consent record carries smsConsentScope: 'all' for per-customer consent
+ * (the contractor answered for this specific person) or 'transactional' for a
+ * bulk attestation. Records written before scopes existed have no field and
+ * are treated as 'all', since those were per-customer answers.
  *
  * @returns {Promise<{allowed: boolean, reason: string, customerId?: string}>}
  */
-export async function canTextCustomer(db, uid, phone) {
+export async function canTextCustomer(db, uid, phone, requiredScope = 'transactional') {
   const key = normalizePhone(phone);
   if (!key) return { allowed: false, reason: 'invalid_phone' };
 
@@ -51,6 +63,14 @@ export async function canTextCustomer(db, uid, phone) {
       return { allowed: false, reason: 'opted_out', customerId: doc.id };
     }
     if (d.smsConsent === true) {
+      const scope = d.smsConsentScope || 'all';
+      if (requiredScope === 'promotional' && scope !== 'all') {
+        return {
+          allowed: false,
+          reason: 'bulk_consent_insufficient_for_promotional',
+          customerId: doc.id,
+        };
+      }
       return { allowed: true, reason: 'consented', customerId: doc.id };
     }
     return { allowed: false, reason: 'no_consent_on_record', customerId: doc.id };

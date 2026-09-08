@@ -185,7 +185,7 @@ If a field is unknown, use empty string or 0.`,
   // Consent gate: never auto-forward to a customer without a consent record.
   let fwdConsent = { allowed: false, reason: 'not_attempted' };
   if (canAutoForward(plan) && profile.autoForwardToCustomer && parsed.customer_phone) {
-    fwdConsent = await canTextCustomer(db, uid, parsed.customer_phone);
+    fwdConsent = await canTextCustomer(db, uid, parsed.customer_phone, 'transactional');
     if (!fwdConsent.allowed) {
       console.log(`[twilio-sms] auto-forward blocked uid=${uid} reason=${fwdConsent.reason}`);
     }

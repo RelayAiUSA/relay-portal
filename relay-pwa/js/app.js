@@ -694,6 +694,9 @@ function sCustomers() {
         These were added or imported without a text message permission answer, so
         Relay will not text them. If they are past or existing customers you have
         done work for, you can confirm permission for all of them at once.
+        <strong>This covers job documents only &mdash; invoices and quotes.</strong>
+        Review request texts count as marketing and need permission answered for
+        each customer individually on their own page.
       </div>
       <label class="check-row-lbl" for="bulk-consent-ack" style="align-items:flex-start">
         <input type="checkbox" id="bulk-consent-ack">
@@ -712,7 +715,8 @@ function sCustomers() {
       </button>
       <div style="font-size:11px;color:#9ca3af;margin-top:8px;line-height:1.5">
         Applies only to the ${pending.length} without an answer. Anyone you marked
-        "Not yet" stays blocked. You can change any customer individually later.
+        "Not yet" stays blocked. Review requests stay off for these customers until
+        you answer for them individually. You can change any customer later.
       </div>
     </div>` : '';
 
@@ -736,8 +740,12 @@ function sCustomers() {
               <div class="inv-info">
                 <div class="inv-name">${cx.name || 'Unknown'}</div>
                 <div class="inv-meta">${cx.phone || ''}${cx.email ? ' Â· ' + cx.email : ''}</div>
-                <div class="inv-meta" style="margin-top:2px;font-size:11px;color:${cx.smsConsent ? '#059669' : '#9ca3af'}">
-                  ${cx.smsConsent ? 'Texting allowed' : 'Texting blocked \u2014 no permission on file'}
+                <div class="inv-meta" style="margin-top:2px;font-size:11px;color:${!cx.smsConsent ? '#9ca3af' : (cx.smsConsentScope && cx.smsConsentScope !== 'all') ? '#b45309' : '#059669'}">
+                  ${!cx.smsConsent
+                      ? 'Texting blocked \u2014 no permission on file'
+                      : (cx.smsConsentScope && cx.smsConsentScope !== 'all')
+                        ? 'Documents only \u2014 review texts need per-customer permission'
+                        : 'Texting allowed'}
                 </div>
               </div>
             </div>`;
@@ -815,7 +823,8 @@ function sAddCustomer() {
       <span style="font-size:12px;color:#6b7280;line-height:1.5;display:block;margin-top:6px;">
         Relay will not text this customer unless one of the first four is selected.
         Pick the one that is actually true &mdash; you are the sender of record, and
-        this is the record that protects you. Relay stores your answer and the date.
+        this is the record that protects you. Answering here covers both job
+        documents and review request texts. Relay stores your answer and the date.
         Customers can reply STOP at any time. You can change this later from the
         customer's page.
       </span>
@@ -1310,8 +1319,19 @@ document.addEventListener('click', async e => {
       showErr('bulk-consent-err', 'Please tick the confirmation box first.');
       return;
     }
-    const pending = (S.customers || []).filter(needsConsentAnswer);
-    if (!pending.length) { nav('customers'); return; }
+    // Only records with a real Firestore document id can be written. Passing an
+    // undefined id to .doc() throws at the first call and aborts the whole batch,
+    // and a wrong id would write consent onto the wrong customer — so filter
+    // rather than trust the shape of the cached objects.
+    const all     = (S.customers || []).filter(needsConsentAnswer);
+    const pending = all.filter(cx => typeof cx.docId === 'string' && cx.docId);
+    const skipped = all.length - pending.length;
+    if (skipped) console.warn(`[bulkConsent] skipping ${skipped} customer(s) with no docId`);
+    if (!pending.length) {
+      showErr('bulk-consent-err', 'Could not identify these customer records — please refresh and try again.');
+      setBtn('bulk-consent-btn', false, 'Confirm permission for ' + all.length + ' customers');
+      return;
+    }
 
     showErr('bulk-consent-err', '');
     setBtn('bulk-consent-btn', true, 'Confirming...');
@@ -1342,6 +1362,12 @@ document.addEventListener('click', async e => {
         await batch.commit();
       }
       await loadUserData(uid);
+      if (skipped) {
+        showErr('bulk-consent-err',
+          `Updated ${pending.length}. ${skipped} could not be identified — refresh and try again.`);
+        setBtn('bulk-consent-btn', false, 'Confirm permission for ' + skipped + ' customers');
+        return;
+      }
       nav('customers');
     } catch (err) {
       console.error('bulkConsent:', err);
@@ -1388,6 +1414,10 @@ document.addEventListener('click', async e => {
         // functions. Method and timestamp are stored so consent is auditable.
         smsConsent:       smsConsent,
         smsConsentMethod: smsConsentHow,
+        // 'all' = answered for this specific person, so it also covers review
+        // requests. A bulk attestation records 'transactional' instead and
+        // does not unlock review requests. See functions/lib/consent.mjs.
+        smsConsentScope:  smsConsent ? 'all' : '',
         smsConsentAt:     smsConsent ? firebase.firestore.FieldValue.serverTimestamp() : null,
         smsConsentBy:     S.user?.email || '',
         customerType:    $('cx-type')?.value || '',

@@ -118,7 +118,7 @@ async function processCollection(db, uid, collName, userData, results) {
 
     // Consent gate: a review request is a Relay-initiated message to someone
     // else's customer. Without a consent record on file, it is not sent.
-    const consent = await canTextCustomer(db, uid, phone);
+    const consent = await canTextCustomer(db, uid, phone, 'promotional');
     if (!consent.allowed) {
       results.skipped.push({ id: doc.id, collection: collName, reason: `consent: ${consent.reason}` });
       continue;
