@@ -144,7 +144,10 @@ async function handleOauthToken(req, context) {
       };
 
     } else if (platform === 'zoho') {
-      const clientId     = '1000.HPTPX3D50HAMNOOBYEV4LWZJ045Z7L';
+      // Env-driven so a wrong app can be corrected in Netlify without a deploy.
+      // Must match the client_id the FRONTEND used to obtain the code: Zoho
+      // issues the code to one app and will reject an exchange by another.
+      const clientId     = process.env.ZOHO_CLIENT_ID || '1000.HPTPX3D50HAMNOOBYEV4LWZJ045Z7L';
       const clientSecret = process.env.ZOHO_CLIENT_SECRET;
 
       const params = new URLSearchParams({
@@ -170,9 +173,17 @@ async function handleOauthToken(req, context) {
       // Zoho answers 200 with an error body for things like an expired code,
       // so resp.ok alone is not success.
       if (data.error) {
-        console.error('[oauth-token] Zoho returned error:', data.error);
+        // Log the client_id being used - not the secret. Nearly every
+        // invalid_client_secret is really an ID/secret pair from two different
+        // Zoho apps, or an app registered in another Zoho data centre
+        // (.eu/.in/.com.au) while we talk to accounts.zoho.com.
+        console.error('[oauth-token] Zoho returned error:', data.error,
+                      'client_id=' + clientId, 'redirect_uri=' + redirectUri);
+        const hint = data.error === 'invalid_client_secret'
+          ? ' The client ID and secret must come from the SAME app in api-console.zoho.com, and that app must be in the same Zoho region as accounts.zoho.com.'
+          : '';
         return new Response(
-          JSON.stringify({ error: `Zoho rejected the authorization: ${data.error}` }),
+          JSON.stringify({ error: `Zoho rejected the authorization: ${data.error}.${hint}` }),
           { status: 502, headers: HEADERS }
         );
       }
