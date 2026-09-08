@@ -10,3 +10,6 @@ relay-pwa/sessions/
 /netlify.toml
 # Stray deploy archives
 deploy-*.zip
+
+# Never read: Netlify base dir is relay-pwa, so only relay-pwa/.netlifyignore applies
+/.netlifyignore

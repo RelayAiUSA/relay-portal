@@ -35,6 +35,27 @@
 
 # ── Redirects ────────────────────────────────────────────────────────────────
 
+# Block static serving of server-side source. The functions directory lives
+# inside the publish directory, so Netlify was serving every .mjs file as a
+# static asset: portal-relay.com/functions/stripe-webhook.mjs returned the
+# source. Verified exposed before this rule.
+#
+# Functions EXECUTE at /.netlify/functions/*, which these rules do not touch,
+# so invocation is unaffected. force = true is required: without it a real file
+# on disk wins over a redirect.
+[[redirects]]
+  from = "/functions/*"
+  to = "/index.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/package.json"
+  to = "/index.html"
+  status = 404
+  force = true
+
+
 [[redirects]]
   from = "/doc/*"
   to = "/doc.html"

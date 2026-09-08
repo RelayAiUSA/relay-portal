@@ -1,2 +1,6 @@
+# The only .netlifyignore Netlify reads. Base directory is relay-pwa, so a
+# second file at the repo root was silently ignored; its rules are merged here.
 sessions/
 .git/
+.netlify/
+*.log
