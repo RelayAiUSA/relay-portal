@@ -5,9 +5,8 @@
 
 [functions]
   directory = "relay-pwa/functions"
+  node_bundler = "esbuild"
 
-# Daily OAuth token refresh sweep -- keeps every customer's Zoho/QuickBooks
-# connection alive and flags anything broken before it silently fails an
-# invoice sync. See netlify/functions/oauth-refresh-sweep.js.
+# Daily OAuth token refresh sweep
 [functions."oauth-refresh-sweep"]
 schedule = "@daily"
