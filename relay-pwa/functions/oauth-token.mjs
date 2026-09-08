@@ -299,3 +299,7 @@ async function handleOauthToken(req, context) {
     );
   }
 }
+
+// Redeployed 2026-09-08 to load ZOHO_CLIENT_SECRET, added to Netlify after the
+// previous build. Function env vars are baked in at deploy time, so a new
+// variable does nothing until the site is rebuilt.
