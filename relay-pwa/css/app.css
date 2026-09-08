@@ -229,6 +229,51 @@ select.input { cursor: pointer; }
 .fp.on { background: var(--brand-gradient); border-color: #6d28d9; color: #fff; }
 .fp:active { transform: scale(.95); }
 
+/* ── Multi-select (document list) ──
+   The select toolbar used to be rendered INSIDE .filter-row, which is a
+   single-row horizontal scroller (display:flex; overflow-x:auto). A full-width
+   card and an error div became flex children squeezed in beside the filter
+   chips, which is what made the controls look broken and shift around. The
+   toolbar is its own bar now, and these classes replace a pile of inline
+   styles so the buttons cannot drift out of alignment again. */
+.sel-bar {
+  display: flex; align-items: center; gap: 10px; padding: 10px 16px;
+  background: var(--g50); border-bottom: 1px solid var(--g100); flex-shrink: 0;
+}
+.sel-count {
+  flex: 1; min-width: 0; font-size: 13px; font-weight: 600; color: var(--g900);
+}
+.sel-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.sel-btn {
+  padding: 7px 14px; border-radius: 8px; font-size: 13px; font-weight: 600;
+  font-family: var(--font); cursor: pointer; white-space: nowrap;
+  border: 1px solid var(--g300); background: #fff; color: var(--g700);
+  transition: background .15s, border-color .15s, color .15s, transform .1s;
+}
+.sel-btn:active { transform: scale(.96); }
+.sel-btn-danger { background: #dc2626; border-color: #dc2626; color: #fff; }
+.sel-btn-danger:active { background: #b91c1c; }
+/* A disabled Delete used to carry a SECOND style attribute, which browsers
+   ignore entirely - so it still rendered solid red and looked clickable while
+   doing nothing. State belongs in CSS, not in a duplicated attribute. */
+.sel-btn:disabled {
+  background: var(--g100); border-color: var(--g200); color: var(--g400);
+  cursor: not-allowed; transform: none;
+}
+/* Same 40px footprint as .inv-av so entering select mode does not shift every
+   row sideways. */
+.inv-check {
+  width: 40px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+}
+.inv-check input { width: 20px; height: 20px; accent-color: var(--brand); pointer-events: none; margin: 0; }
+.inv-item.picked { background: var(--brand-light); }
+.inv-item.picked:hover { background: var(--brand-light); }
+.sel-link {
+  background: none; border: none; font-family: var(--font); font-size: 14px;
+  font-weight: 600; color: var(--brand); cursor: pointer; padding: 6px 4px; white-space: nowrap;
+}
+.sel-link:active { opacity: .6; }
+
 /* ── Contacts ── */
 .cx-item {
   display: flex; align-items: center; gap: 11px;

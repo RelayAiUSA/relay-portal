@@ -753,23 +753,33 @@ function sInvoices() {
   const filters = ['all','needs_review','pending','sent','overdue','paid','quote'];
   const list    = S.filter === 'all' ? invs : invs.filter(i => i.status === S.filter);
 
-  return topbar({title:'Invoices', sub:`${invs.length} total`, right:`<button class="topbar-btn">${I.bell}</button>`}) +
-  `<div class="filter-row">
-    ${S.selectMode ? `
-      <div class="card" style="padding:11px 13px;margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <span style="font-size:13px;font-weight:600;flex:1">
-          ${S.selectedInvs.length} selected
-        </span>
-        <button class="btn btn-sm btn-outline" data-action="cancelSelect" style="width:auto;padding:6px 12px">Cancel</button>
-        <button class="btn btn-sm" data-action="deleteSelected" style="width:auto;padding:6px 12px;background:#dc2626;color:#fff;border:none"
-                ${S.selectedInvs.length ? '' : 'disabled style="width:auto;padding:6px 12px;background:#e5e7eb;color:#9ca3af;border:none"'}>
-          Delete${S.selectedInvs.length ? ` (${S.selectedInvs.length})` : ''}
+  // Select / Cancel lives in the topbar, where a screen-level mode toggle
+  // belongs - not wedged into the horizontally scrolling filter row, where it
+  // pushed the chips sideways and scrolled out of reach.
+  const nSel     = S.selectedInvs.length;
+  const allPicked = list.length > 0 && list.every(i => S.selectedInvs.includes(i.docId));
+
+  return topbar({
+    title: 'Invoices',
+    sub:   S.selectMode ? `${nSel} of ${list.length} selected` : `${invs.length} total`,
+    right: S.selectMode
+      ? `<button class="sel-link" data-action="cancelSelect">Cancel</button>`
+      : `<button class="sel-link" data-action="startSelect">Select</button>`,
+  }) +
+  `${S.selectMode ? `
+    <div class="sel-bar">
+      <span class="sel-count">${nSel ? `${nSel} selected` : 'Select documents to delete'}</span>
+      <div class="sel-actions">
+        <button class="sel-btn" data-action="selectAllInvs" ${list.length ? '' : 'disabled'}>
+          ${allPicked ? 'Clear all' : 'Select all'}
+        </button>
+        <button class="sel-btn sel-btn-danger" data-action="deleteSelected" ${nSel ? '' : 'disabled'}>
+          ${nSel ? `Delete (${nSel})` : 'Delete'}
         </button>
       </div>
-      <div id="inv-del-err" class="auth-error" style="display:none;margin-bottom:10px"></div>`
-    : `<div style="display:flex;justify-content:flex-end;margin-bottom:8px">
-        <button class="btn btn-sm btn-outline" data-action="startSelect" style="width:auto;padding:5px 12px;font-size:12px">Select</button>
-      </div>`}
+    </div>
+    <div id="inv-del-err" class="auth-error" style="display:none;margin:10px 16px 0"></div>` : ''}
+  <div class="filter-row">
     ${filters.map(f=>`<button class="fp${S.filter===f?' on':''}" data-filter="${f}">${f==='needs_review'?'Needs Review':f.charAt(0).toUpperCase()+f.slice(1)}</button>`).join('')}
   </div>
   <div class="scroll" style="padding:12px 16px">
@@ -781,9 +791,9 @@ function sInvoices() {
             const ini  = getInitials(invCustomer(inv) || '?');
             const work = full.slice(0, 34);
             const ticked = S.selectedInvs.includes(inv.docId);
-            return `<div class="inv-item" ${S.selectMode ? `data-pick="${inv.docId}"` : `data-inv="${inv.docId}"`} style="cursor:pointer${ticked ? ';background:#eff6ff' : ''}">
+            return `<div class="inv-item${ticked ? ' picked' : ''}" ${S.selectMode ? `data-pick="${inv.docId}"` : `data-inv="${inv.docId}"`}>
               ${S.selectMode
-                ? `<div style="display:flex;align-items:center;padding-right:10px"><input type="checkbox" ${ticked ? 'checked' : ''} style="pointer-events:none;width:18px;height:18px"></div>`
+                ? `<div class="inv-check"><input type="checkbox" ${ticked ? 'checked' : ''} aria-label="Select ${cust}"></div>`
                 : `<div class="inv-av">${ini}</div>`}
               <div class="inv-info">
                 <div class="inv-name">${cust}</div>
@@ -792,7 +802,7 @@ function sInvoices() {
               <div class="inv-right">
                 <div class="inv-amt">${fmt(inv.amount || 0)}</div>
                 <div style="margin-top:4px">${badge(inv.status || 'pending')}</div>
-                ${inv.docId ? `<button onclick="event.stopPropagation();(function(){navigator.clipboard.writeText('https://portal-relay.com/doc/${inv.docId}');this.textContent='✓ Copied';setTimeout(()=>this.textContent='Share',1800)}).call(this)" style="margin-top:5px;font-size:11px;padding:3px 8px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer;color:#374151">Share</button>` : ''}
+                ${inv.docId && !S.selectMode ? `<button onclick="event.stopPropagation();(function(){navigator.clipboard.writeText('https://portal-relay.com/doc/${inv.docId}');this.textContent='✓ Copied';setTimeout(()=>this.textContent='Share',1800)}).call(this)" style="margin-top:5px;font-size:11px;padding:3px 8px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer;color:#374151">Share</button>` : ''}
               </div>
             </div>`;
           }).join('')
@@ -1740,6 +1750,15 @@ document.addEventListener('click', async e => {
   if (action === 'startSelect')  { S.selectMode = true;  S.selectedInvs = []; render(); return; }
   if (action === 'cancelSelect') { S.selectMode = false; S.selectedInvs = []; render(); return; }
 
+  if (action === 'selectAllInvs') {
+    const visible = (S.filter === 'all' ? (S.invoices || []) : (S.invoices || []).filter(i => i.status === S.filter))
+      .map(i => i.docId);
+    const allPicked = visible.length > 0 && visible.every(id => S.selectedInvs.includes(id));
+    S.selectedInvs = allPicked ? [] : visible;
+    render();
+    return;
+  }
+
   // Delete selected documents.
   //
   // The invoice is SOFT deleted - marked and hidden, never destroyed. It is a
@@ -1753,7 +1772,7 @@ document.addEventListener('click', async e => {
     const ids = [...S.selectedInvs];
     const btn = document.querySelector('[data-action="deleteSelected"]');
     if (btn) { btn.disabled = true; btn.textContent = 'Deleting…'; }
-    let failed = 0;
+    const failedIds = [];
     for (const id of ids) {
       try {
         await db.collection('users').doc(uid).collection('invoices').doc(id).update({
@@ -1765,14 +1784,31 @@ document.addEventListener('click', async e => {
         await db.collection('publicDocs').doc(id).delete().catch(() => {});
       } catch (err) {
         console.error('deleteSelected:', id, err);
-        failed++;
+        failedIds.push(id);
       }
     }
-    S.selectMode = false;
-    S.selectedInvs = [];
+
+    // The failure message used to be written into #inv-del-err and then
+    // immediately destroyed: select mode was switched off and render() ran
+    // straight after, and that element only exists while select mode is on. A
+    // partial failure was therefore completely silent - documents stayed put
+    // and the user was told nothing.
+    //
+    // On any failure, stay in select mode with exactly the documents that did
+    // NOT delete still ticked, so the retry is one tap. Write the message after
+    // render(), when the element it targets exists.
+    const deleted = ids.length - failedIds.length;
+    S.selectedInvs = failedIds;
+    S.selectMode   = failedIds.length > 0;
+
     await loadUserData(uid);
-    if (failed) showErr('inv-del-err', `${ids.length - failed} deleted, ${failed} could not be removed — please try again.`);
     render();
+
+    if (failedIds.length) {
+      showErr('inv-del-err', deleted
+        ? `${deleted} deleted. ${failedIds.length} could not be removed and ${failedIds.length === 1 ? 'is' : 'are'} still selected — please try again.`
+        : `Could not delete ${failedIds.length === 1 ? 'that document' : 'those documents'} — please try again.`);
+    }
     return;
   }
 
