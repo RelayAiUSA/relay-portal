@@ -103,6 +103,18 @@ refresh token when a provider omits one, and `encrypt()` rejects empty input
 with a message naming the real problem. Providers can also answer HTTP 200 with
 an error body, so check `data.error` as well as `resp.ok`.
 
+**A missing env var reads as a wrong credential.** Zoho answered
+`invalid_client_secret` for weeks. The client ID matched, the redirect URI was
+registered, the data centre was right, and the secret itself was provably
+valid - a direct curl to `accounts.zoho.com/oauth/v2/token` with that ID and
+secret returned `invalid_code`, meaning the pair was accepted. The cause was
+that **`ZOHO_CLIENT_SECRET` did not exist in Netlify at all**. `URLSearchParams`
+stringifies `undefined` to the literal text `"undefined"`, so a perfectly
+plausible "wrong secret" error was really "no secret". Before doubting a
+credential's value, list the site's env vars and confirm the key is present -
+and curl the provider directly with the pair to see whether the provider
+accepts it.
+
 **The Stripe connector is read-only.** It can read prices, subscriptions and
 webhook endpoints but cannot write any of them. Do not plan work that depends
 on writing to Stripe; ask the user.
