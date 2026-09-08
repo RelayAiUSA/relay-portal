@@ -19,6 +19,7 @@
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { alertError } from './lib/alert.mjs';
+import { canTextCustomer } from './lib/consent.mjs';
 
 // Firebase Admin — lazy singleton with duplicate-init guard
 let _db;
@@ -114,6 +115,14 @@ async function processCollection(db, uid, collName, userData, results) {
     const customer = d.customerName  || d.customer || '';
     if (!phone)       { results.skipped.push({ id: doc.id, collection: collName, reason: 'no phone' }); continue; }
     if (!reviewLink)  { results.skipped.push({ id: doc.id, collection: collName, reason: 'no review link' }); continue; }
+
+    // Consent gate: a review request is a Relay-initiated message to someone
+    // else's customer. Without a consent record on file, it is not sent.
+    const consent = await canTextCustomer(db, uid, phone);
+    if (!consent.allowed) {
+      results.skipped.push({ id: doc.id, collection: collName, reason: `consent: ${consent.reason}` });
+      continue;
+    }
 
     try {
       const twilioSid = await sendSms(phone, buildReviewSms(customer, companyName, reviewLink));

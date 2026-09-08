@@ -13,6 +13,7 @@ import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { syncInvoiceToAccounting } from './lib/accounting-sync.mjs';
 import { alertError } from './lib/alert.mjs';
+import { canTextCustomer } from './lib/consent.mjs';
 
 // ── Firebase Admin init ───────────────────────────────────────────────────────
 
@@ -181,7 +182,15 @@ If a field is unknown, use empty string or 0.`,
   }
 
   // ── Pro: auto-forward doc to customer via SMS ─────────────────────────────
+  // Consent gate: never auto-forward to a customer without a consent record.
+  let fwdConsent = { allowed: false, reason: 'not_attempted' };
   if (canAutoForward(plan) && profile.autoForwardToCustomer && parsed.customer_phone) {
+    fwdConsent = await canTextCustomer(db, uid, parsed.customer_phone);
+    if (!fwdConsent.allowed) {
+      console.log(`[twilio-sms] auto-forward blocked uid=${uid} reason=${fwdConsent.reason}`);
+    }
+  }
+  if (fwdConsent.allowed) {
     const docType = invoiceData.type === 'quote' ? 'Quote' : 'Invoice';
     const fwdMsg  = [
       `Hi ${parsed.customer_name || 'there'}, your ${docType} from ${profile.companyName || 'your contractor'} is ready:`,
@@ -205,8 +214,14 @@ If a field is unknown, use empty string or 0.`,
     `"${preview}"`,
   ];
 
-  if (canAutoForward(plan) && profile.autoForwardToCustomer && parsed.customer_phone) {
+  if (fwdConsent.allowed) {
     replyLines.push('Doc sent to customer via SMS.');
+  } else if (canAutoForward(plan) && profile.autoForwardToCustomer && parsed.customer_phone) {
+    replyLines.push(
+      fwdConsent.reason === 'opted_out'
+        ? 'Not texted — customer opted out.'
+        : 'Not texted — add this customer at portal-relay.com and confirm they agreed to receive texts.'
+    );
   }
 
   if (invoiceData.type !== 'quote') {
