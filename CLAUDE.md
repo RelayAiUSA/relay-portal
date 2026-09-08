@@ -83,6 +83,16 @@ cache-first only for images, fonts and video. If a frontend change is reported
 missing, check the live bundle with curl BEFORE assuming the deploy failed, then
 suspect the service worker.
 
+**Invoices have two field vocabularies for the same collection.** The portal
+form writes `customer` / `work` / `email` / `phone`; twilio-sms writes
+`customer_name` / `professional_description` / `customer_email` /
+`customer_phone`. The invoice list read only the former, so every SMS-created
+invoice displayed as "Unknown" with a blank description. twilio-sms now writes
+BOTH shapes, and the frontend reads through `invCustomer()` / `invWork()` /
+`invEmail()` / `invPhone()`, which fall back across both - so existing documents
+render correctly with no migration. Do not rename either side alone:
+accounting-sync and review-request read the underscored names.
+
 **The Stripe connector is read-only.** It can read prices, subscriptions and
 webhook endpoints but cannot write any of them. Do not plan work that depends
 on writing to Stripe; ask the user.
@@ -266,6 +276,17 @@ note on how it was verified, not just that it was done.
       for code, cache-first only for static media. `sw.js` is served
       `Cache-Control: no-cache`, verified against the live server, so the new
       worker reaches existing clients.
+
+- [x] **L18. SMS invoices showed as "Unknown" and could not be opened.**
+      Field-name mismatch between the two writers of the invoices collection,
+      plus there was no invoice detail screen at all. twilio-sms now writes both
+      vocabularies; the frontend reads through fallback accessors so documents
+      already in Firestore render correctly without a backfill; invoice rows
+      open a detail screen showing amount, status, work performed, customer,
+      job details, the original text message, a shareable link and Mark as Paid.
+      A held document explains itself there rather than only carrying a badge.
+      Verified by rendering the screen against the real invoice created by the
+      first live SMS test.
 
 ### Tier 2 - before roughly the tenth customer.
 

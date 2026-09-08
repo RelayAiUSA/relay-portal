@@ -70,6 +70,18 @@ function canSMSDispatch(plan) {
 function canAutoForward(plan) { return isAdminUser() || (plan||'').toLowerCase() === 'pro'; }
 function canReviewRequest(plan) { return isAdminUser() || (plan||'').toLowerCase() === 'pro'; }
 function docLimit(plan) { return (isAdminUser() || ['essential','pro'].includes((plan||'').toLowerCase())) ? 500 : 250; }
+// ── Invoice field accessors ──────────────────────────────────────────────────
+// Invoices arrive from two places with different field names: the portal form
+// writes customer/work/email/phone, the SMS pipeline writes
+// customer_name/professional_description/customer_email/customer_phone.
+// Reading through these means existing documents of either shape render
+// correctly with no migration - which matters, because a contractor should not
+// have to wait for a backfill to see the job they just texted in.
+function invCustomer(inv)    { return inv?.customer || inv?.customer_name || ''; }
+function invWork(inv)        { return inv?.work || inv?.professional_description || ''; }
+function invEmail(inv)       { return inv?.email || inv?.customer_email || ''; }
+function invPhone(inv)       { return inv?.phone || inv?.customer_phone || ''; }
+
 // ── Phone normalisation ──────────────────────────────────────────────────────
 // The contractor's business phone is the ONLY thing that identifies who is
 // texting in. Twilio delivers From in E.164 (+16162481977), so what we store
@@ -108,7 +120,7 @@ async function checkAndIncrementDocCount(uid, plan) {
   await ref.set({ count: firebase.firestore.FieldValue.increment(1), updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
 }
 // Protected screens — require active subscription
-const PROTECTED = new Set(['dashboard','submit','invoices','customers','profile','addCustomer','editCustomer']);
+const PROTECTED = new Set(['dashboard','submit','invoices','customers','profile','addCustomer','editCustomer','invoice']);
 
 // ── STATE ─────────────────────────────────────────────────────────────────
 
@@ -120,6 +132,7 @@ const S = {
   formPrice:'flat',
   lastJob:  null,
   editCxId: null,      // docId of the customer open on the editCustomer screen
+  openInvId: null,     // docId of the invoice open on the invoice screen
   user:     null,
   profile:  null,
   invoices: [],
@@ -721,18 +734,20 @@ function sInvoices() {
     <div class="card">
       ${list.length
         ? list.map(inv => {
-            const ini  = getInitials(inv.customer || '?');
-            const work = (inv.work || '').slice(0, 34);
-            return `<div class="inv-item">
+            const cust = invCustomer(inv) || 'Unknown';
+            const full = invWork(inv);
+            const ini  = getInitials(invCustomer(inv) || '?');
+            const work = full.slice(0, 34);
+            return `<div class="inv-item" data-inv="${inv.docId}" style="cursor:pointer">
               <div class="inv-av">${ini}</div>
               <div class="inv-info">
-                <div class="inv-name">${inv.customer || 'Unknown'}</div>
-                <div class="inv-meta">${work}${(inv.work||'').length > 34 ? '…' : ''} · ${fmtDate(inv.createdAt)}</div>
+                <div class="inv-name">${cust}</div>
+                <div class="inv-meta">${work}${full.length > 34 ? '…' : ''} · ${fmtDate(inv.createdAt)}</div>
               </div>
               <div class="inv-right">
                 <div class="inv-amt">${fmt(inv.amount || 0)}</div>
                 <div style="margin-top:4px">${badge(inv.status || 'pending')}</div>
-                ${inv.docId ? `<button onclick="(function(){navigator.clipboard.writeText('https://portal-relay.com/doc/${inv.docId}');this.textContent='✓ Copied';setTimeout(()=>this.textContent='Share',1800)}).call(this)" style="margin-top:5px;font-size:11px;padding:3px 8px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer;color:#374151">Share</button>` : ''}
+                ${inv.docId ? `<button onclick="event.stopPropagation();(function(){navigator.clipboard.writeText('https://portal-relay.com/doc/${inv.docId}');this.textContent='✓ Copied';setTimeout(()=>this.textContent='Share',1800)}).call(this)" style="margin-top:5px;font-size:11px;padding:3px 8px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer;color:#374151">Share</button>` : ''}
               </div>
             </div>`;
           }).join('')
@@ -823,6 +838,92 @@ function sEditCustomer() {
     <div style="height:20px"></div>
   </div>
   ${tabs('customers')}`;
+}
+
+function sInvoice() {
+  const inv = (S.invoices || []).find(i => i.docId === S.openInvId);
+  if (!inv) return topbar({title: 'Document', back: 'invoices'}) +
+    `<div class="scroll"><div class="card" style="padding:24px;text-align:center;color:#9ca3af">
+      Document not found. <span data-nav="invoices" style="cursor:pointer;text-decoration:underline">Back to documents</span>
+    </div></div>${tabs('invoices')}`;
+
+  const cust  = invCustomer(inv) || 'Unknown';
+  const work  = invWork(inv);
+  const email = invEmail(inv);
+  const phone = invPhone(inv);
+  const isQuote = (inv.type || 'invoice') === 'quote';
+
+  const row = (label, value) => value
+    ? `<div style="display:flex;justify-content:space-between;gap:14px;padding:9px 0;border-bottom:1px solid #f3f4f6">
+         <span style="font-size:13px;color:#6b7280;flex-shrink:0">${label}</span>
+         <span style="font-size:13px;text-align:right;word-break:break-word">${value}</span>
+       </div>`
+    : '';
+
+  // Surfaced deliberately: a document held back by the parse guard should say
+  // so on its own page, not just carry a badge in a list.
+  const reviewNote = inv.status === 'needs_review' ? `
+    <div class="card" style="padding:13px;margin-bottom:12px;border-left:3px solid #b45309">
+      <div style="font-weight:600;font-size:13px;margin-bottom:4px">Held for your review</div>
+      <div style="font-size:12px;color:#6b7280;line-height:1.55">
+        Relay could not read this confidently, so it was not sent to the customer.
+        Check the amount and details below${(inv.parseFlags||[]).length ? ` (${inv.parseFlags.join(', ')})` : ''}.
+      </div>
+    </div>` : '';
+
+  const rawNote = inv.rawSms ? `
+    <p class="sh">Original text</p>
+    <div class="card" style="padding:13px;margin-bottom:12px">
+      <div style="font-size:13px;color:#374151;line-height:1.6;white-space:pre-wrap">${inv.rawSms}</div>
+    </div>` : '';
+
+  return topbar({title: cust, back: 'invoices'}) +
+  `<div class="scroll">
+    ${reviewNote}
+    <div class="card" style="padding:16px;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+        <div>
+          <div style="font-size:20px;font-weight:700">${fmt(inv.amount || 0)}</div>
+          <div style="font-size:13px;color:#6b7280;margin-top:2px">${isQuote ? 'Quote' : 'Invoice'} &middot; ${fmtDate(inv.createdAt)}</div>
+        </div>
+        ${badge(inv.status || 'pending')}
+      </div>
+    </div>
+
+    ${work ? `<p class="sh">Work performed</p>
+    <div class="card" style="padding:13px;margin-bottom:12px">
+      <div style="font-size:13px;color:#374151;line-height:1.6">${work}</div>
+    </div>` : ''}
+
+    <p class="sh">Customer</p>
+    <div class="card" style="padding:13px 14px;margin-bottom:12px">
+      ${row('Name', cust)}
+      ${row('Phone', phone ? formatPhone(phone) : '')}
+      ${row('Email', email)}
+      ${row('Address', inv.address)}
+    </div>
+
+    <p class="sh">Details</p>
+    <div class="card" style="padding:13px 14px;margin-bottom:12px">
+      ${row('Type', isQuote ? 'Quote' : 'Invoice')}
+      ${row('Job type', inv.job_type)}
+      ${row('Source', inv.source === 'sms' ? 'Texted in' : 'Created in portal')}
+      ${row('PO / Job ref', inv.poRef)}
+      ${row('Warranty', inv.warranty)}
+      ${row('Deposit', inv.deposit)}
+      ${row('Notes', inv.notes)}
+    </div>
+
+    ${rawNote}
+
+    <button class="btn btn-outline" style="margin-bottom:10px"
+            onclick="navigator.clipboard.writeText('https://portal-relay.com/doc/${inv.docId}');this.textContent='\u2713 Link copied';setTimeout(()=>this.textContent='Copy shareable link',1800)">
+      Copy shareable link
+    </button>
+    ${inv.status !== 'paid' ? `<button class="btn btn-primary" data-action="markInvoicePaid">Mark as Paid</button>` : ''}
+    <div style="height:20px"></div>
+  </div>
+  ${tabs('invoices')}`;
 }
 
 function sCustomers() {
@@ -1252,6 +1353,7 @@ const SCREENS = {
   customers: sCustomers,
   addCustomer: sAddCustomer,
   editCustomer: sEditCustomer,
+  invoice: sInvoice,
   profile:   sProfile,
   admin:     sAdmin,
 };
@@ -1289,6 +1391,8 @@ document.addEventListener('click', async e => {
   const toggleEl = e.target.closest('[data-toggle]');
   const filterEl = e.target.closest('[data-filter]');
 
+  const invEl = e.target.closest('[data-inv]');
+  if (invEl)    { e.preventDefault(); S.openInvId = invEl.dataset.inv; nav('invoice'); return; }
   const cxEl = e.target.closest('[data-cx]');
   if (cxEl)     { e.preventDefault(); S.editCxId = cxEl.dataset.cx; nav('editCustomer'); return; }
   if (navEl)    { e.preventDefault(); nav(navEl.dataset.nav); return; }
@@ -1560,6 +1664,20 @@ document.addEventListener('click', async e => {
   // ── SAVE CONSENT FOR AN EXISTING CUSTOMER ──
   // A per-customer answer always records scope 'all', so it also unlocks review
   // requests - which is the only way to upgrade a bulk-attested customer.
+  if (action === 'markInvoicePaid') {
+    const uid = S.user?.uid;
+    if (!uid || !S.openInvId) return;
+    try {
+      await db.collection('users').doc(uid).collection('invoices').doc(S.openInvId)
+        .update({ status: 'paid', paidAt: firebase.firestore.FieldValue.serverTimestamp() });
+      await loadUserData(uid);
+      render();
+    } catch (err) {
+      console.error('markInvoicePaid:', err);
+    }
+    return;
+  }
+
   if (action === 'saveCustomerConsent') {
     const uid = S.user?.uid;
     if (!uid || !S.editCxId) return;

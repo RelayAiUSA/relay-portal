@@ -318,6 +318,20 @@ If a field is unknown, use empty string or 0.`,
 
   // ── Save invoice to Firestore ─────────────────────────────────────────────
   const invoiceData = {
+    // Two field vocabularies exist for the same collection. The portal writes
+    // customer / work / email / phone; this function grew up writing
+    // customer_name / professional_description / customer_email /
+    // customer_phone. The portal's invoice list reads the FORMER, so every
+    // SMS-created invoice rendered as "Unknown" with a blank description.
+    //
+    // Both shapes are written. The portal names are the ones the UI reads; the
+    // underscored names are kept because accounting-sync and review-request
+    // already read them. Renaming either side alone would break the other.
+    customer:                 job.customer_name,
+    work:                     job.professional_description,
+    email:                    job.customer_email,
+    phone:                    job.customer_phone,
+
     customer_name:            job.customer_name,
     customer_phone:           job.customer_phone,
     customer_email:           job.customer_email,
