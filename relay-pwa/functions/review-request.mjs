@@ -1,5 +1,6 @@
 // relay-pwa/functions/review-request.mjs
-// Netlify scheduled function — runs every hour, sends review SMS 24 hrs after job submission
+// Netlify scheduled function — runs every hour, sends review SMS 24 hrs after job
+// submission. RelayPRO accounts only.
 //
 // Schedule (see netlify.toml):
 //   [functions.review-request]
@@ -12,7 +13,6 @@
 //   FIREBASE_PROJECT_ID
 //   FIREBASE_CLIENT_EMAIL
 //   FIREBASE_PRIVATE_KEY      (full private key string)
-//   GOOGLE_REVIEW_LINK        (fallback if not set per-user in Firestore)
 //
 // Migrated to Netlify Functions v2 (no Lambda compat layer) to avoid 4KB env var limit.
 
@@ -92,7 +92,15 @@ async function processCollection(db, uid, collName, userData, results) {
   const windowStart = now - 25 * 60 * 60 * 1000;
   const windowEnd   = now - 23 * 60 * 60 * 1000;
   const companyName = userData.companyName || userData.businessName || 'Your service provider';
-  const reviewLink  = userData.googleReviewLink || process.env.GOOGLE_REVIEW_LINK || '';
+  // The profile form writes 'reviewUrl'. This previously read 'googleReviewLink',
+  // a field nothing has ever written, so every contractor's own link was ignored
+  // and every review request fell through to the single global
+  // GOOGLE_REVIEW_LINK env var — sending every contractor's customers to the
+  // SAME business's review page. The env var fallback is removed deliberately:
+  // skipping a review request is always better than pointing a customer at
+  // someone else's Google listing. 'googleReviewLink' is still read second in
+  // case any legacy document carries it.
+  const reviewLink  = userData.reviewUrl || userData.googleReviewLink || '';
   const utcOffset   = userData.utcOffset !== undefined ? Number(userData.utcOffset) : -5;
 
   if (!isWithinSendWindow(utcOffset)) {
@@ -144,11 +152,15 @@ export default async (req, context) => {
     for (const userDoc of usersSnap.docs) {
       const uid      = userDoc.id;
       const userData = userDoc.data();
-      // Normalise: Firestore has held both 'Starter' and 'starter'. Without
-      // toLowerCase() a capitalised value slips past this gate and Starter
-      // customers receive review-request SMS, a paid-tier feature.
-      const plan     = (userData.plan || 'starter').toLowerCase();
-      if (plan === 'starter' || plan === 'unpaid') continue;  // Essential+ and RelayPRO only
+      // RelayPRO only. Automated review requests are listed on the RelayPRO
+      // plan card and nowhere else, and the frontend's canReviewRequest() has
+      // always been Pro-only — this gate was letting Essential+ accounts run a
+      // feature they do not pay for.
+      //
+      // Normalise first: Firestore has held both 'Starter' and 'starter', and
+      // without toLowerCase() a capitalised value slips past any plan check.
+      const plan = (userData.plan || 'starter').toLowerCase();
+      if (plan !== 'pro') continue;
       for (const coll of ['jobs', 'invoices', 'dispatch']) {
         await processCollection(db, uid, coll, userData, results);
       }

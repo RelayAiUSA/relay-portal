@@ -13,7 +13,7 @@ import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { syncInvoiceToAccounting } from './lib/accounting-sync.mjs';
 import { alertError } from './lib/alert.mjs';
-import { canTextCustomer } from './lib/consent.mjs';
+import { canTextCustomer, normalizePhone } from './lib/consent.mjs';
 
 // ── Firebase Admin init ───────────────────────────────────────────────────────
 
@@ -61,6 +61,12 @@ function canSMSDispatch(plan) {
   return ['essential', 'pro'].includes((plan || '').toLowerCase());
 }
 function canAutoForward(plan) {
+  return (plan || '').toLowerCase() === 'pro';
+}
+// Automated review requests are a RelayPRO feature: listed on the RelayPRO plan
+// card only, gated to 'pro' in the frontend's canReviewRequest(), and gated to
+// 'pro' in review-request.mjs. Keep all four in agreement.
+function canReviewRequest(plan) {
   return (plan || '').toLowerCase() === 'pro';
 }
 function isActiveStatus(status) {
@@ -123,6 +129,78 @@ export default async (req) => {
   }
 
   // ── AI: parse + professionalize raw SMS ──────────────────────────────────
+  // ── Is this a reply to our review-consent question? ──────────────────
+  // Checked before the AI parse so a bare "yes" is never billed as an AI call
+  // or turned into a nonsense invoice. Only a lone yes/no counts; anything
+  // longer is treated as a new job, so a real job description is never eaten.
+  const pending = profile.pendingReviewConsent;
+  const isYes   = /^(y|yes|yep|yeah|yup|ok|okay)$/i.test(body);
+  const isNo    = /^(n|no|nope|nah)$/i.test(body);
+
+  if (pending?.phone && (isYes || isNo)) {
+    const askedMs = pending.askedAt?.toMillis?.() ?? Date.parse(pending.askedAt || '') ?? 0;
+    const fresh   = askedMs && (Date.now() - askedMs) < 24 * 60 * 60 * 1000;
+
+    if (fresh) {
+      const key = normalizePhone(pending.phone);
+      let ref = null;
+      try {
+        const cxSnap = await db.collection('users').doc(uid).collection('customers').get();
+        const hit = cxSnap.docs.find(d => normalizePhone(d.data().phone) === key);
+        if (hit) ref = hit.ref;
+      } catch (err) {
+        console.error('[twilio-sms] consent-reply lookup failed:', err.message);
+      }
+
+      const consentFields = isYes
+        ? {
+            smsConsent:       true,
+            smsConsentMethod: 'sms_confirmed_by_contractor',
+            smsConsentScope:  'all',
+            smsConsentText:   'Contractor confirmed by SMS that this customer agreed '
+                            + 'to receive review request texts from their business.',
+            smsConsentAt:     FieldValue.serverTimestamp(),
+            smsConsentBy:     fromPhone,
+          }
+        : {
+            smsConsent:       false,
+            smsConsentMethod: 'none',
+            smsConsentScope:  '',
+            smsConsentAt:     FieldValue.serverTimestamp(),
+            smsConsentBy:     fromPhone,
+          };
+
+      try {
+        if (ref) {
+          await ref.update(consentFields);
+        } else {
+          await db.collection('users').doc(uid).collection('customers').add({
+            name:      pending.customerName || 'Unknown',
+            phone:     pending.phone,
+            address:   '',
+            source:    'sms',
+            createdAt: FieldValue.serverTimestamp(),
+            ...consentFields,
+          });
+        }
+        await userDoc.ref.update({ pendingReviewConsent: FieldValue.delete() });
+      } catch (err) {
+        console.error('[twilio-sms] consent-reply write failed:', err.message);
+        return twimlResponse('Could not save that — please set the permission at portal-relay.com.');
+      }
+
+      const who = pending.customerName || 'that customer';
+      return twimlResponse(
+        isYes
+          ? `Got it — review requests are on for ${who}. Relay will text them 24 hours after the job.`
+          : `Understood — no review texts for ${who}. You can change this any time at portal-relay.com.`
+      );
+    }
+
+    // Stale question: clear it and fall through to treat this as a new job.
+    try { await userDoc.ref.update({ pendingReviewConsent: FieldValue.delete() }); } catch {}
+  }
+
   let parsed;
   try {
     const aiRes = await anthropic.messages.create({
@@ -234,6 +312,32 @@ If a field is unknown, use empty string or 0.`,
       replyLines.push('Connect your accounting software at portal-relay.com to auto-sync invoices.');
     } else {
       replyLines.push('Saved, but accounting sync failed — check portal-relay.com.');
+    }
+  }
+
+  // ── RelayPRO: ask about review consent for a customer we cannot text yet ──
+  // Only Pro accounts get automated review requests, so only Pro accounts are
+  // asked. Review texts need per-customer consent ('promotional' scope), which
+  // a bulk import attestation deliberately does not satisfy.
+  if (canReviewRequest(plan) && parsed.customer_phone) {
+    const revConsent = await canTextCustomer(db, uid, parsed.customer_phone, 'promotional');
+    if (!revConsent.allowed && revConsent.reason !== 'opted_out') {
+      try {
+        await userDoc.ref.update({
+          pendingReviewConsent: {
+            phone:        parsed.customer_phone,
+            customerName: parsed.customer_name || '',
+            invoiceId:    invRef.id,
+            askedAt:      new Date(),
+          },
+        });
+        const who = parsed.customer_name || 'this customer';
+        replyLines.push(
+          `Has ${who} agreed to receive review request texts from you? Reply YES or NO.`
+        );
+      } catch (err) {
+        console.error('[twilio-sms] could not store pendingReviewConsent:', err.message);
+      }
     }
   }
 

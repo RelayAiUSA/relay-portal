@@ -855,7 +855,10 @@ function sProfile() {
   const p    = S.profile || {};
   const plan = (p.plan || 'unpaid').toLowerCase();
   const sub  = p.subscriptionStatus || 'unpaid';
-  const isEssentialPlus = canAutoForward(plan);
+  // RelayPRO-only section. canAutoForward() is Pro-only, so this gate was always
+  // correct, but the old name (isEssentialPlus) said the opposite and invited a
+  // maintainer to widen it.
+  const isPro = canReviewRequest(plan);
   const canSMS = canSMSDispatch(plan);
   const isAdmin = S.user?.email === ADMIN_EMAIL;
 
@@ -1040,7 +1043,7 @@ function sProfile() {
         <strong>Relay dispatch line:</strong> +1 (844) 729-1376 — text job info to generate invoices via AI.
       </div>` : ''}
 
-      ${isEssentialPlus ? `
+      ${isPro ? `
       <p class="sh">Relay Pro <span class="badge paid" style="font-size:11px;margin-left:4px">Pro</span></p>
       <div class="form-group">
         <label class="form-lbl" for="pf-review-url">Google / Yelp review link</label>
