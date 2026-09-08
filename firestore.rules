@@ -1,59 +1,92 @@
 rules_version = '2';
 service cloud.firestore {
-match /databases/{database}/documents {
+  match /databases/{database}/documents {
 
-// --- Helper functions ---
+    // ── Helper functions ──────────────────────────────────────────────────────
 
-function isAuthed() {
-return request.auth != null;
-}
+    function isAuthed() {
+      return request.auth != null;
+    }
 
-function isOwner(userId) {
-return isAuthed() && request.auth.uid == userId;
-}
+    function isOwner(userId) {
+      return isAuthed() && request.auth.uid == userId;
+    }
 
-function notChangingOwner() {
-return !('uid' in request.resource.data) ||
-request.resource.data.uid == request.auth.uid;
-}
+    function notChangingOwner() {
+      return !('uid' in request.resource.data) ||
+             request.resource.data.uid == request.auth.uid;
+    }
 
-// Client is not touching oauthTokens on this write. Tokens are now
-// written and refreshed exclusively server-side (Admin SDK) via
-// oauth-token.js and the daily refresh sweep, encrypted at rest in
-// the oauth_tokens subcollection below -- this field is now frozen
-// from the client.
-function notTouchingOauthTokens() {
-return !('oauthTokens' in request.resource.data.diff(resource.data).affectedKeys());
-}
+    // oauthTokens field is frozen from the client — written only by Admin SDK
+    function notTouchingOauthTokens() {
+      return !('oauthTokens' in request.resource.data.diff(resource.data).affectedKeys());
+    }
 
-// --- User profiles ---
-// /users/{uid}
-match /users/{userId} {
-allow read: if isOwner(userId);
-allow create: if isOwner(userId) && notChangingOwner() && notTouchingOauthTokens();
-allow update: if isOwner(userId) && notChangingOwner() && notTouchingOauthTokens();
-allow delete: if false;
+    // Prevent clients from elevating their own plan or subscription status
+    function notTouchingBilling() {
+      let billingFields = ['plan', 'subscriptionStatus', 'stripeCustomerId',
+                           'stripeSubscriptionId', 'planActivatedAt', 'planUpdatedAt',
+                           'trialEnd'];
+      return !request.resource.data.diff(resource.data).affectedKeys()
+              .hasAny(billingFields);
+    }
 
-// --- Jobs subcollection ---
-// /users/{uid}/jobs/{jobId}
-match /jobs/{jobId} {
-allow read: if isOwner(userId);
-allow write: if false;
-}
+    // ── User profiles  /users/{uid} ───────────────────────────────────────────
+    match /users/{userId} {
+      allow read:   if isOwner(userId);
+      allow create: if isOwner(userId) && notChangingOwner()
+                       && notTouchingOauthTokens() && notTouchingBilling();
+      allow update: if isOwner(userId) && notChangingOwner()
+                       && notTouchingOauthTokens() && notTouchingBilling();
+      allow delete: if false;
 
-// --- OAuth tokens subcollection ---
-// /users/{uid}/oauth_tokens/{provider}   (provider: "quickbooks" | "zoho")
-// Encrypted access/refresh tokens, written and refreshed exclusively by
-// Netlify Functions using the Admin SDK. Never readable or writable from
-// the client under any condition.
-match /oauth_tokens/{provider} {
-allow read, write: if false;
-}
-}
+      // ── Invoices  /users/{uid}/invoices/{invoiceId} ───────────────────────
+      // Created by Netlify Functions (Admin SDK) via SMS dispatch.
+      // Dashboard reads and can update status (e.g. mark paid).
+      match /invoices/{invoiceId} {
+        allow read:   if isOwner(userId);
+        allow create: if isOwner(userId);        // allow web-portal invoice creation
+        allow update: if isOwner(userId);        // allow status/note updates
+        allow delete: if false;
+      }
 
-// --- Deny everything else ---
-match /{document=**} {
-allow read, write: if false;
-}
-}
+      // ── Jobs  /users/{uid}/jobs/{jobId} ──────────────────────────────────
+      // Created and updated by Admin SDK only. Dashboard read-only.
+      match /jobs/{jobId} {
+        allow read:         if isOwner(userId);
+        allow create,
+              update,
+              delete:       if false;
+      }
+
+      // ── Dispatch  /users/{uid}/dispatch/{docId} ───────────────────────────
+      // Managed by Admin SDK. Dashboard read-only.
+      match /dispatch/{docId} {
+        allow read:         if isOwner(userId);
+        allow create,
+              update,
+              delete:       if false;
+      }
+
+      // ── Customers  /users/{uid}/customers/{customerId} ────────────────────
+      // Created and managed from the portal by the account owner.
+      match /customers/{customerId} {
+        allow read:   if isOwner(userId);
+        allow create: if isOwner(userId);
+        allow update: if isOwner(userId);
+        allow delete: if isOwner(userId);
+      }
+
+      // ── OAuth tokens  /users/{uid}/oauth_tokens/{provider} ────────────────
+      // Encrypted tokens. Never readable or writable from the client.
+      match /oauth_tokens/{provider} {
+        allow read, write: if false;
+      }
+    }
+
+    // ── Deny everything else ─────────────────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
 }
