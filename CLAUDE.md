@@ -118,3 +118,30 @@ Update this section when something moves. It is the answer to "what's done?"
 - [ ] **Warm-network outreach** — first 5-10 paying customers.
 - [ ] *Optional:* archive the unused $59 Essential+ price in Stripe. No payment
       link and no subscriptions reference it — cosmetic only.
+
+### Open - found 2026-09-08, not yet fixed
+
+- [ ] **twilio-sms has no request signature validation.** stripe-webhook verifies
+      its Stripe signature; twilio-sms verifies nothing. The endpoint is public,
+      so anyone who knows the URL can POST `From=<a contractor's number>&Body=...`
+      and forge a job into that account: creates an invoice, spends an Anthropic
+      call, and syncs a fake invoice to their QuickBooks/Zoho. Phone numbers are
+      not secrets. Fix with Twilio's X-Twilio-Signature check (HMAC-SHA1 of the
+      full URL plus sorted POST params, keyed on TWILIO_AUTH_TOKEN).
+      Exposure is currently low only because toll-free verification is pending.
+
+- [ ] **Monthly document limits are frontend-only.** docLimit() lives in app.js;
+      no function checks usage before creating an invoice, so the SMS path
+      ignores plan limits entirely.
+
+- [ ] **AI output is not validated.** twilio-sms JSON.parses the model's reply
+      and writes parsed.amount / customer_phone straight onto the invoice. No
+      type, range or format check, so a bad parse becomes a real document.
+
+- [ ] **No error monitoring.** alertError() sends one SMS to ALERT_PHONE. A
+      failing function at 3am for one customer is otherwise invisible.
+
+- [ ] **No Firestore backups configured.**
+
+- [ ] **End-to-end SMS dispatch has never been run once.** Every component is
+      verified individually; the full chain never has been.
