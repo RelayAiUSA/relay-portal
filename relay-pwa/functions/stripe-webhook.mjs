@@ -47,12 +47,29 @@ function getDb() {
   return _db;
 }
 
-// Map Stripe price ID to internal plan name
+// Map Stripe price ID to internal plan name.
+// Env vars win; the hardcoded live IDs are a fallback so a missing/typo'd env
+// var cannot silently mis-tier a paying customer. Price IDs are not secrets.
+const PRICE_MAP = {
+  // RelayPRO — $99/mo
+  [process.env.STRIPE_PRICE_PRO       || '\0']: 'pro',
+  'price_1TpxTORB4QYF5HZ4oIJxr8jN': 'pro',
+  // Essential+ — $49/mo (current) and $59/mo (legacy, still active in Stripe)
+  [process.env.STRIPE_PRICE_ESSENTIAL || '\0']: 'essential',
+  'price_1TqIQXRB4QYF5HZ4Ag5ueyuO': 'essential',
+  'price_1Tq3G8RB4QYF5HZ4dIuNmu6Y': 'essential',
+  // Starter — $19/mo. Previously unmapped, so Starter subscribers fell through
+  // to the 'essential' default and received features they had not paid for.
+  [process.env.STRIPE_PRICE_STARTER  || '\0']: 'starter',
+  'price_1Tq3FgRB4QYF5HZ4aqBqpC1A': 'starter',
+};
+
 function planFromPriceId(priceId) {
-  if (priceId === process.env.STRIPE_PRICE_PRO)       return 'pro';
-  if (priceId === process.env.STRIPE_PRICE_ESSENTIAL) return 'essential';
-  console.warn('[stripe-webhook] Unknown price ID:', priceId, '— defaulting to essential');
-  return 'essential';
+  const plan = PRICE_MAP[priceId];
+  if (plan) return plan;
+  // Least privilege: an unrecognised price must never grant paid features.
+  console.warn('[stripe-webhook] Unknown price ID:', priceId, '— defaulting to starter');
+  return 'starter';
 }
 
 // Find Firestore user doc by Stripe customer ID, with email fallback
@@ -82,7 +99,7 @@ async function handleCheckoutCompleted(db, session) {
   if (snap.empty) { console.warn('[stripe-webhook] No Firestore user for email:', email); return; }
   const userDoc = snap.docs[0];
 
-  let plan = 'essential', status = 'active', trialEnd = null;
+  let plan = 'starter', status = 'active', trialEnd = null;
   if (subscriptionId) {
     try {
       const sub = await stripe.subscriptions.retrieve(subscriptionId);

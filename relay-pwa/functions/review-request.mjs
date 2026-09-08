@@ -135,8 +135,11 @@ export default async (req, context) => {
     for (const userDoc of usersSnap.docs) {
       const uid      = userDoc.id;
       const userData = userDoc.data();
-      const plan     = userData.plan || 'starter';
-      if (plan === 'starter') continue;  // Review requests: Essential+ and RelayPRO only
+      // Normalise: Firestore has held both 'Starter' and 'starter'. Without
+      // toLowerCase() a capitalised value slips past this gate and Starter
+      // customers receive review-request SMS, a paid-tier feature.
+      const plan     = (userData.plan || 'starter').toLowerCase();
+      if (plan === 'starter' || plan === 'unpaid') continue;  // Essential+ and RelayPRO only
       for (const coll of ['jobs', 'invoices', 'dispatch']) {
         await processCollection(db, uid, coll, userData, results);
       }

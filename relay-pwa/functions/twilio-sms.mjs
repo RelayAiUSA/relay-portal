@@ -8,7 +8,6 @@
 //
 // Migrated to Netlify Functions v2 (no Lambda compat layer) to avoid 4KB env var limit.
 
-import twilio from 'twilio';
 import Anthropic from '@anthropic-ai/sdk';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
@@ -30,10 +29,28 @@ const db = getFirestore();
 
 // ── Clients ───────────────────────────────────────────────────────────────────
 
-const twilioClient = twilio(
-  process.env.TWILIO_ACCOUNT_SID,
-  process.env.TWILIO_AUTH_TOKEN
-);
+// Twilio via plain fetch — no SDK. The twilio npm package uses dynamic
+// requires that esbuild cannot statically resolve, which crashed this
+// function at import time with ERR_MODULE_NOT_FOUND on ValidationToken.
+async function sendSms(to, body) {
+  const sid   = process.env.TWILIO_ACCOUNT_SID;
+  const token = process.env.TWILIO_AUTH_TOKEN;
+  if (!sid || !token) throw new Error('Twilio credentials not configured');
+  const res = await fetch(
+    `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`,
+    {
+      method:  'POST',
+      headers: {
+        'Authorization': 'Basic ' + Buffer.from(`${sid}:${token}`).toString('base64'),
+        'Content-Type':  'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({ From: TWILIO_FROM, To: to, Body: body }).toString(),
+    }
+  );
+  const data = await res.json();
+  if (!res.ok) throw new Error(`Twilio ${res.status}: ${data.message || JSON.stringify(data)}`);
+  return data.sid;
+}
 const anthropic  = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const TWILIO_FROM = process.env.TWILIO_PHONE_NUMBER || '+18447291376';
 
@@ -175,11 +192,8 @@ If a field is unknown, use empty string or 0.`,
       '',
       'Questions? Reply to this message.',
     ].join('\n');
-    await twilioClient.messages.create({
-      from: TWILIO_FROM,
-      to:   parsed.customer_phone,
-      body: fwdMsg,
-    }).catch(e => console.error('[twilio-sms] Auto-forward failed:', e));
+    await sendSms(parsed.customer_phone, fwdMsg)
+      .catch(e => console.error('[twilio-sms] Auto-forward failed:', e.message));
   }
 
   // ── Reply to technician ───────────────────────────────────────────────────
