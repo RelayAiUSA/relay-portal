@@ -71,6 +71,18 @@ Frontend `toE164`/`phoneDigits` and backend `normalizePhone` must agree; there
 is a test that checks they do. If you add a new place a phone is stored, write
 all three.
 
+**The service worker was cache-first and silently hid every frontend deploy.**
+`sw.js` served `caches.match(req).then(r => r || fetch(req))`, so any file
+already in the cache was returned without ever consulting the network, and the
+cache name was a hardcoded string nobody bumped. A returning user kept running
+whatever `app.js` they first cached. Deploys succeeded, the server served the
+new bundle, and the user saw nothing change - the symptom is "that feature you
+said you shipped isn't there" while curl of the live file proves it is. Now
+network-first for HTML/JS/CSS (cache is an offline fallback only) and
+cache-first only for images, fonts and video. If a frontend change is reported
+missing, check the live bundle with curl BEFORE assuming the deploy failed, then
+suspect the service worker.
+
 **The Stripe connector is read-only.** It can read prices, subscriptions and
 webhook endpoints but cannot write any of them. Do not plan work that depends
 on writing to Stripe; ask the user.
@@ -244,6 +256,16 @@ note on how it was verified, not just that it was done.
       only `phone` are silently backfilled on next load rather than being asked
       to re-enter it. Verified: frontend and backend normalisation agree across
       7 input formats and reject 3 invalid ones.
+
+- [x] **L17. Service worker was hiding every frontend deploy.**
+      Cache-first with a hardcoded cache name meant returning users kept the
+      first `app.js` they ever cached. Every frontend change made in this
+      session - the consent dropdown, the reordered Add Customer form, the
+      mojibake repair, the customer detail screen, the business phone field -
+      was live on the server and invisible in the browser. Now network-first
+      for code, cache-first only for static media. `sw.js` is served
+      `Cache-Control: no-cache`, verified against the live server, so the new
+      worker reaches existing clients.
 
 ### Tier 2 - before roughly the tenth customer.
 
