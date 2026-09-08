@@ -48,26 +48,34 @@ function getDb() {
 }
 
 // Map Stripe price ID to internal plan name.
-// Env vars win; the hardcoded live IDs are a fallback so a missing/typo'd env
-// var cannot silently mis-tier a paying customer. Price IDs are not secrets.
-const PRICE_MAP = {
-  // RelayPRO — $99/mo
-  [process.env.STRIPE_PRICE_PRO       || '\0']: 'pro',
-  'price_1TpxTORB4QYF5HZ4oIJxr8jN': 'pro',
-  // Essential+ — $49/mo (current) and $59/mo (legacy, still active in Stripe)
-  [process.env.STRIPE_PRICE_ESSENTIAL || '\0']: 'essential',
-  'price_1TqIQXRB4QYF5HZ4Ag5ueyuO': 'essential',
-  'price_1Tq3G8RB4QYF5HZ4dIuNmu6Y': 'essential',
-  // Starter — $19/mo. Previously unmapped, so Starter subscribers fell through
-  // to the 'essential' default and received features they had not paid for.
-  [process.env.STRIPE_PRICE_STARTER  || '\0']: 'starter',
-  'price_1Tq3FgRB4QYF5HZ4aqBqpC1A': 'starter',
-};
-
+//
+// Env-var driven only. Price IDs are deliberately NOT hardcoded here: Netlify's
+// secret scanner fails the build when an env var's value appears in source, and
+// keeping tier config in env means pricing changes need no code deploy.
+//
+// Required: STRIPE_PRICE_STARTER, STRIPE_PRICE_ESSENTIAL, STRIPE_PRICE_PRO
+// Optional: STRIPE_PRICE_ESSENTIAL_LEGACY (the older $59 Essential+ price,
+//           still active in Stripe for grandfathered subscribers)
 function planFromPriceId(priceId) {
-  const plan = PRICE_MAP[priceId];
+  if (!priceId) {
+    console.warn('[stripe-webhook] No price ID on subscription — defaulting to starter');
+    return 'starter';
+  }
+  const map = new Map();
+  const put = (envVal, plan) => { if (envVal) map.set(envVal, plan); };
+
+  put(process.env.STRIPE_PRICE_PRO,               'pro');
+  put(process.env.STRIPE_PRICE_ESSENTIAL,         'essential');
+  put(process.env.STRIPE_PRICE_ESSENTIAL_LEGACY,  'essential');
+  put(process.env.STRIPE_PRICE_STARTER,           'starter');
+
+  const plan = map.get(priceId);
   if (plan) return plan;
-  // Least privilege: an unrecognised price must never grant paid features.
+
+  // Least privilege. Previously this defaulted to 'essential', so a Starter
+  // subscriber whose price ID was unmapped was provisioned with Essential+
+  // features — $49 of product for $19. An unrecognised price must never
+  // grant paid features.
   console.warn('[stripe-webhook] Unknown price ID:', priceId, '— defaulting to starter');
   return 'starter';
 }
