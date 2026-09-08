@@ -20,11 +20,8 @@
 //   FIREBASE_CLIENT_EMAIL
 //   FIREBASE_PRIVATE_KEY
 //
-// Migrated from Lambda compatibility mode to the modern Netlify Functions runtime
-// using @netlify/aws-lambda-compat — handler logic (including signature
-// verification against the raw event.body) is unchanged.
+// Migrated to Netlify Functions v2 (no Lambda compat layer) to avoid 4KB env var limit.
 
-import { withLambda } from "@netlify/aws-lambda-compat";
 import StripeLib from 'stripe';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
@@ -74,7 +71,6 @@ async function findUserDoc(db, stripeCustomerId) {
 }
 
 // checkout.session.completed — first event when user pays via Stripe Checkout link
-// Critical: this is how stripeCustomerId gets written to Firestore on first signup
 async function handleCheckoutCompleted(db, session) {
   const customerId     = session.customer;
   const subscriptionId = session.subscription;
@@ -138,20 +134,19 @@ async function handlePaymentFailed(db, invoice) {
   console.log('[stripe-webhook] Payment failed — marked past_due:', userDoc.id);
 }
 
-// Main handler
-export default withLambda(async (event) => {
-  if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
+// Main handler — Netlify Functions v2
+export default async (req) => {
+  if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
+
+  const body = await req.text();
+  const sig  = req.headers.get('stripe-signature');
 
   let stripeEvent;
   try {
-    stripeEvent = stripe.webhooks.constructEvent(
-      event.body,
-      event.headers['stripe-signature'],
-      process.env.STRIPE_WEBHOOK_SECRET
-    );
+    stripeEvent = stripe.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET);
   } catch (err) {
     console.error('[stripe-webhook] Signature failed:', err.message);
-    return { statusCode: 400, body: 'Invalid signature: ' + err.message };
+    return new Response('Invalid signature: ' + err.message, { status: 400 });
   }
 
   const db  = getDb();
@@ -166,9 +161,9 @@ export default withLambda(async (event) => {
       case 'invoice.payment_failed':          await handlePaymentFailed(db, obj);         break;
       default: console.log('[stripe-webhook] Unhandled event:', stripeEvent.type);
     }
-    return { statusCode: 200, body: 'ok' };
+    return new Response('ok', { status: 200 });
   } catch (err) {
     console.error('[stripe-webhook] Handler error:', err);
-    return { statusCode: 500, body: err.message };
+    return new Response(err.message, { status: 500 });
   }
-});
+};

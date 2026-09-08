@@ -5,12 +5,13 @@
 //   starter   → upgrade prompt only
 //   essential → AI parse + dispatch + accounting sync
 //   pro       → all essential features + auto-forward to customer + review request SMS
+//
+// Migrated to Netlify Functions v2 (no Lambda compat layer) to avoid 4KB env var limit.
 
 import twilio from 'twilio';
 import Anthropic from '@anthropic-ai/sdk';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
-import { withLambda } from '@netlify/aws-lambda-compat';
 import { syncInvoiceToAccounting } from './lib/accounting-sync.mjs';
 
 // ── Firebase Admin init ───────────────────────────────────────────────────────
@@ -47,33 +48,32 @@ function isActiveStatus(status) {
   return ['active', 'trialing', 'past_due'].includes(status);
 }
 
-// ── TwiML reply ───────────────────────────────────────────────────────────────
+// ── TwiML reply — Netlify Functions v2 returns a Response ────────────────────
 
-function twiml(msg) {
-  // Escape XML special chars so the message is safe inside a TwiML element
+function twimlResponse(msg) {
   const safe = String(msg)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
-  return {
-    statusCode: 200,
-    headers: { 'Content-Type': 'text/xml' },
-    body: `<?xml version="1.0" encoding="UTF-8"?><Response><Message>${safe}</Message></Response>`,
-  };
+  return new Response(
+    `<?xml version="1.0" encoding="UTF-8"?><Response><Message>${safe}</Message></Response>`,
+    { status: 200, headers: { 'Content-Type': 'text/xml' } }
+  );
 }
 
-// ── Main handler (withLambda: event.body is a plain string) ───────────────────
+// ── Main handler — Netlify Functions v2 ──────────────────────────────────────
 
-async function smsHandler(event) {
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Method not allowed' };
+export default async (req) => {
+  if (req.method !== 'POST') {
+    return new Response('Method not allowed', { status: 405 });
   }
 
-  const params    = new URLSearchParams(event.body || '');
-  const fromPhone = params.get('From') || '';
-  const body      = (params.get('Body') || '').trim();
+  const bodyText   = await req.text();
+  const params     = new URLSearchParams(bodyText || '');
+  const fromPhone  = params.get('From') || '';
+  const body       = (params.get('Body') || '').trim();
 
-  if (!fromPhone || !body) return twiml('Missing phone or message body.');
+  if (!fromPhone || !body) return twimlResponse('Missing phone or message body.');
 
   // ── Look up Relay user by phoneNumber field ───────────────────────────────
   const normalised = fromPhone.replace(/\D/g, '');
@@ -84,7 +84,7 @@ async function smsHandler(event) {
   ]);
   const match = snaps.find(s => !s.empty);
   if (!match) {
-    return twiml('Phone number not registered with Relay. Visit portal-relay.com to set up your account.');
+    return twimlResponse('Phone number not registered with Relay. Visit portal-relay.com to set up your account.');
   }
 
   const userDoc  = match.docs[0];
@@ -95,12 +95,12 @@ async function smsHandler(event) {
 
   // ── Tier gate: Starter ────────────────────────────────────────────────────
   if (!canSMSDispatch(plan)) {
-    return twiml('SMS Dispatch requires an Essential or Pro plan. Upgrade at portal-relay.com');
+    return twimlResponse('SMS Dispatch requires an Essential or Pro plan. Upgrade at portal-relay.com');
   }
 
   // ── Subscription active check ─────────────────────────────────────────────
   if (!isActiveStatus(subStatus)) {
-    return twiml('Your Relay subscription is inactive. Visit portal-relay.com to reactivate.');
+    return twimlResponse('Your Relay subscription is inactive. Visit portal-relay.com to reactivate.');
   }
 
   // ── AI: parse + professionalize raw SMS ──────────────────────────────────
@@ -132,7 +132,7 @@ If a field is unknown, use empty string or 0.`,
     parsed = JSON.parse(aiRes.content[0].text.trim());
   } catch (err) {
     console.error('[twilio-sms] AI parse error:', err);
-    return twiml('Relay AI could not process your message. Please try again with more detail.');
+    return twimlResponse('Relay AI could not process your message. Please try again with more detail.');
   }
 
   // ── Save invoice to Firestore ─────────────────────────────────────────────
@@ -156,7 +156,6 @@ If a field is unknown, use empty string or 0.`,
   const invRef = await db.collection('users').doc(uid).collection('invoices').add(invoiceData);
 
   // ── Accounting sync (Essential + Pro, invoices only) ─────────────────────
-  // syncInvoiceToAccounting never throws — outcome is recorded on the invoice doc.
   let syncResult = { synced: false, reason: 'not_connected' };
   if (invoiceData.type !== 'quote') {
     syncResult = await syncInvoiceToAccounting(db, uid, invRef.id, invoiceData, profile);
@@ -180,9 +179,6 @@ If a field is unknown, use empty string or 0.`,
       body: fwdMsg,
     }).catch(e => console.error('[twilio-sms] Auto-forward failed:', e));
   }
-
-  // ── Pro: review request — flag on invoice doc; review-request.mjs picks it up
-  // reviewRequestSent is already false in invoiceData above — no extra write needed.
 
   // ── Reply to technician ───────────────────────────────────────────────────
   const description = parsed.professional_description || '';
@@ -208,7 +204,5 @@ If a field is unknown, use empty string or 0.`,
     }
   }
 
-  return twiml(replyLines.join('\n'));
-}
-
-export const handler = withLambda(smsHandler);
+  return twimlResponse(replyLines.join('\n'));
+};

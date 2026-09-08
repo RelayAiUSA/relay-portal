@@ -7,11 +7,12 @@
 //   - This function verifies the token server-side with Firebase Admin SDK
 //   - Tokens are AES-256-GCM encrypted before storage using TOKEN_ENCRYPTION_KEY
 //   - Raw tokens are never returned to the client
+//
+// Migrated to Netlify Functions v2 (no Lambda compat layer) to avoid 4KB env var limit.
 
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore }                   from 'firebase-admin/firestore';
 import { getAuth }                        from 'firebase-admin/auth';
-import { withLambda }                     from '@netlify/aws-lambda-compat';
 import { encrypt }                        from './lib/token-helpers.mjs';
 
 // ── Firebase Admin init ───────────────────────────────────────────────────────
@@ -36,21 +37,21 @@ const HEADERS = {
   'Content-Type':                 'application/json',
 };
 
-// ── Main handler (withLambda: event.body is a plain string, event.headers is a plain object) ──
+// ── Main handler — Netlify Functions v2 ──────────────────────────────────────
 
-async function oauthTokenHandler(event) {
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers: HEADERS, body: '' };
+export default async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('', { status: 200, headers: HEADERS });
   }
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, headers: HEADERS, body: JSON.stringify({ error: 'Method not allowed' }) };
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: HEADERS });
   }
 
   // ── Verify Firebase ID token ──────────────────────────────────────────────
-  const authHeader = event.headers?.authorization || event.headers?.Authorization || '';
+  const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || '';
   const idToken    = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
   if (!idToken) {
-    return { statusCode: 401, headers: HEADERS, body: JSON.stringify({ error: 'Missing Authorization header' }) };
+    return new Response(JSON.stringify({ error: 'Missing Authorization header' }), { status: 401, headers: HEADERS });
   }
 
   let uid;
@@ -59,20 +60,21 @@ async function oauthTokenHandler(event) {
     uid = decoded.uid;
   } catch (err) {
     console.error('[oauth-token] ID token verification failed:', err.message);
-    return { statusCode: 401, headers: HEADERS, body: JSON.stringify({ error: 'Invalid or expired session. Please sign in again.' }) };
+    return new Response(JSON.stringify({ error: 'Invalid or expired session. Please sign in again.' }), { status: 401, headers: HEADERS });
   }
 
   // ── Parse body ────────────────────────────────────────────────────────────
   let body;
   try {
-    body = JSON.parse(event.body || '{}');
+    const rawBody = await req.text();
+    body = JSON.parse(rawBody || '{}');
   } catch {
-    return { statusCode: 400, headers: HEADERS, body: JSON.stringify({ error: 'Invalid JSON' }) };
+    return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400, headers: HEADERS });
   }
 
   const { platform, code, realmId } = body;
   if (!platform || !code) {
-    return { statusCode: 400, headers: HEADERS, body: JSON.stringify({ error: 'Missing platform or code' }) };
+    return new Response(JSON.stringify({ error: 'Missing platform or code' }), { status: 400, headers: HEADERS });
   }
 
   // ── Exchange authorization code for tokens ────────────────────────────────
@@ -104,7 +106,7 @@ async function oauthTokenHandler(event) {
       if (!resp.ok) {
         const err = await resp.text();
         console.error('[oauth-token] QuickBooks token error:', err);
-        return { statusCode: 502, headers: HEADERS, body: JSON.stringify({ error: 'QuickBooks token exchange failed' }) };
+        return new Response(JSON.stringify({ error: 'QuickBooks token exchange failed' }), { status: 502, headers: HEADERS });
       }
       const data = await resp.json();
       rawTokens = {
@@ -135,7 +137,7 @@ async function oauthTokenHandler(event) {
       if (!resp.ok) {
         const err = await resp.text();
         console.error('[oauth-token] Zoho token error:', err);
-        return { statusCode: 502, headers: HEADERS, body: JSON.stringify({ error: 'Zoho token exchange failed' }) };
+        return new Response(JSON.stringify({ error: 'Zoho token exchange failed' }), { status: 502, headers: HEADERS });
       }
       const data = await resp.json();
 
@@ -160,7 +162,7 @@ async function oauthTokenHandler(event) {
       };
 
     } else {
-      return { statusCode: 400, headers: HEADERS, body: JSON.stringify({ error: `Unknown platform: ${platform}` }) };
+      return new Response(JSON.stringify({ error: `Unknown platform: ${platform}` }), { status: 400, headers: HEADERS });
     }
 
     // ── Encrypt and persist tokens to Firestore ───────────────────────────
@@ -188,20 +190,13 @@ async function oauthTokenHandler(event) {
     });
 
     console.log(`[oauth-token] uid=${uid} connected ${platform} successfully`);
-    return {
-      statusCode: 200,
-      headers:    HEADERS,
-      body:       JSON.stringify({ success: true }),
-    };
+    return new Response(JSON.stringify({ success: true }), { status: 200, headers: HEADERS });
 
   } catch (err) {
     console.error('[oauth-token] Unhandled error:', err.message);
-    return {
-      statusCode: 500,
-      headers:    HEADERS,
-      body:       JSON.stringify({ error: 'Internal server error', detail: err.message }),
-    };
+    return new Response(
+      JSON.stringify({ error: 'Internal server error', detail: err.message }),
+      { status: 500, headers: HEADERS }
+    );
   }
-}
-
-export const handler = withLambda(oauthTokenHandler);
+};

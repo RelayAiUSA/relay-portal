@@ -14,10 +14,8 @@
 //   FIREBASE_PRIVATE_KEY      (full private key string)
 //   GOOGLE_REVIEW_LINK        (fallback if not set per-user in Firestore)
 //
-// Migrated from Lambda compatibility mode to the modern Netlify Functions runtime
-// using @netlify/aws-lambda-compat — handler logic is unchanged.
+// Migrated to Netlify Functions v2 (no Lambda compat layer) to avoid 4KB env var limit.
 
-import { withLambda } from "@netlify/aws-lambda-compat";
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
@@ -128,7 +126,7 @@ async function processCollection(db, uid, collName, userData, results) {
   }
 }
 
-export default withLambda(async function () {
+export default async (req, context) => {
   const db      = getDb();
   const results = { sent: [], skipped: [], errors: [] };
   try {
@@ -143,9 +141,9 @@ export default withLambda(async function () {
       }
     }
     console.log('[review-request] complete:', { sent: results.sent.length, skipped: results.skipped.length, errors: results.errors.length });
-    return { statusCode: 200, body: JSON.stringify(results) };
+    return Response.json(results);
   } catch (err) {
     console.error('[review-request] fatal:', err);
-    return { statusCode: 500, body: err.message };
+    return new Response(err.message, { status: 500 });
   }
-});
+};

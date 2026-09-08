@@ -1,7 +1,7 @@
 # Relay portal configuration
 [build]
   publish = "."
-  command = "echo 'Static site — no build step'"
+  command = "true"
 
 [functions]
   directory = "functions"
@@ -41,7 +41,4 @@
 [functions.review-request]
   schedule = "0 * * * *"
 
-[[plugins]]
-  package = "@netlify/plugin-functions-install-core"
-
-# trigger redeploy after secret-scan allowlist fix
+# deps pre-installed in functions/node_modules — no plugin needed

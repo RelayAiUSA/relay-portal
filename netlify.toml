@@ -1,5 +1,10 @@
+[build]
+  command = "true"
+  publish = "relay-pwa"
+  base = "."
+
 [functions]
-directory = "netlify/functions"
+  directory = "relay-pwa/functions"
 
 # Daily OAuth token refresh sweep -- keeps every customer's Zoho/QuickBooks
 # connection alive and flags anything broken before it silently fails an
