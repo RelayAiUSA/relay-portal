@@ -133,6 +133,8 @@ const S = {
   lastJob:  null,
   editCxId: null,      // docId of the customer open on the editCustomer screen
   openInvId: null,     // docId of the invoice open on the invoice screen
+  selectMode: false,   // invoice list is in multi-select mode
+  selectedInvs: [],    // docIds ticked for deletion
   user:     null,
   profile:  null,
   invoices: [],
@@ -284,6 +286,8 @@ async function loadUserData(uid) {
 
     S.invoices = invSnap.docs
       .map(d => ({docId: d.id, ...d.data()}))
+      // Soft-deleted documents remain in Firestore but never appear in the UI.
+      .filter(i => !i.deleted)
       .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
 
     S.customers = cxSnap.docs.map(d => ({docId: d.id, ...d.data()}));
@@ -728,6 +732,21 @@ function sInvoices() {
 
   return topbar({title:'Invoices', sub:`${invs.length} total`, right:`<button class="topbar-btn">${I.bell}</button>`}) +
   `<div class="filter-row">
+    ${S.selectMode ? `
+      <div class="card" style="padding:11px 13px;margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span style="font-size:13px;font-weight:600;flex:1">
+          ${S.selectedInvs.length} selected
+        </span>
+        <button class="btn btn-sm btn-outline" data-action="cancelSelect" style="width:auto;padding:6px 12px">Cancel</button>
+        <button class="btn btn-sm" data-action="deleteSelected" style="width:auto;padding:6px 12px;background:#dc2626;color:#fff;border:none"
+                ${S.selectedInvs.length ? '' : 'disabled style="width:auto;padding:6px 12px;background:#e5e7eb;color:#9ca3af;border:none"'}>
+          Delete${S.selectedInvs.length ? ` (${S.selectedInvs.length})` : ''}
+        </button>
+      </div>
+      <div id="inv-del-err" class="auth-error" style="display:none;margin-bottom:10px"></div>`
+    : `<div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+        <button class="btn btn-sm btn-outline" data-action="startSelect" style="width:auto;padding:5px 12px;font-size:12px">Select</button>
+      </div>`}
     ${filters.map(f=>`<button class="fp${S.filter===f?' on':''}" data-filter="${f}">${f==='needs_review'?'Needs Review':f.charAt(0).toUpperCase()+f.slice(1)}</button>`).join('')}
   </div>
   <div class="scroll" style="padding:12px 16px">
@@ -738,8 +757,11 @@ function sInvoices() {
             const full = invWork(inv);
             const ini  = getInitials(invCustomer(inv) || '?');
             const work = full.slice(0, 34);
-            return `<div class="inv-item" data-inv="${inv.docId}" style="cursor:pointer">
-              <div class="inv-av">${ini}</div>
+            const ticked = S.selectedInvs.includes(inv.docId);
+            return `<div class="inv-item" ${S.selectMode ? `data-pick="${inv.docId}"` : `data-inv="${inv.docId}"`} style="cursor:pointer${ticked ? ';background:#eff6ff' : ''}">
+              ${S.selectMode
+                ? `<div style="display:flex;align-items:center;padding-right:10px"><input type="checkbox" ${ticked ? 'checked' : ''} style="pointer-events:none;width:18px;height:18px"></div>`
+                : `<div class="inv-av">${ini}</div>`}
               <div class="inv-info">
                 <div class="inv-name">${cust}</div>
                 <div class="inv-meta">${work}${full.length > 34 ? '…' : ''} · ${fmtDate(inv.createdAt)}</div>
@@ -916,6 +938,10 @@ function sInvoice() {
 
     ${rawNote}
 
+    <button class="btn btn-primary" style="margin-bottom:8px"
+            onclick="window.open('/doc/${inv.docId}','_blank','noopener')">
+      View / Print PDF
+    </button>
     <button class="btn btn-outline" style="margin-bottom:10px"
             onclick="navigator.clipboard.writeText('https://portal-relay.com/doc/${inv.docId}');this.textContent='\u2713 Link copied';setTimeout(()=>this.textContent='Copy shareable link',1800)">
       Copy shareable link
@@ -1391,6 +1417,16 @@ document.addEventListener('click', async e => {
   const toggleEl = e.target.closest('[data-toggle]');
   const filterEl = e.target.closest('[data-filter]');
 
+  const pickEl = e.target.closest('[data-pick]');
+  if (pickEl) {
+    e.preventDefault();
+    const id = pickEl.dataset.pick;
+    S.selectedInvs = S.selectedInvs.includes(id)
+      ? S.selectedInvs.filter(x => x !== id)
+      : [...S.selectedInvs, id];
+    render();
+    return;
+  }
   const invEl = e.target.closest('[data-inv]');
   if (invEl)    { e.preventDefault(); S.openInvId = invEl.dataset.inv; nav('invoice'); return; }
   const cxEl = e.target.closest('[data-cx]');
@@ -1664,6 +1700,45 @@ document.addEventListener('click', async e => {
   // ── SAVE CONSENT FOR AN EXISTING CUSTOMER ──
   // A per-customer answer always records scope 'all', so it also unlocks review
   // requests - which is the only way to upgrade a bulk-attested customer.
+  if (action === 'startSelect')  { S.selectMode = true;  S.selectedInvs = []; render(); return; }
+  if (action === 'cancelSelect') { S.selectMode = false; S.selectedInvs = []; render(); return; }
+
+  // Delete selected documents.
+  //
+  // The invoice is SOFT deleted - marked and hidden, never destroyed. It is a
+  // financial record, and a mis-tap should not be able to erase proof that work
+  // was billed. The customer-facing copy in publicDocs is HARD deleted, so any
+  // share link already sent stops working immediately; that is the part that
+  // actually matters once a document is withdrawn.
+  if (action === 'deleteSelected') {
+    const uid = S.user?.uid;
+    if (!uid || !S.selectedInvs.length) return;
+    const ids = [...S.selectedInvs];
+    const btn = document.querySelector('[data-action="deleteSelected"]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Deleting…'; }
+    let failed = 0;
+    for (const id of ids) {
+      try {
+        await db.collection('users').doc(uid).collection('invoices').doc(id).update({
+          deleted:   true,
+          deletedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        });
+        // Revoke the share link. A missing public copy is not an error - SMS
+        // documents created before publicDocs was written have none.
+        await db.collection('publicDocs').doc(id).delete().catch(() => {});
+      } catch (err) {
+        console.error('deleteSelected:', id, err);
+        failed++;
+      }
+    }
+    S.selectMode = false;
+    S.selectedInvs = [];
+    await loadUserData(uid);
+    if (failed) showErr('inv-del-err', `${ids.length - failed} deleted, ${failed} could not be removed — please try again.`);
+    render();
+    return;
+  }
+
   if (action === 'markInvoicePaid') {
     const uid = S.user?.uid;
     if (!uid || !S.openInvId) return;

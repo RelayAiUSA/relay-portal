@@ -46,7 +46,15 @@ service cloud.firestore {
       match /invoices/{invoiceId} {
         allow read:   if isOwner(userId);
         allow create: if isOwner(userId);        // allow web-portal invoice creation
-        allow update: if isOwner(userId);        // allow status/note updates
+        allow update: if isOwner(userId);        // status, notes, and soft delete
+        // Deliberately still false. Deleting from the portal marks the document
+        // `deleted: true` via update and hides it from the list; the record
+        // itself survives. An invoice is a financial record - a mis-tap should
+        // not be able to destroy proof that work was billed, and a contractor
+        // who deletes the wrong job can be recovered rather than told it is
+        // gone. The customer-facing copy in publicDocs IS hard-deleted, so the
+        // share link stops working immediately, which is the part that matters
+        // for privacy.
         allow delete: if false;
       }
 
@@ -121,7 +129,9 @@ service cloud.firestore {
       allow create: if isAuthed() && request.resource.data.uid == request.auth.uid;
       allow update: if isAuthed() && resource.data.uid == request.auth.uid
                        && request.resource.data.uid == request.auth.uid;
-      allow delete: if false;
+      // The owner may revoke a share link. This is the real deletion: once the
+      // public copy is gone, /doc/<id> shows nothing to anyone holding the URL.
+      allow delete: if isAuthed() && resource.data.uid == request.auth.uid;
     }
 
     // ── Deny everything else ─────────────────────────────────────────────────

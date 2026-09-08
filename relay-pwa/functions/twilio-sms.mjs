@@ -354,6 +354,49 @@ If a field is unknown, use empty string or 0.`,
   };
   const invRef = await db.collection('users').doc(uid).collection('invoices').add(invoiceData);
 
+  // ── Public, printable copy of the document ────────────────────────────────
+  // doc.html renders /doc/<id> from the publicDocs collection: the customer-
+  // facing Service Document, printable to PDF, used for both invoices and
+  // quotes. The portal's job form has always written this; twilio-sms never
+  // did, so every texted-in job produced an invoice with no viewable document
+  // at all - the Share link led nowhere.
+  //
+  // Only presentation fields are copied here. This collection is world-readable
+  // by design (share links are opened by customers who are not signed in), so
+  // nothing sensitive from the parent user document may be included.
+  try {
+    await db.collection('publicDocs').doc(invRef.id).set({
+      uid,                                   // required by the publicDocs rule
+      companyName:        profile.companyName        || '',
+      businessType:       profile.businessType       || '',
+      licenseNumber:      profile.licenseNumber      || '',
+      invoicePrefix:      profile.invoicePrefix      || '',
+      invoiceFooter:      profile.invoiceFooter      || '',
+      paymentMethods:     profile.paymentMethods     || [],
+      paymentMethodOther: profile.paymentMethodOther || '',
+      paymentUsernames:   profile.paymentUsernames   || {},
+      paymentTerms:       profile.paymentTerms       || 'Due on receipt',
+      estimateValidity:   profile.estimateValidity   || '',
+      taxRate:            profile.taxRate            || 0,
+      minCallFee:         profile.minCallFee         || 0,
+      customer:  job.customer_name,
+      email:     job.customer_email,
+      phone:     job.customer_phone,
+      address:   job.address,
+      work:      job.professional_description,
+      amount:    job.amount,
+      type:      invoiceData.type,
+      status:    invoiceData.status,
+      source:    'sms',
+      createdAt: FieldValue.serverTimestamp(),
+    });
+  } catch (err) {
+    // A missing share document must not fail the dispatch: the invoice itself
+    // is already saved and the contractor's reply is more important.
+    console.error('[twilio-sms] publicDocs write failed:', err.message);
+    await alertError('twilio-sms:publicdoc', err, `invoice=${invRef.id}`);
+  }
+
   // ── Accounting sync (Essential + Pro, invoices only) ─────────────────────
   let syncResult = { synced: false, reason: 'not_connected' };
   if (invoiceData.type !== 'quote') {
