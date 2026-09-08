@@ -142,3 +142,11 @@ export default async (req, context) => {
     return new Response(err.message, { status: 500 });
   }
 };
+
+// Declare the schedule in the function itself. The netlify.toml entry alone
+// did not register — Netlify reported no schedule for this function across
+// two deploys while the sibling function's toml cron registered fine. The v2
+// config export is the native mechanism and is authoritative.
+export const config = {
+  schedule: '0 8 * * *',
+};
