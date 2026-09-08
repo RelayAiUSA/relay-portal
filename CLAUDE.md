@@ -196,6 +196,14 @@ strings in twilio-sms.mjs. Do NOT rename env vars, function names, Firestore
 collections or CSS classes: pure regression risk, zero benefit. The domain
 portal-relay.com stays either way.
 
+**The document counter only counted half the product.** The usage meter read
+`docCounts`, which only the portal's web form ever wrote. Almost every real
+document arrives by SMS, so the number sat still and looked broken. Whenever a
+counter, limit or metric looks wrong, check that EVERY path which creates the
+thing being counted also increments it - there are two writers of the invoices
+collection in this codebase and there have now been three separate bugs caused
+by only updating one of them.
+
 ## Verify before claiming
 
 Four wrong diagnoses in one session all came from inferring configuration from a
@@ -397,13 +405,39 @@ note on how it was verified, not just that it was done.
 - [ ] **L4. Enable Firestore backups.**
       Holding other businesses' customer lists with no recovery path.
 
-- [ ] **L5. Enforce plan document limits server-side.**
-      `docLimit()` exists only in app.js. No function checks usage, so the SMS
-      path ignores plan limits entirely. Partially advanced: the docCounts
-      security rule now constrains writes so the counter can only move forward
-      (new month starts at 1, existing month increments by exactly 1), closing
-      the reset-to-zero bypass. Still outstanding: twilio-sms does not check or
-      increment the counter at all, so SMS-created documents are uncounted.
+- [x] **L5. Plan document limits enforced on both paths - 2026-09-08.**
+      `docLimit()` lived only in app.js, so the limit existed exactly where it
+      could not be enforced. Nothing on the SMS path read or incremented
+      docCounts, so for a contractor working the way Relay is designed to be
+      worked - by text - the usage meter never moved at all. `docLimit()` also
+      returned 500 for BOTH Essential and Pro, making the two paid tiers
+      identical.
+
+      Now: **Pro 500, Essential (and anything else) 250, admin unlimited** -
+      the two tables live in app.js and twilio-sms.mjs and MUST be kept
+      identical; there is a check for this in the commit that introduced them.
+      twilio-sms does a cheap read before the Anthropic call (so an over-limit
+      contractor costs no AI request) and a transactional reservation at
+      creation time. The portal's increment is a transaction too - it was a
+      read-then-write, so two tabs could both read 249 and both write 250. A
+      counter failure lets the job through and alerts rather than dropping a
+      contractor's work.
+
+      Isolation verified with 14 assertions: the counter is
+      `users/{uid}/docCounts/{YYYY-MM}`, the SMS path derives that uid from the
+      sender phone lookup rather than any request field, both paths read the
+      limit from that user's own plan, and the rules allow read/write to the
+      owner only, forbid moving a count backwards, require a new month to start
+      at 1, and forbid deletion.
+
+      The cut-off is visible on both paths: the New Job screen replaces the
+      whole form with an upgrade panel at the limit, and a text gets a reply
+      naming the limit and the reset date.
+
+      Known gap: the portal path is still enforced in the browser. The rules
+      stop a client resetting its own counter, but a determined user could
+      create an invoice document directly and skip the increment. Closing that
+      needs the portal to create documents through a function.
 
 - [x] **L15. REGRESSION FIX: Firestore rules locked every user out.**
       The rules deployed earlier in this session covered users, invoices, jobs,
