@@ -9,7 +9,7 @@
 
 # Daily OAuth token refresh sweep
 [functions."oauth-refresh-sweep"]
-schedule = "@daily"
+schedule = "0 8 * * *"
 
 # Hourly review-request sweep. This function was written to run on a schedule
 # (see its header) but was never registered here, so it had never once run.
