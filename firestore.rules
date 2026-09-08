@@ -77,11 +77,51 @@ service cloud.firestore {
         allow delete: if isOwner(userId);
       }
 
+      // ── Monthly usage counters  /users/{uid}/docCounts/{YYYY-MM} ─────────
+      // REGRESSION FIX: this subcollection had no rule, so it fell through to
+      // the deny-all below. loadUserData() reads it in a Promise.all alongside
+      // the profile, invoices and customers, so the denied read rejected the
+      // whole batch, the catch fell back to plan:'unpaid', and every signed-in
+      // user was sent to the locked screen — locked out of a paid account.
+      //
+      // Writes are constrained so the counter can only move forward: a new
+      // month starts at 1 and an existing month may only increment by exactly 1.
+      // Without that a client could reset its own count to 0 and bypass the
+      // plan limit entirely.
+      match /docCounts/{monthKey} {
+        allow read:   if isOwner(userId);
+        allow create: if isOwner(userId) && request.resource.data.count == 1;
+        allow update: if isOwner(userId)
+                         && request.resource.data.count == resource.data.count + 1;
+        allow delete: if false;
+      }
+
       // ── OAuth tokens  /users/{uid}/oauth_tokens/{provider} ────────────────
       // Encrypted tokens. Never readable or writable from the client.
       match /oauth_tokens/{provider} {
         allow read, write: if false;
       }
+    }
+
+    // ── Public document viewer  /publicDocs/{docId} ──────────────────────────
+    // REGRESSION FIX: this top-level collection had no rule and fell through to
+    // the deny-all, which broke BOTH creating a document (the write) and opening
+    // a share link in doc.html (the read).
+    //
+    // Reads are intentionally public: these are the share links a contractor
+    // sends to their customer, opened by someone who is not signed in. Only the
+    // presentation copy lives here - never oauth tokens, billing fields or
+    // anything from the parent user document.
+    //
+    // Writes are scoped to the owner via the uid stamped at creation. Documents
+    // created before that stamp existed carry no uid and are therefore
+    // read-only, which is correct for a display copy.
+    match /publicDocs/{docId} {
+      allow read:   if true;
+      allow create: if isAuthed() && request.resource.data.uid == request.auth.uid;
+      allow update: if isAuthed() && resource.data.uid == request.auth.uid
+                       && request.resource.data.uid == request.auth.uid;
+      allow delete: if false;
     }
 
     // ── Deny everything else ─────────────────────────────────────────────────

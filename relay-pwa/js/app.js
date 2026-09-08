@@ -203,12 +203,25 @@ function setBtn(id, loading, label) {
 async function loadUserData(uid) {
   try {
     const monthKey = getMonthKey();
-    const [profSnap, invSnap, cxSnap, dcSnap] = await Promise.all([
+    // allSettled, not all: one failing read must not take the others down with
+    // it. A missing security rule on docCounts once rejected this whole batch,
+    // so the catch fell back to plan:'unpaid' and locked every signed-in user
+    // out of a paid account. Degrade per-source instead.
+    const [profRes, invRes, cxRes, dcRes] = await Promise.allSettled([
       db.collection('users').doc(uid).get(),
       db.collection('users').doc(uid).collection('invoices').get(),
       db.collection('users').doc(uid).collection('customers').get(),
       db.collection('users').doc(uid).collection('docCounts').doc(monthKey).get(),
     ]);
+    for (const [label, res] of [['profile', profRes], ['invoices', invRes],
+                                ['customers', cxRes], ['docCounts', dcRes]]) {
+      if (res.status === 'rejected') console.error(`loadUserData: ${label} failed:`, res.reason);
+    }
+    if (profRes.status === 'rejected') throw profRes.reason;   // profile is load-bearing
+    const profSnap = profRes.value;
+    const invSnap  = invRes.status === 'fulfilled' ? invRes.value : { docs: [] };
+    const cxSnap   = cxRes.status  === 'fulfilled' ? cxRes.value  : { docs: [] };
+    const dcSnap   = dcRes.status  === 'fulfilled' ? dcRes.value  : { exists: false };
 
     S.profile = profSnap.exists ? profSnap.data() : {
       companyName: S.user.displayName || 'My Company',
@@ -1363,6 +1376,9 @@ document.addEventListener('click', async e => {
       });
 
       await db.collection('publicDocs').doc(invRef.id).set({
+        // Owner stamp. publicDocs is world-readable (these are share links), so
+        // the security rule scopes WRITES to the owner - which needs this field.
+        uid,
         companyName:        S.profile?.companyName   || '',
         businessType:       S.profile?.businessType  || '',
         licenseNumber:      S.profile?.licenseNumber || '',

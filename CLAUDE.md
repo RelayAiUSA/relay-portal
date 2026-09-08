@@ -47,6 +47,19 @@ var. Tier config is env-driven in `stripe-webhook.mjs` for this reason.
 returns **403** to a manual POST — that means it is correctly registered, not
 that it is broken. Confirm registration in a deploy's `function_schedules`.
 
+**Firestore rules must cover EVERY collection the app touches.** Rules do not
+inherit: a subcollection with no `match` block falls through to the deny-all.
+This has already caused one production lockout. `loadUserData()` reads the
+profile, invoices, customers and docCounts together; when docCounts had no rule
+the denied read rejected the whole batch, the catch fell back to
+`plan:'unpaid'`, and every signed-in user landed on the locked screen - locked
+out of a paid account. `publicDocs` was denied at the same time, which broke
+both creating a document and opening a share link in doc.html.
+Before deploying rules, enumerate and compare:
+`grep -ohE "collection\('[a-zA-Z_]+'\)" relay-pwa/js/app.js relay-pwa/functions/*.mjs | sort -u`
+against `grep -oE "match /[a-zA-Z_]+/" firestore.rules`. Current collections:
+users, invoices, customers, dispatch, docCounts, oauth_tokens, publicDocs.
+
 **The Stripe connector is read-only.** It can read prices, subscriptions and
 webhook endpoints but cannot write any of them. Do not plan work that depends
 on writing to Stripe; ask the user.
@@ -154,7 +167,25 @@ note on how it was verified, not just that it was done.
 
 - [ ] **L5. Enforce plan document limits server-side.**
       `docLimit()` exists only in app.js. No function checks usage, so the SMS
-      path ignores plan limits entirely.
+      path ignores plan limits entirely. Partially advanced: the docCounts
+      security rule now constrains writes so the counter can only move forward
+      (new month starts at 1, existing month increments by exactly 1), closing
+      the reset-to-zero bypass. Still outstanding: twilio-sms does not check or
+      increment the counter at all, so SMS-created documents are uncounted.
+
+- [x] **L15. REGRESSION FIX: Firestore rules locked every user out.**
+      The rules deployed earlier in this session covered users, invoices, jobs,
+      dispatch, customers and oauth_tokens but not docCounts or publicDocs, and
+      rules do not inherit. Consequences: every signed-in user was sent to the
+      locked screen (denied docCounts read rejected loadUserData's whole
+      Promise.all, catch fell back to plan:'unpaid'); creating a document failed
+      (publicDocs write denied); and every share link in doc.html failed
+      (publicDocs read denied). Rules for both added and published; verified on
+      a fresh console load. `publicDocs` now carries a `uid` stamp so writes are
+      owner-scoped while reads stay public, which share links require.
+      `loadUserData()` switched to `Promise.allSettled` so one failing read can
+      never blank a whole profile again - only the profile read is treated as
+      load-bearing.
 
 ### Tier 2 - before roughly the tenth customer.
 
