@@ -79,3 +79,42 @@ firestore.rules             billing fields are client-immutable
 
 Firebase project `relay-portal-68417` is under **c.pryor006@gmail.com** — use
 `https://console.firebase.google.com/u/1/...`.
+
+## Status — last updated 2026-09-08
+
+Update this section when something moves. It is the answer to "what's done?"
+
+### Done and verified
+
+- [x] All Netlify Functions load. Root cause was `command = "true"` (a no-op) so
+      `npm install` never ran. *Verified: live HTTP responses from all 5.*
+- [x] `twilio-sms` SMS dispatch. Was 502 on every inbound message (Twilio SDK vs
+      esbuild). Now sends via `fetch`. *Verified: returns valid TwiML.*
+- [x] Stripe webhook end to end. Correct 5 events registered, `STRIPE_WEBHOOK_SECRET`
+      set. *Verified: signed request -> 200, bad signature -> 400.*
+- [x] Firestore security rules deployed (billing fields client-immutable).
+- [x] `ALERT_PHONE` set (+17137025744).
+- [x] Both scheduled functions registered. *Verified: present in `function_schedules`.*
+- [x] Plan tiering driven by env vars; unknown price defaults to `starter`
+      (least privilege) rather than `essential`.
+- [x] `review-request` lowercases plan before the tier gate.
+- [x] Stale build copy removed from the publish dir (was public at `/sessions/...`).
+- [x] Single `netlify.toml`; root duplicate and dead CommonJS tree deleted.
+- [x] GitHub auto-deploy working. *Verified: push -> build with matching commit_ref.*
+- [x] Ownership recorded: proprietary LICENSE + `author` in all package.json files.
+- [x] Stripe payment links confirmed correct (Starter $19 / Essential+ $49 /
+      RelayPRO $99 -> matching env vars). $19 Starter link since deactivated.
+
+### Open
+
+- [ ] **Twilio toll-free verification** for +1 844-729-1376 — carrier registration.
+      Blocks reliable SMS delivery at volume. Biggest remaining launch blocker.
+- [ ] **End-to-end SMS dispatch test** — text a real job in, confirm the invoice
+      is created in Firestore and syncs to Zoho/QuickBooks. Never run start to finish.
+- [ ] **Michigan LARA** — Articles of Organization for Pryor Digital Ventures LLC;
+      Relay DBA filing.
+- [ ] **InVideo commercial** — voiceover audio issue.
+- [ ] **Google Business Profile** — point at portal-relay.com.
+- [ ] **Warm-network outreach** — first 5-10 paying customers.
+- [ ] *Optional:* archive the unused $59 Essential+ price in Stripe. No payment
+      link and no subscriptions reference it — cosmetic only.
