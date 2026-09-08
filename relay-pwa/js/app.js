@@ -142,15 +142,35 @@ function usageMeter(plan, { compact = false } = {}) {
 }
 
 function getMonthKey() { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
+// Every counter is per user by construction: it lives at
+// users/{uid}/docCounts/{YYYY-MM}, the security rules allow read and write only
+// to that uid, and the limit is read from that user's own plan. One customer's
+// usage can never touch another's, and the rules forbid moving a count
+// backwards or deleting it, so nobody can reset their own month to zero.
+//
+// This was a read-then-write, so two tabs could both read 249 and both write
+// 250, letting a contractor past the ceiling. A transaction makes the check and
+// the increment one atomic step, matching what twilio-sms does on the SMS side.
 async function checkAndIncrementDocCount(uid, plan) {
   if (isAdminUser()) return; // admin unlimited
-  const key   = getMonthKey();
-  const ref   = db.collection('users').doc(uid).collection('docCounts').doc(key);
-  const snap  = await ref.get();
-  const count = snap.exists ? (snap.data().count || 0) : 0;
+  const ref   = db.collection('users').doc(uid).collection('docCounts').doc(getMonthKey());
   const limit = docLimit(plan);
-  if (count >= limit) throw Object.assign(new Error('DOC_LIMIT_REACHED'), {limit, count});
-  await ref.set({ count: firebase.firestore.FieldValue.increment(1), updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+
+  await db.runTransaction(async tx => {
+    const snap  = await tx.get(ref);
+    const count = snap.exists ? (snap.data().count || 0) : 0;
+    if (count >= limit) throw Object.assign(new Error('DOC_LIMIT_REACHED'), { limit, count });
+    tx.set(ref, {
+      count:     count + 1,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+  });
+}
+
+// True when this account has spent its monthly allowance.
+function atDocLimit(plan) {
+  const limit = docLimit(plan);
+  return isFinite(limit) && (S.docCountThisMonth || 0) >= limit;
 }
 // Protected screens — require active subscription
 const PROTECTED = new Set(['dashboard','submit','invoices','customers','profile','addCustomer','editCustomer','invoice']);
@@ -697,6 +717,32 @@ function sDashboard() {
 }
 
 function sSubmit() {
+  const plan = (S.profile?.plan || 'unpaid').toLowerCase();
+
+  // Being told the allowance is gone only after filling in the whole form and
+  // pressing Send is a bad way to find out. The cut-off is stated before any
+  // typing, and the submit control is genuinely gone rather than left there to
+  // be pressed and rejected.
+  if (atDocLimit(plan)) {
+    return topbar({title: 'New Job Submission', back: 'dashboard'}) +
+    `<div class="scroll">
+      <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:14px;padding:22px 20px;text-align:center;margin-top:8px">
+        <div style="font-size:34px;line-height:1;margin-bottom:12px">&#x1F4E6;</div>
+        <div style="font-size:17px;font-weight:700;color:#991b1b;margin-bottom:8px">
+          You've used all ${docLimit(plan)} documents this month
+        </div>
+        <p style="font-size:13px;color:#7f1d1d;line-height:1.6;margin-bottom:18px">
+          Your allowance resets on
+          ${new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}.
+          Upgrade to keep dispatching now &mdash; everything already created stays exactly where it is.
+        </p>
+        <button class="btn btn-primary" data-nav="profile" style="margin-bottom:0">Upgrade My Plan</button>
+      </div>
+      <div style="height:20px"></div>
+    </div>
+    ${tabs('submit')}`;
+  }
+
   return topbar({title: 'New Job Submission', back: 'dashboard'}) +
   `<div class="scroll">
     <p class="sh">Job Type <span class="req">*</span></p>
