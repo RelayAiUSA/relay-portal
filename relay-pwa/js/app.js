@@ -1,6 +1,6 @@
 'use strict';
 
-// ââ FIREBASE SDK GUARD ââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── FIREBASE SDK GUARD ────────────────────────────────────────────────────
 // If Firebase CDN fails to load, show a friendly error instead of blank page
 
 if (typeof firebase === 'undefined') {
@@ -19,13 +19,13 @@ if (typeof firebase === 'undefined') {
       <button onclick="location.reload()"
               style="padding:12px 24px;background:#1a2f5e;color:#fff;border:none;
                      border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;">
-        Retry â
+        Retry →
       </button>
     </div>`;
-  throw new Error('Firebase SDK not loaded â CDN may be blocked or offline.');
+  throw new Error('Firebase SDK not loaded — CDN may be blocked or offline.');
 }
 
-// ââ FIREBASE ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── FIREBASE ──────────────────────────────────────────────────────────────
 
 const firebaseConfig = {
   apiKey: "AIzaSyAG6yO3waIb6MvdQPZDIGWu_hC8yo5Tfw8",
@@ -42,7 +42,7 @@ const db   = firebase.firestore();
 
 const ADMIN_EMAIL = 'pryorpropertysolutions269@gmail.com';
 
-// ââ STRIPE PAYMENT LINKS ââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── STRIPE PAYMENT LINKS ──────────────────────────────────────────────────
 // Replace these with your real links from stripe.com/payment-links
 // Starter plan removed — two tiers only: Essential ($49) and Pro ($99)
 const STRIPE_ESSENTIAL = 'https://buy.stripe.com/00w4gB79K9CsaW59LG6g802'; // $49/mo Essential+
@@ -81,10 +81,10 @@ async function checkAndIncrementDocCount(uid, plan) {
   if (count >= limit) throw Object.assign(new Error('DOC_LIMIT_REACHED'), {limit, count});
   await ref.set({ count: firebase.firestore.FieldValue.increment(1), updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
 }
-// Protected screens â require active subscription
+// Protected screens — require active subscription
 const PROTECTED = new Set(['dashboard','submit','invoices','customers','profile','addCustomer']);
 
-// ââ STATE âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── STATE ─────────────────────────────────────────────────────────────────
 
 const S = {
   screen:   'loading',
@@ -100,7 +100,7 @@ const S = {
   queue:    [],
 };
 
-// ââ SVG ICONS âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── SVG ICONS ─────────────────────────────────────────────────────────────
 
 const I = {
   home:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
@@ -122,7 +122,7 @@ const I = {
   logout:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>`,
 };
 
-// ââ HELPERS âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── HELPERS ───────────────────────────────────────────────────────────────
 
 const $ = id => document.getElementById(id);
 const fmt = n => '$' + Number(n).toLocaleString();
@@ -175,7 +175,7 @@ function friendlyAuthError(code) {
     'auth/invalid-email':        'Please enter a valid email address.',
     'auth/too-many-requests':    'Too many attempts. Please try again later.',
     'auth/popup-closed-by-user': 'Google sign-in was cancelled.',
-    'auth/network-request-failed': 'Network error â check your connection.',
+    'auth/network-request-failed': 'Network error — check your connection.',
   };
   return map[code] || 'Something went wrong. Please try again.';
 }
@@ -191,10 +191,10 @@ function setBtn(id, loading, label) {
   const el = $(id);
   if (!el) return;
   el.disabled = loading;
-  el.textContent = loading ? 'Please waitâ¦' : label;
+  el.textContent = loading ? 'Please wait…' : label;
 }
 
-// ââ FIREBASE DATA âââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── FIREBASE DATA ─────────────────────────────────────────────────────────
 
 async function loadUserData(uid) {
   try {
@@ -253,7 +253,7 @@ async function loadDispatchQueue() {
   }
 }
 
-// ââ COMPONENTS âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── COMPONENTS ───────────────────────────────────────────────────────────
 
 function tabs(active) {
   const t = [
@@ -279,7 +279,7 @@ function topbar({title, sub='', back='', light=false, right=''}) {
   </header>`;
 }
 
-// ââ SCREENS âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── SCREENS ───────────────────────────────────────────────────────────────
 
 function sLoading() {
   return `<div class="loading-wrap">
@@ -301,7 +301,7 @@ function sLogin() {
     </div>
     <div class="form-group">
       <label class="form-lbl" for="lg-pw">Password</label>
-      <input id="lg-pw" type="password" class="input" placeholder="â¢â¢â¢â¢â¢â¢â¢â¢" autocomplete="current-password">
+      <input id="lg-pw" type="password" class="input" placeholder="••••••••" autocomplete="current-password">
     </div>
     <button id="lg-btn" class="btn btn-primary" data-action="login" style="margin-bottom:8px">Sign In To Relay</button>
     <div class="divider"><span class="divider-line"></span><span class="divider-text">or</span><span class="divider-line"></span></div>
@@ -309,7 +309,7 @@ function sLogin() {
       ${I.google} Continue with Google
     </button>
     <div style="margin-top:auto;padding-top:28px;text-align:center">
-      <button class="link-btn" data-nav="signup">New To Relay? Create An Account â</button>
+      <button class="link-btn" data-nav="signup">New To Relay? Create An Account →</button>
     </div>
   </main>`;
 }
@@ -358,7 +358,7 @@ function sSignup() {
       ${I.google} Sign up with Google
     </button>
     <div style="margin-top:auto;padding-top:28px;text-align:center">
-      <button class="link-btn" data-nav="login">Already Have An Account? Sign In â</button>
+      <button class="link-btn" data-nav="login">Already Have An Account? Sign In →</button>
     </div>
   </main>`;
 }
@@ -584,7 +584,7 @@ function sSubmit() {
     <div class="form-group"><label class="form-lbl" for="f-email">Customer email</label><input id="f-email" type="email" class="input" placeholder="Optional for document delivery"></div>
     <p class="sh">Job Details</p>
     <div class="form-group"><label class="form-lbl" for="f-addr">Job address <span class="req">*</span></label><input id="f-addr" type="text" class="input" placeholder="412 Oak St, Grand Rapids MI" autocomplete="off"></div>
-    <div class="form-group"><label class="form-lbl" for="f-work">Work description <span class="req">Describe what was done in two to four sentences. Provide any critical detail needed.</span></label><textarea id="f-work" class="input" placeholder="Describe what was done in 2â3 sentences.&#10;e.g. Removed and replaced water heater, installed new supply valve."></textarea></div>
+    <div class="form-group"><label class="form-lbl" for="f-work">Work description <span class="req">Describe what was done in two to four sentences. Provide any critical detail needed.</span></label><textarea id="f-work" class="input" placeholder="Describe what was done in 2–3 sentences.&#10;e.g. Removed and replaced water heater, installed new supply valve."></textarea></div>
     <div class="form-group"><label class="form-lbl" for="f-poref">PO / Job Ref Number</label><input id="f-poref" type="text" class="input" placeholder="Optional — for property managers or commercial accounts"></div>
     <p class="sh">Pricing</p>
     <div class="toggle-g">
@@ -623,12 +623,12 @@ function sConfirm() {
     <h2 class="confirm-title">Job Submitted!</h2>
     <p class="confirm-sub">Relay is processing your ${j.type}. Your customer will receive it by email and text shortly.</p>
     <div class="confirm-card">
-      <div style="font-size:11px;color:#6b7280;margin-bottom:5px;text-transform:uppercase;letter-spacing:.3px">${j.type} Â· ${j.customer}</div>
+      <div style="font-size:11px;color:#6b7280;margin-bottom:5px;text-transform:uppercase;letter-spacing:.3px">${j.type} · ${j.customer}</div>
       <div style="font-size:28px;font-weight:700;color:#111827">${j.amount}</div>
       <div style="font-size:12px;color:#6b7280;margin-top:8px;line-height:1.7">
-        Sent to Relay dispatch â<br>
-        Auto-reminder after 72 hrs if unpaid â<br>
-        Google review request sent after payment â
+        Sent to Relay dispatch ✓<br>
+        Auto-reminder after 72 hrs if unpaid ✓<br>
+        Google review request sent after payment ✓
       </div>
     </div>
     ${j.docId ? `<button class="btn btn-outline" onclick="(function(){navigator.clipboard.writeText('https://portal-relay.com/doc/'+j.docId);this.textContent='✓ Link Copied!';setTimeout(()=>this.textContent='📋 Copy Customer Link',2000)}).call(this)" style="margin-bottom:10px">📋 Copy Customer Link</button>` : ''}
@@ -656,7 +656,7 @@ function sInvoices() {
               <div class="inv-av">${ini}</div>
               <div class="inv-info">
                 <div class="inv-name">${inv.customer || 'Unknown'}</div>
-                <div class="inv-meta">${work}${(inv.work||'').length > 34 ? 'â¦' : ''} Â· ${fmtDate(inv.createdAt)}</div>
+                <div class="inv-meta">${work}${(inv.work||'').length > 34 ? '…' : ''} · ${fmtDate(inv.createdAt)}</div>
               </div>
               <div class="inv-right">
                 <div class="inv-amt">${fmt(inv.amount || 0)}</div>
@@ -666,7 +666,7 @@ function sInvoices() {
             </div>`;
           }).join('')
         : `<div style="padding:32px;text-align:center;color:#9ca3af;font-size:14px">
-            ${S.filter==='all' ? 'No invoices yet â submit your first job!' :             `No ${S.filter} invoices found.`}
+            ${S.filter==='all' ? 'No invoices yet — submit your first job!' :             `No ${S.filter} invoices found.`}
           </div>`
       }
     </div>
@@ -739,7 +739,7 @@ function sCustomers() {
               <div class="inv-av" style="background:${col.bg};color:${col.fg}">${ini}</div>
               <div class="inv-info">
                 <div class="inv-name">${cx.name || 'Unknown'}</div>
-                <div class="inv-meta">${cx.phone || ''}${cx.email ? ' Â· ' + cx.email : ''}</div>
+                <div class="inv-meta">${cx.phone || ''}${cx.email ? ' · ' + cx.email : ''}</div>
                 <div class="inv-meta" style="margin-top:2px;font-size:11px;color:${!cx.smsConsent ? '#9ca3af' : (cx.smsConsentScope && cx.smsConsentScope !== 'all') ? '#b45309' : '#059669'}">
                   ${!cx.smsConsent
                       ? 'Texting blocked \u2014 no permission on file'
@@ -751,7 +751,8 @@ function sCustomers() {
             </div>`;
           }).join('')
         : `<div style="padding:32px;text-align:center;color:#9ca3af;font-size:14px">
-            No customers yet â submit your first job to add one!
+            No customers here yet. Add one above, or just text in a job and Relay
+            will create the customer for you.
           </div>`
       }
     </div>
@@ -1122,7 +1123,7 @@ function nav(screen) {
   window.scrollTo(0, 0);
 }
 
-// ââ EVENT DELEGATION ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── EVENT DELEGATION ──────────────────────────────────────────────────────
 
 document.addEventListener('click', async e => {
   const navEl    = e.target.closest('[data-nav]');
@@ -1143,7 +1144,7 @@ document.addEventListener('click', async e => {
 
   const action = actionEl.dataset.action;
 
-  // ââ LOGIN ââ
+  // ── LOGIN ──
   if (action === 'login') {
     const email = $('lg-email')?.value?.trim();
     const pw    = $('lg-pw')?.value;
@@ -1158,7 +1159,7 @@ document.addEventListener('click', async e => {
     return;
   }
 
-  // ââ GOOGLE LOGIN ââ
+  // ── GOOGLE LOGIN ──
   if (action === 'googleLogin') {
     try {
       await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
@@ -1168,7 +1169,7 @@ document.addEventListener('click', async e => {
     return;
   }
 
-  // ââ SIGN UP ââ
+  // ── SIGN UP ──
   if (action === 'signup') {
     const co    = $('sg-co')?.value?.trim();
     const email = $('sg-email')?.value?.trim();
@@ -1200,7 +1201,7 @@ document.addEventListener('click', async e => {
     return;
   }
 
-  // ââ SIGN OUT ââ
+  // ── SIGN OUT ──
   if (action === 'signOut') {
     await auth.signOut();
     S.user = null; S.profile = null; S.invoices = []; S.customers = [];
@@ -1208,7 +1209,7 @@ document.addEventListener('click', async e => {
     return;
   }
 
-  // ââ SUBMIT JOB ââ
+  // ── SUBMIT JOB ──
   if (action === 'submitJob') {
     const name  = $('f-name')?.value?.trim();
     const phone = $('f-phone')?.value?.trim();
@@ -1308,7 +1309,7 @@ document.addEventListener('click', async e => {
       nav('confirm');
     } catch(err) {
       console.error('submitJob:', err);
-      showErr('sub-err', 'Submission failed â please try again.');
+      showErr('sub-err', 'Submission failed — please try again.');
       setBtn('sub-btn', false, 'Send To Relay Dispatch');
     }
     return;
@@ -1515,7 +1516,7 @@ document.addEventListener('click', async e => {
   }
 });
 
-// ââ BOOT âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── BOOT ─────────────────────────────────────────────────────────────────
 
 // Check for Stripe payment redirect signal
 if (location.search.includes('payment=success') || location.hash.includes('payment=success')) {
@@ -1525,7 +1526,7 @@ if (location.search.includes('payment=success') || location.hash.includes('payme
 // Show loading immediately
 $('app').innerHTML = sLoading();
 
-// Firebase auth state â single source of truth for routing
+// Firebase auth state — single source of truth for routing
 auth.onAuthStateChanged(async user => {
   if (!user) {
     S.user    = null;
@@ -1548,7 +1549,7 @@ auth.onAuthStateChanged(async user => {
   if (OPEN.has(status)) {
     nav('dashboard');
   } else {
-    // unpaid, canceled, suspended â locked screen
+    // unpaid, canceled, suspended → locked screen
     nav('locked');
   }
 });
