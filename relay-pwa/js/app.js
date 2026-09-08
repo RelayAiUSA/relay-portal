@@ -69,7 +69,12 @@ function canSMSDispatch(plan) {
 }
 function canAutoForward(plan) { return isAdminUser() || (plan||'').toLowerCase() === 'pro'; }
 function canReviewRequest(plan) { return isAdminUser() || (plan||'').toLowerCase() === 'pro'; }
-function docLimit(plan) { return (isAdminUser() || ['essential','pro'].includes((plan||'').toLowerCase())) ? 500 : 250; }
+function docLimit(plan) {
+  if (isAdminUser()) return Infinity;
+  const p = (plan || '').toLowerCase();
+  if (p === 'pro') return 500;
+  return 250;                       // Essential, and anything else
+}
 // ── Invoice field accessors ──────────────────────────────────────────────────
 // Invoices arrive from two places with different field names: the portal form
 // writes customer/work/email/phone, the SMS pipeline writes
@@ -106,6 +111,34 @@ function phoneDigits(raw) {
 function formatPhone(raw) {
   const d = phoneDigits(raw);
   return d ? `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}` : String(raw || '');
+}
+
+// One renderer for the usage meter. It was inline HTML inside the profile
+// screen; the dashboard needs the same thing, and two copies of a progress bar
+// drift the moment either is touched.
+function usageMeter(plan, { compact = false } = {}) {
+  const used  = S.docCountThisMonth || 0;
+  const limit = docLimit(plan);
+  if (!isFinite(limit)) return '';   // admin - no meter to show
+  const pct   = Math.min(100, Math.round((used / limit) * 100));
+  const left  = Math.max(0, limit - used);
+  const ratio = used / limit;
+  const bar   = ratio >= 1 ? '#ef4444' : ratio > 0.85 ? '#f59e0b' : '#1d4ed8';
+  const resets = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1)
+    .toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+  return `<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:12px 14px;margin-bottom:${compact ? '4' : '14'}px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span style="font-size:12px;font-weight:600;color:#374151">Documents this month</span>
+      <span style="font-size:12px;color:#6b7280">${used} / ${limit}</span>
+    </div>
+    <div style="height:6px;background:#e5e7eb;border-radius:99px;overflow:hidden">
+      <div style="height:100%;width:${pct}%;background:${bar};border-radius:99px;transition:width .3s"></div>
+    </div>
+    <div style="font-size:11px;color:#9ca3af;margin-top:5px">
+      ${left === 0 ? 'Limit reached — upgrade to keep dispatching' : `${left} remaining`} · resets ${resets}
+    </div>
+  </div>`;
 }
 
 function getMonthKey() { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
@@ -635,6 +668,7 @@ function sDashboard() {
         <text x="28" y="276" font-family="-apple-system,BlinkMacSystemFont,sans-serif" font-size="10" fill="rgba(255,255,255,0.42)">*Missing details may result in an incomplete or failed document.</text>
       </svg>
     </div>
+    <div style="margin-top:14px">${usageMeter(plan, { compact: true })}</div>
     <p class="sh" style="margin-top:20px">Recent Activity</p>
     <div class="card">
       ${recent.length
@@ -1235,16 +1269,7 @@ function sProfile() {
       </div>
 
       <!-- ── Monthly usage meter ── -->
-      <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:12px 14px;margin-bottom:14px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-          <span style="font-size:12px;font-weight:600;color:#374151">Documents this month</span>
-          <span style="font-size:12px;color:#6b7280">${S.docCountThisMonth||0} / ${docLimit(plan)}</span>
-        </div>
-        <div style="height:6px;background:#e5e7eb;border-radius:99px;overflow:hidden">
-          <div style="height:100%;width:${Math.min(100,Math.round(((S.docCountThisMonth||0)/docLimit(plan))*100))}%;background:${((S.docCountThisMonth||0)/docLimit(plan))>0.85?'#ef4444':'#1d4ed8'};border-radius:99px;transition:width .3s"></div>
-        </div>
-        <div style="font-size:11px;color:#9ca3af;margin-top:5px">${docLimit(plan)-(S.docCountThisMonth||0)} remaining · resets ${new Date(new Date().getFullYear(),new Date().getMonth()+1,1).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div>
-      </div>
+      ${usageMeter(plan)}
 
       <!-- ── Business Info ── -->
       <p class="sh">Business Info</p>

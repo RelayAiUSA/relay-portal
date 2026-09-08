@@ -68,6 +68,46 @@ const TWILIO_FROM = process.env.TWILIO_PHONE_NUMBER || '+18447291376';
 
 // ── Plan helpers ──────────────────────────────────────────────────────────────
 
+// L5. docLimit() lived only in app.js, so the plan limit existed exactly where
+// it could not be enforced: in the browser. Nothing on the SMS path checked or
+// incremented the counter, which is why the meter in the portal never moved for
+// a contractor who works the way Relay is designed to be worked - by text - and
+// why an Essential account could dispatch without bound.
+//
+// Keep these two numbers identical to docLimit() in app.js.
+function docLimitFor(plan) {
+  return (plan || '').toLowerCase() === 'pro' ? 500 : 250;
+}
+
+function monthKey(d = new Date()) {
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+// Reserves one document against this month's allowance. Returns
+// { allowed, count, limit }. The read and the write are a transaction because
+// two texts arriving together would otherwise both read the same count and both
+// write count+1, letting a contractor slip past the ceiling.
+async function reserveDocSlot(db, uid, plan) {
+  const limit = docLimitFor(plan);
+  const ref   = db.collection('users').doc(uid).collection('docCounts').doc(monthKey());
+
+  try {
+    return await db.runTransaction(async tx => {
+      const snap  = await tx.get(ref);
+      const count = snap.exists ? (snap.data().count || 0) : 0;
+      if (count >= limit) return { allowed: false, count, limit };
+      tx.set(ref, { count: count + 1, updatedAt: new Date() }, { merge: true });
+      return { allowed: true, count: count + 1, limit };
+    });
+  } catch (err) {
+    // A counter failure must never swallow a contractor's job. Let the document
+    // through and record that the count is now understated.
+    console.error('[twilio-sms] doc count transaction failed:', err.message);
+    await alertError('twilio-sms:doccount', err, `uid=${uid}`);
+    return { allowed: true, count: null, limit };
+  }
+}
+
 function canSMSDispatch(plan) {
   return ['essential', 'pro'].includes((plan || '').toLowerCase());
 }
@@ -226,6 +266,24 @@ async function handleInboundSms(req, context) {
   // ── Subscription active check ─────────────────────────────────────────────
   if (!isActiveStatus(subStatus)) {
     return twimlResponse('Your Relay subscription is inactive. Visit portal-relay.com to reactivate.');
+  }
+
+  // ── Monthly document allowance ────────────────────────────────────────────
+  // Checked here, before the Anthropic call, so a contractor who is already at
+  // their ceiling does not cost an AI request per text. The authoritative
+  // reservation happens transactionally at creation time below; this is only
+  // the cheap early exit.
+  {
+    const limit = docLimitFor(plan);
+    const snap  = await db.collection('users').doc(uid)
+      .collection('docCounts').doc(monthKey()).get();
+    const used  = snap.exists ? (snap.data().count || 0) : 0;
+    if (used >= limit) {
+      return twimlResponse(
+        `You've used all ${limit} documents on your plan this month. ` +
+        `Upgrade at portal-relay.com to keep dispatching — your allowance resets on the 1st.`
+      );
+    }
   }
 
   // ── AI: parse + professionalize raw SMS ──────────────────────────────────
@@ -388,6 +446,16 @@ If a field is unknown, use empty string or 0.`,
     createdAt:                FieldValue.serverTimestamp(),
     sentAt:                   FieldValue.serverTimestamp(),
   };
+  // Reserve the slot transactionally. Two texts arriving at once would
+  // otherwise both read the same count and both write count+1.
+  const slot = await reserveDocSlot(db, uid, plan);
+  if (!slot.allowed) {
+    return twimlResponse(
+      `You've used all ${slot.limit} documents on your plan this month. ` +
+      `Upgrade at portal-relay.com to keep dispatching — your allowance resets on the 1st.`
+    );
+  }
+
   const invRef = await db.collection('users').doc(uid).collection('invoices').add(invoiceData);
 
   // ── Public, printable copy of the document ────────────────────────────────
