@@ -215,7 +215,6 @@ const I = {
   back:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>`,
   send:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`,
   ext:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`,
-  bell:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`,
   shield:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
   camera:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`,
   msg:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`,
@@ -402,16 +401,28 @@ function tabs(active) {
     <button class="tab${active===x.id?' on':''}" data-nav="${x.id}">${x.ic}${x.lbl}</button>`).join('')}</nav>`;
 }
 
-function topbar({title, sub='', back='', light=false, right=''}) {
+// The settings gear is rendered HERE, by the top bar itself, rather than passed
+// in by each screen. Screens that forget to pass it are the reason it was
+// reachable from only two pages before; a control that must be everywhere
+// cannot depend on fifteen call sites each remembering to include it.
+//
+// `settings:false` opts out, and only two screens should: the locked screen and
+// plan selection, where 'profile' is a PROTECTED screen and tapping the gear
+// would bounce the user straight back to the locked screen.
+function topbar({title, sub='', back='', light=false, right='', settings=true}) {
+  const showGear = settings && !!S.user && S.screen !== 'profile';
   return `<header class="topbar${light?' light':''}">
     ${back
       ? `<button class="back-btn${light?' dark':''}" data-nav="${back}" aria-label="Back">${I.back}</button>`
       : `<div class="topbar-logo">R</div>`}
-    <div style="flex:1">
+    <div style="flex:1;min-width:0">
       <div class="topbar-title">${title}</div>
       ${sub ? `<div class="topbar-sub">${sub}</div>` : ''}
     </div>
-    ${right}
+    <div class="topbar-actions">
+      ${right}
+      ${showGear ? `<button class="topbar-btn" data-nav="profile" title="Settings" aria-label="Settings">${I.settings}</button>` : ''}
+    </div>
   </header>`;
 }
 
@@ -523,7 +534,7 @@ function sSignup() {
 }
 
 function sLocked(featureName) {
-  return topbar({title:'Upgrade Required'}) +
+  return topbar({title:'Upgrade Required', settings:false}) +
     `<div class="scroll" style="padding:24px 16px">
       <div style="text-align:center;margin-bottom:24px">
         <div style="font-size:48px;margin-bottom:12px">🔒</div>
@@ -565,7 +576,7 @@ function sLocked(featureName) {
     </div>`;
 }
 function sPlans() {
-  return topbar({title:'Choose Your Plan', back:'signup'}) +
+  return topbar({title:'Choose Your Plan', back:'signup', settings:false}) +
     `<div class="scroll">
       <p style="font-size:13px;color:#6b7280;margin-bottom:14px">Billed directly via Stripe — no app store cut. Cancel anytime.</p>
       <div class="plan-card featured">
@@ -636,10 +647,9 @@ function sDashboard() {
       <span data-nav="profile" class="past-due-banner-btn" style="cursor:pointer">Add it \u2192</span>
     </div>` : '';
 
-  return topbar({title: name, sub: `${plan} Plan · Active`, right:`
-    ${isAdmin ? `<button class="topbar-btn" data-action="goAdmin" title="Admin">${I.shield}</button>` : ''}
-    <button class="topbar-btn" data-nav="profile" title="Settings">${I.settings}</button>
-    <button class="topbar-btn" title="Notifications">${I.bell}</button>`}) +
+  return topbar({title: name, sub: `${plan} Plan · Active`, right:
+    isAdmin ? `<button class="topbar-btn" data-action="goAdmin" title="Admin" aria-label="Admin">${I.shield}</button>` : ''
+  }) +
   `<div class="scroll">${noPhoneBanner}${trialBanner}${pastDueBanner}
 
     <div style="margin-bottom:4px">
@@ -1093,7 +1103,7 @@ function sCustomers() {
       </div>
     </div>` : '';
 
-  return topbar({title:'Customers', sub:`${cxs.length} total`, right:`<button class="topbar-btn">${I.bell}</button>`}) +
+  return topbar({title:'Customers', sub:`${cxs.length} total`}) +
   `<div class="scroll" style="padding:12px 16px">
     ${bulkBanner}
     <button class="add-customer-cta" data-nav="addCustomer">

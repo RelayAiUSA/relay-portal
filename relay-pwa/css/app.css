@@ -42,11 +42,21 @@ body { font-family: var(--font); -webkit-font-smoothing: antialiased; display: f
 }
 .topbar-title { font-size: 16px; font-weight: 600; flex: 1; line-height: 1.2; }
 .topbar-sub { font-size: 11px; opacity: 0.75; margin-top: 2px; }
+/* Right-hand controls in the top bar. Grouped so the settings gear always sits
+   in the corner with consistent spacing, whatever else a screen puts beside it. */
+.topbar-actions {
+  display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: auto;
+}
+.topbar-actions:empty { display: none; }
 .topbar-btn {
   width: 34px; height: 34px; border-radius: 50%; background: rgba(255,255,255,0.12);
   border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
   color: rgba(255,255,255,0.9); flex-shrink: 0;
+  transition: background .15s, transform .1s;
 }
+.topbar-btn:active { transform: scale(.92); }
+.topbar.light .topbar-btn { background: var(--g100); color: var(--g700); }
+.topbar.light .topbar-btn:hover { background: var(--g200); }
 .topbar-btn svg { width: 18px; height: 18px; }
 .topbar-btn:hover { background: rgba(255,255,255,0.2); }
 .back-btn {
