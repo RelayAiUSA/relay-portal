@@ -1,5 +1,5 @@
 [build]
-  command = "true"
+  command = "cd relay-pwa/functions && npm install --omit=dev"
   publish = "relay-pwa"
   base = "."
 
