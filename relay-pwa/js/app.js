@@ -1492,8 +1492,14 @@ document.addEventListener('click', async e => {
         paymentUsernames,
       };
       const plan = (S.profile?.plan || '').toLowerCase();
-      if (canAutoForward(plan)) {
+      // Gate each field on its own feature. Both helpers are Pro-only today, but
+      // the review link belongs to the review feature and auto-forward to its
+      // own; sharing one guard means changing either tier silently changes both.
+      // review-request.mjs reads users/{uid}.reviewUrl - keep that field name.
+      if (canReviewRequest(plan)) {
         updates.reviewUrl = reviewUrl;
+      }
+      if (canAutoForward(plan)) {
         updates.autoForwardToCustomer = autoForwardToCustomer;
       }
       await db.collection('users').doc(uid).update(updates);
