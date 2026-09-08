@@ -69,12 +69,15 @@ function canSMSDispatch(plan) {
 }
 function canAutoForward(plan) { return isAdminUser() || (plan||'').toLowerCase() === 'pro'; }
 function canReviewRequest(plan) { return isAdminUser() || (plan||'').toLowerCase() === 'pro'; }
+// What the PLAN allows. Always a real number so the meter can always draw.
 function docLimit(plan) {
-  if (isAdminUser()) return Infinity;
-  const p = (plan || '').toLowerCase();
-  if (p === 'pro') return 500;
-  return 250;                       // Essential, and anything else
+  return (plan || '').toLowerCase() === 'pro' ? 500 : 250;  // Essential and anything else
 }
+// Whether this ACCOUNT is exempt from that limit. Kept separate: conflating the
+// two made docLimit return Infinity for the admin, and the meter - which needs
+// a finite number to draw a bar - silently rendered nothing on the owner's own
+// account, the one account guaranteed to be looking at it.
+function isDocLimitExempt() { return isAdminUser(); }
 // ── Invoice field accessors ──────────────────────────────────────────────────
 // Invoices arrive from two places with different field names: the portal form
 // writes customer/work/email/phone, the SMS pipeline writes
@@ -117,26 +120,31 @@ function formatPhone(raw) {
 // screen; the dashboard needs the same thing, and two copies of a progress bar
 // drift the moment either is touched.
 function usageMeter(plan, { compact = false } = {}) {
-  const used  = S.docCountThisMonth || 0;
-  const limit = docLimit(plan);
-  if (!isFinite(limit)) return '';   // admin - no meter to show
-  const pct   = Math.min(100, Math.round((used / limit) * 100));
+  const used   = S.docCountThisMonth || 0;
+  const limit  = docLimit(plan);
+  const exempt = isDocLimitExempt();
+  const pct    = Math.min(100, Math.round((used / limit) * 100));
   const left  = Math.max(0, limit - used);
   const ratio = used / limit;
-  const bar   = ratio >= 1 ? '#ef4444' : ratio > 0.85 ? '#f59e0b' : '#1d4ed8';
+  const bar   = exempt ? '#1d4ed8'
+              : ratio >= 1 ? '#ef4444'
+              : ratio > 0.85 ? '#f59e0b'
+              : '#1d4ed8';
   const resets = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1)
     .toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
   return `<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:12px 14px;margin-bottom:${compact ? '4' : '14'}px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
       <span style="font-size:12px;font-weight:600;color:#374151">Documents this month</span>
-      <span style="font-size:12px;color:#6b7280">${used} / ${limit}</span>
+      <span style="font-size:12px;color:#6b7280">${used}${exempt ? '' : ` / ${limit}`}</span>
     </div>
     <div style="height:6px;background:#e5e7eb;border-radius:99px;overflow:hidden">
       <div style="height:100%;width:${pct}%;background:${bar};border-radius:99px;transition:width .3s"></div>
     </div>
     <div style="font-size:11px;color:#9ca3af;margin-top:5px">
-      ${left === 0 ? 'Limit reached — upgrade to keep dispatching' : `${left} remaining`} · resets ${resets}
+      ${exempt
+        ? 'Unlimited on this account'
+        : left === 0 ? 'Limit reached — upgrade to keep dispatching' : `${left} remaining`} · resets ${resets}
     </div>
   </div>`;
 }
@@ -169,8 +177,8 @@ async function checkAndIncrementDocCount(uid, plan) {
 
 // True when this account has spent its monthly allowance.
 function atDocLimit(plan) {
-  const limit = docLimit(plan);
-  return isFinite(limit) && (S.docCountThisMonth || 0) >= limit;
+  if (isDocLimitExempt()) return false;
+  return (S.docCountThisMonth || 0) >= docLimit(plan);
 }
 // Protected screens — require active subscription
 const PROTECTED = new Set(['dashboard','submit','invoices','customers','profile','addCustomer','editCustomer','invoice']);
