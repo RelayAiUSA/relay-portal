@@ -167,6 +167,15 @@ async function handleOauthToken(req, context) {
         return new Response(JSON.stringify({ error: 'Zoho token exchange failed' }), { status: 502, headers: HEADERS });
       }
       const data = await resp.json();
+      // Zoho answers 200 with an error body for things like an expired code,
+      // so resp.ok alone is not success.
+      if (data.error) {
+        console.error('[oauth-token] Zoho returned error:', data.error);
+        return new Response(
+          JSON.stringify({ error: `Zoho rejected the authorization: ${data.error}` }),
+          { status: 502, headers: HEADERS }
+        );
+      }
 
       // Fetch the Zoho org ID to store alongside the token so accounting-sync
       // doesn't need to make a separate API call on every invoice.
@@ -193,10 +202,50 @@ async function handleOauthToken(req, context) {
     }
 
     // ── Encrypt and persist tokens to Firestore ───────────────────────────
+    //
+    // Zoho issues a refresh token only on the FIRST authorization for a given
+    // user and client. Re-authorising an already-connected account returns an
+    // access token alone, and encrypt(undefined) then threw a crypto error that
+    // surfaced to the user as "Could not complete authorization: Internal
+    // server error" - with no hint that reconnecting was the trigger.
+    //
+    // prompt=consent on the authorize URL makes Zoho send one every time. This
+    // is the second line of defence: if a provider still omits it, keep the
+    // refresh token already on file rather than destroying a working
+    // connection.
+    const tokenRef = db.collection('users').doc(uid).collection('oauth_tokens').doc(platform);
+
+    if (!rawTokens.accessToken) {
+      console.error('[oauth-token] no access token returned by', platform);
+      return new Response(
+        JSON.stringify({ error: `${platform} did not return an access token. Please try connecting again.` }),
+        { status: 502, headers: HEADERS }
+      );
+    }
+
+    let refreshToken = rawTokens.refreshToken;
+    let keptEncryptedRefresh = null;
+    if (!refreshToken) {
+      const existing = await tokenRef.get();
+      const kept = existing.exists ? existing.data().refreshToken : null;
+      if (!kept) {
+        console.error('[oauth-token] no refresh token from', platform, 'and none on file');
+        return new Response(
+          JSON.stringify({
+            error: `${platform} did not return a refresh token. Disconnect the app in your ${platform} account settings, then connect again.`,
+          }),
+          { status: 502, headers: HEADERS }
+        );
+      }
+      console.warn(`[oauth-token] ${platform} returned no refresh token; keeping the stored one`);
+      // Already encrypted on disk - carry it across untouched.
+      keptEncryptedRefresh = kept;
+    }
+
     const expiresAt  = new Date(Date.now() + rawTokens.expiresIn * 1000);
     const tokenDoc   = {
       accessToken:      encrypt(rawTokens.accessToken),
-      refreshToken:     encrypt(rawTokens.refreshToken),
+      refreshToken:     refreshToken ? encrypt(refreshToken) : keptEncryptedRefresh,
       expiresAt,
       connectionStatus: 'connected',
       connectedAt:      new Date(),
@@ -206,7 +255,6 @@ async function handleOauthToken(req, context) {
     if (rawTokens.realmId)        tokenDoc.realmId        = rawTokens.realmId;
     if (rawTokens.organizationId) tokenDoc.organizationId = rawTokens.organizationId;
 
-    const tokenRef = db.collection('users').doc(uid).collection('oauth_tokens').doc(platform);
     await tokenRef.set(tokenDoc, { merge: true });
 
     // Update user profile with the connected provider

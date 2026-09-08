@@ -93,6 +93,16 @@ BOTH shapes, and the frontend reads through `invCustomer()` / `invWork()` /
 render correctly with no migration. Do not rename either side alone:
 accounting-sync and review-request read the underscored names.
 
+**Zoho issues a refresh token only on the FIRST authorization.** Re-authorising
+an already-connected account returns an access token alone unless the authorize
+URL includes `prompt=consent`. Without it, `encrypt(undefined)` threw a raw
+crypto error and the user saw "Could not complete authorization: Internal server
+error" - with nothing pointing at reconnection as the trigger. The authorize URL
+now sends `access_type=offline&prompt=consent`, oauth-token keeps the stored
+refresh token when a provider omits one, and `encrypt()` rejects empty input
+with a message naming the real problem. Providers can also answer HTTP 200 with
+an error body, so check `data.error` as well as `resp.ok`.
+
 **The Stripe connector is read-only.** It can read prices, subscriptions and
 webhook endpoints but cannot write any of them. Do not plan work that depends
 on writing to Stripe; ask the user.
@@ -287,6 +297,21 @@ note on how it was verified, not just that it was done.
       A held document explains itself there rather than only carrying a badge.
       Verified by rendering the screen against the real invoice created by the
       first live SMS test.
+
+- [x] **L19. Reconnecting an accounting integration always failed.**
+      Zoho returns a refresh token only on first authorization, so every
+      reconnect hit encrypt(undefined) and 500'd with "Internal server error".
+      Any contractor whose token was revoked - the exact situation the reconnect
+      flow exists for - could never recover, and the message gave them nothing
+      to act on. Four layers fixed: prompt=consent on the authorize URL so Zoho
+      always issues one; oauth-token preserves the stored refresh token if a
+      provider omits it, rather than destroying a working connection; a missing
+      access token or a truly absent refresh token now returns a specific,
+      actionable 502 that the callback page already displays; and encrypt()
+      rejects empty input naming the real cause instead of throwing a crypto
+      error. Provider responses are also checked for an error body, since Zoho
+      answers 200 on failures like an expired code. Verified across 5
+      provider/reconnect permutations.
 
 ### Tier 2 - before roughly the tenth customer.
 

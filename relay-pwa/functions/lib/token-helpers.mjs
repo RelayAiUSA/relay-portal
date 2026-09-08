@@ -17,6 +17,13 @@ function getKey() {
 }
 
 export function encrypt(plainText) {
+  // A missing token used to reach createCipheriv().update(undefined) and throw
+  // 'The "data" argument must be of type string... Received undefined', which
+  // says nothing about which token was missing or why. Fail with the actual
+  // problem instead.
+  if (typeof plainText !== 'string' || !plainText) {
+    throw new Error('encrypt() received an empty or non-string value - the provider did not return this token');
+  }
   const key = getKey();
   const iv  = randomBytes(16);
   const cipher = createCipheriv('aes-256-gcm', key, iv);
