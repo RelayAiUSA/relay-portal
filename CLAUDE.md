@@ -3,6 +3,23 @@
 Read this before changing anything. Every item below cost real debugging time
 to find, and several of them look fine until you check the authoritative source.
 
+## Deploying — ASK FIRST, ALWAYS
+
+**Clyde has explicitly asked that all changes be held locally until he says to
+deploy.** Honour this without needing to be reminded again.
+
+There is no staging step in this project: the Netlify site auto-builds from
+GitHub, so **`git push` to `main` IS a production deploy** on portal-relay.com.
+A push is not "saving work" here - it ships to real users the moment it lands.
+
+The working pattern:
+1. Make the change on the device (`device_bash`) and `git commit` locally.
+2. **Do not push.** Say what is staged and wait.
+3. Push only when Clyde says to deploy.
+
+If a change genuinely must be visible before he approves it, push a BRANCH -
+Netlify builds a deploy preview URL for branches - and never `main`.
+
 ## Landmines
 
 **There is exactly one netlify.toml that Netlify reads: `relay-pwa/netlify.toml`.**
