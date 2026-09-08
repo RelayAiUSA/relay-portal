@@ -2,7 +2,7 @@
   "name": "relay-portal",
   "version": "1.0.0",
   "private": true,
-  "description": "Relay AI USA – dispatch portal backend functions",
+  "description": "Relay AI USA \u2013 dispatch portal backend functions",
   "engines": {
     "node": "18"
   },
@@ -18,5 +18,7 @@
   },
   "devDependencies": {
     "@netlify/zip-it-and-ship-it": "^15.5.0"
-  }
+  },
+  "author": "Pryor Digital Ventures LLC <clientusa@support-relayai.com>",
+  "license": "UNLICENSED"
 }
