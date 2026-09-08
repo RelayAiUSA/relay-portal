@@ -158,19 +158,41 @@ note on how it was verified, not just that it was done.
       document to the customer -> review request 24h later. Use Pryor Property
       Solutions as customer zero. This is the highest-value hour available.
 
-- [ ] **L3. Real error monitoring.** Half done.
-      DONE: all five functions now have a true top-level catch-all. Each one
-      previously had an unguarded prologue - work before its own try block, such
-      as getDb() or reading the request - so an error there escaped with no
-      alert: the function 500'd and nobody was told. Each handler is now an inner
-      function wrapped by `export default` with try/catch that logs, calls
-      alertError, and returns a protocol-appropriate response (TwiML for
-      twilio-sms, 500 for stripe-webhook so Stripe retries). An alert that itself
-      fails cannot mask the original error.
-      REMAINING: Sentry. alertError still has no stack traces, no grouping (one
-      bug hitting 200 times = 200 SMS and 200 Twilio charges), and it sends
-      through Twilio, so a Twilio outage silences the alarm about itself.
-      Free Developer plan: $0, 1 user, 5,000 errors/month, 30-day retention.
+- [x] **L3. Real error monitoring.**
+      Two problems, both fixed.
+
+      (a) Every function had an unguarded prologue - work before its own try
+      block, such as getDb() or reading the request - so an error there escaped
+      with no alert: the function 500'd and nobody was told. All five handlers
+      are now inner functions wrapped by an exported catch-all that logs,
+      alerts, and returns a protocol-appropriate response (TwiML for twilio-sms
+      so the contractor is not left in silence; 500 for stripe-webhook
+      precisely because Stripe retries 5xx).
+
+      (b) alertError() only texted a phone: no stack trace, no grouping, and
+      one bug in a loop meant one text per occurrence. It also alerted THROUGH
+      Twilio, so a Twilio outage silenced the alarm about itself.
+
+      `lib/sentry.mjs` reports to Sentry over the envelope HTTP endpoint with
+      NO SDK - deliberately. The twilio SDK already proved esbuild cannot bundle
+      a large SDK here, and serverless SDKs queue events that are lost when the
+      runtime freezes. A single awaited fetch has neither failure mode, and the
+      file is a few KB against roughly a megabyte. Stack frames are parsed and
+      reversed so the throwing line reads last, with node: internals and
+      node_modules marked out-of-app.
+
+      alertError now sends to both: Sentry always (never throttled - it is the
+      record), SMS only when it is worth an interruption. SMS is deduplicated
+      per error signature on a 15-minute window with a hard 5-per-container
+      ceiling, so 200 identical errors in a minute produce one text instead of
+      200 texts and 200 Twilio charges. A different error is never suppressed
+      by another's window.
+
+      Verified: 20 assertions on DSN parsing, stack parsing and event shape; 6
+      on the throttle, exercising the real exported function rather than a
+      re-implementation; and a live event accepted by Sentry, which delivered
+      the notification email. SENTRY_DSN is set in Netlify. Missing DSN is a
+      silent no-op, so nothing breaks without it.
 
 - [ ] **L4. Enable Firestore backups.**
       Holding other businesses' customer lists with no recovery path.
