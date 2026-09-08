@@ -14,6 +14,7 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { syncInvoiceToAccounting } from './lib/accounting-sync.mjs';
 import { alertError } from './lib/alert.mjs';
 import { canTextCustomer, normalizePhone } from './lib/consent.mjs';
+import { validateTwilioSignature } from './lib/twilio-signature.mjs';
 
 // ── Firebase Admin init ───────────────────────────────────────────────────────
 
@@ -95,6 +96,25 @@ export default async (req) => {
 
   const bodyText   = await req.text();
   const params     = new URLSearchParams(bodyText || '');
+
+  // ── Authenticate the request before doing anything with it ────────────────
+  // This endpoint is public. Without this check a forged POST naming any
+  // contractor's phone number creates a real invoice in their account, spends
+  // an Anthropic call, and syncs a fabricated invoice to their accounting
+  // software. Validate first, so a forged request costs nothing.
+  //
+  // Set TWILIO_SIGNATURE_VALIDATION=off in Netlify to bypass this if it ever
+  // misfires; that is a deliberate, temporary escape hatch, not a default.
+  const sig = validateTwilioSignature(
+    req,
+    Object.fromEntries(params.entries()),
+    process.env.TWILIO_AUTH_TOKEN
+  );
+  if (!sig.valid) {
+    console.warn('[twilio-sms] rejected unsigned/invalid request:', sig.reason);
+    return new Response('Forbidden', { status: 403 });
+  }
+
   const fromPhone  = params.get('From') || '';
   const body       = (params.get('Body') || '').trim();
 

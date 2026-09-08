@@ -119,29 +119,83 @@ Update this section when something moves. It is the answer to "what's done?"
 - [ ] *Optional:* archive the unused $59 Essential+ price in Stripe. No payment
       link and no subscriptions reference it — cosmetic only.
 
-### Open - found 2026-09-08, not yet fixed
+## Launch checklist
 
-- [ ] **twilio-sms has no request signature validation.** stripe-webhook verifies
-      its Stripe signature; twilio-sms verifies nothing. The endpoint is public,
-      so anyone who knows the URL can POST `From=<a contractor's number>&Body=...`
-      and forge a job into that account: creates an invoice, spends an Anthropic
-      call, and syncs a fake invoice to their QuickBooks/Zoho. Phone numbers are
-      not secrets. Fix with Twilio's X-Twilio-Signature check (HMAC-SHA1 of the
-      full URL plus sorted POST params, keyed on TWILIO_AUTH_TOKEN).
-      Exposure is currently low only because toll-free verification is pending.
+Itemised and ordered by what actually blocks a safe launch. L-numbers are stable
+references: use them in commits and conversation. Move an item to Done with a
+note on how it was verified, not just that it was done.
 
-- [ ] **Monthly document limits are frontend-only.** docLimit() lives in app.js;
-      no function checks usage before creating an invoice, so the SMS path
-      ignores plan limits entirely.
+### Tier 1 - blocking. Do before any paying customer touches the product.
 
-- [ ] **AI output is not validated.** twilio-sms JSON.parses the model's reply
-      and writes parsed.amount / customer_phone straight onto the invoice. No
-      type, range or format check, so a bad parse becomes a real document.
+- [x] **L1. Validate the X-Twilio-Signature header on twilio-sms.**
+      The endpoint is public and was unauthenticated, so a forged POST naming any
+      contractor's phone number created a real invoice in their account, spent an
+      Anthropic call, and synced a fabricated invoice to their QuickBooks or Zoho.
+      Phone numbers are not secrets. stripe-webhook already validated its own
+      signature; this brings the Twilio path to the same standard.
+      Implemented in `functions/lib/twilio-signature.mjs`, verified against
+      Twilio's published worked example plus forged-body, forged-From, missing
+      header, wrong token and behind-a-proxy cases. Runs before the Firestore
+      lookup, the AI call and the invoice write, so a forged request costs
+      nothing. Escape hatch: `TWILIO_SIGNATURE_VALIDATION=off`.
 
-- [ ] **No error monitoring.** alertError() sends one SMS to ALERT_PHONE. A
-      failing function at 3am for one customer is otherwise invisible.
+- [ ] **L2. Run one end-to-end SMS dispatch, start to finish.**
+      Every component is verified in isolation; the whole chain never has been.
+      Text a real job -> AI parse -> invoice in Firestore -> accounting sync ->
+      document to the customer -> review request 24h later. Use Pryor Property
+      Solutions as customer zero. This is the highest-value hour available.
 
-- [ ] **No Firestore backups configured.**
+- [ ] **L3. Real error monitoring.**
+      `alertError()` sends one SMS to ALERT_PHONE. A function failing at 3am for
+      one customer is otherwise invisible. Sentry free tier, ~20 minutes.
 
-- [ ] **End-to-end SMS dispatch has never been run once.** Every component is
-      verified individually; the full chain never has been.
+- [ ] **L4. Enable Firestore backups.**
+      Holding other businesses' customer lists with no recovery path.
+
+- [ ] **L5. Enforce plan document limits server-side.**
+      `docLimit()` exists only in app.js. No function checks usage, so the SMS
+      path ignores plan limits entirely.
+
+### Tier 2 - before roughly the tenth customer.
+
+- [ ] **L6. Validate the model's parsed output before it becomes a document.**
+      `parsed.amount` is written straight onto the invoice with no type or range
+      check. One bad parse bills a customer $999,999 under the contractor's name.
+      Clamp the amount, check the phone format, hold low-confidence parses for
+      review instead of dispatching them.
+
+- [ ] **L7. Onboarding checklist in the app.**
+      An account needs phone number, active plan, accounting connection and
+      review URL. Miss one and the product silently half-works. Show progress and
+      block dispatch until the phone number is verified.
+
+- [ ] **L8. Lawyer review of the Terms.**
+      Specifically whether Relay is positioned as sender or conduit, and whether
+      the indemnity survives an actual plaintiff. TCPA statutory damages run
+      $500-$1,500 per message. The consent system is the real defence; the
+      paperwork should match it.
+
+- [ ] **L9. E&O and general liability insurance.**
+      Sending texts on other businesses' behalf and holding their customers'
+      data is the risk category that ends a solo company.
+
+- [ ] **L10. Deliverability monitoring.**
+      Toll-free approval is not the finish line; carriers still filter. Wire
+      Twilio's delivery-status webhook, and audit that STOP propagates into
+      Firestore rather than living only in Twilio.
+
+### Tier 3 - professional polish.
+
+- [ ] **L11. Make support@portal-relay.com actually route somewhere.**
+      It is published in the Terms and Privacy pages.
+
+- [ ] **L12. Customer data export.**
+      "What happens to my customer list if I leave?" comes up in the first sales
+      conversation. Having an answer converts.
+
+- [ ] **L13. Resolve the email domain mismatch.**
+      Contact address is @support-relayai.com while the site is portal-relay.com.
+      A small credibility tax on every touchpoint, and Twilio flags it.
+
+- [ ] **L14. Archive the unused $59 Essential+ price in Stripe.**
+      No payment link and no subscriptions reference it. Cosmetic.
