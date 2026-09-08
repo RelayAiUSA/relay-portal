@@ -202,15 +202,25 @@ async function handleOauthToken(req, context) {
 
       // Fetch the Zoho org ID to store alongside the token so accounting-sync
       // doesn't need to make a separate API call on every invoice.
+      // books.zoho.com/api/v3 is the legacy host; www.zohoapis.com/books/v3 is
+      // the current one and the only one accounting-sync uses. Keep them the
+      // same so a token that works at connect time works at sync time.
       let organizationId = '';
       try {
-        const orgResp = await fetch('https://books.zoho.com/api/v3/organizations', {
+        const orgResp = await fetch('https://www.zohoapis.com/books/v3/organizations', {
           headers: { Authorization: `Zoho-oauthtoken ${data.access_token}` },
         });
-        const orgData = await orgResp.json();
+        const orgText = await orgResp.text();
+        const orgData = JSON.parse(orgText);
         organizationId = orgData.organizations?.[0]?.organization_id || '';
+        if (!organizationId) {
+          // Not fatal - the connection is still worth saving, and sync will
+          // look the org up again - but this is the single most useful line in
+          // the log when invoices later fail to reach Zoho Books.
+          console.error(`[oauth-token] Zoho org lookup returned none [HTTP ${orgResp.status}]: ${orgText.slice(0, 300)}`);
+        }
       } catch (e) {
-        console.warn('[oauth-token] Could not fetch Zoho org ID:', e.message);
+        console.error('[oauth-token] Could not fetch Zoho org ID:', e.message);
       }
 
       rawTokens = {

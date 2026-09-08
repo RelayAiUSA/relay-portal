@@ -8,13 +8,52 @@ import { ensureFreshToken } from './token-helpers.mjs';
 
 // ── Zoho Books ────────────────────────────────────────────────────────────────
 
-async function getZohoOrgId(accessToken) {
-  const resp = await fetch('https://books.zoho.com/api/v3/organizations', {
-    headers: { Authorization: `Zoho-oauthtoken ${accessToken}` },
+// Every Zoho call used to read `data.organizations` (or `data.invoice`) straight
+// off the parsed body without ever looking at the HTTP status. A 401 from an
+// expired token or a scope the app was never granted therefore surfaced as
+// "No Zoho organization found" - a message that sends you looking for a missing
+// organization when the account has one and the request was simply refused.
+//
+// This helper makes every failure carry the status and Zoho's own message.
+const ZOHO_API = 'https://www.zohoapis.com/books/v3';
+
+async function zohoApi(path, accessToken, options = {}) {
+  const url  = `${ZOHO_API}${path}`;
+  const resp = await fetch(url, {
+    ...options,
+    headers: {
+      Authorization: `Zoho-oauthtoken ${accessToken}`,
+      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(options.headers || {}),
+    },
   });
-  const data = await resp.json();
+
+  const text = await resp.text();
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error(`Zoho ${path} returned ${resp.status} with a non-JSON body: ${text.slice(0, 200)}`);
+  }
+
+  // Zoho signals application errors with a non-zero `code` even on HTTP 200.
+  if (!resp.ok || (data.code !== undefined && data.code !== 0)) {
+    const detail = data.message || text.slice(0, 200);
+    const hint = resp.status === 401
+      ? ' (the connection was refused - reconnect Zoho Books from the portal to re-authorize)'
+      : '';
+    throw new Error(`Zoho ${path} failed [HTTP ${resp.status}, code ${data.code}]: ${detail}${hint}`);
+  }
+
+  return data;
+}
+
+async function getZohoOrgId(accessToken) {
+  const data = await zohoApi('/organizations', accessToken);
   const org  = data.organizations?.[0];
-  if (!org) throw new Error('No Zoho organization found');
+  if (!org) {
+    throw new Error('Zoho returned no organizations for this login. Create a Zoho Books organization, or reconnect with the account that owns one.');
+  }
   return org.organization_id;
 }
 
@@ -23,11 +62,10 @@ async function findOrCreateZohoContact(accessToken, orgId, invoiceData) {
   const custName = invoiceData.customer_name || 'Customer';
 
   // Try to find by phone first (custom field match is unreliable in free tier — search by name)
-  const searchResp = await fetch(
-    `https://books.zoho.com/api/v3/contacts?organization_id=${orgId}&contact_name=${encodeURIComponent(custName)}`,
-    { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
+  const searchData = await zohoApi(
+    `/contacts?organization_id=${orgId}&contact_name=${encodeURIComponent(custName)}`,
+    accessToken
   );
-  const searchData = await searchResp.json();
   if (searchData.contacts?.length > 0) return searchData.contacts[0].contact_id;
 
   // Create contact
@@ -38,19 +76,14 @@ async function findOrCreateZohoContact(accessToken, orgId, invoiceData) {
     contact_persons: [{ phone }].filter(p => p.phone),
     notes: invoiceData.customer_email ? `Email: ${invoiceData.customer_email}` : undefined,
   };
-  const createResp = await fetch(
-    `https://books.zoho.com/api/v3/contacts?organization_id=${orgId}`,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Zoho-oauthtoken ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    }
+  const createData = await zohoApi(
+    `/contacts?organization_id=${orgId}`,
+    accessToken,
+    { method: 'POST', body: JSON.stringify(body) }
   );
-  const createData = await createResp.json();
-  if (!createData.contact?.contact_id) throw new Error('Failed to create Zoho contact: ' + JSON.stringify(createData));
+  if (!createData.contact?.contact_id) {
+    throw new Error('Zoho accepted the contact request but returned no contact: ' + JSON.stringify(createData).slice(0, 300));
+  }
   return createData.contact.contact_id;
 }
 
@@ -76,19 +109,14 @@ async function createZohoInvoice(db, uid, invoiceData) {
     notes: `Invoice sent via Relay | Customer: ${invoiceData.customer_name || ''} | ${invoiceData.customer_phone || ''}`,
   };
 
-  const resp = await fetch(
-    `https://books.zoho.com/api/v3/invoices?organization_id=${orgId}`,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Zoho-oauthtoken ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(invoiceBody),
-    }
+  const data = await zohoApi(
+    `/invoices?organization_id=${orgId}`,
+    accessToken,
+    { method: 'POST', body: JSON.stringify(invoiceBody) }
   );
-  const data = await resp.json();
-  if (!data.invoice) throw new Error('Zoho invoice creation failed: ' + JSON.stringify(data));
+  if (!data.invoice) {
+    throw new Error('Zoho accepted the invoice request but returned no invoice: ' + JSON.stringify(data).slice(0, 300));
+  }
 
   return {
     externalId:     data.invoice.invoice_id,
