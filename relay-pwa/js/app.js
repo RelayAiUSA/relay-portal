@@ -757,27 +757,24 @@ function sAddCustomer() {
     </div>
     <div class="form-group"><label class="form-lbl" for="cx-access">Access notes</label><textarea id="cx-access" class="input" placeholder="Gate code, pets, parking, entry instructions"></textarea></div>
 
-    <p class="sh">Text Message Consent</p>
-    <label class="check-row-lbl" for="cx-smsconsent">
-      <input type="checkbox" id="cx-smsconsent">
-      <span><strong>This customer agreed to receive text messages from my business.</strong><br>
-      <span style="font-size:12px;color:#6b7280;line-height:1.5;display:block;margin-top:4px;">
-        Required before Relay can text this customer. Check this only if they gave you
-        permission &mdash; verbally, in writing, on a form, or by asking you to text them.
-        You are the sender of record; keep your own record of when and how they agreed.
-        Relay records the date you confirmed this. They can reply STOP at any time.
-      </span></span>
-    </label>
-    <div class="form-group"><label class="form-lbl" for="cx-consent-how">How did they agree? <span class="req">*</span></label>
+    <p class="sh">Text Message Consent <span class="req">*</span></p>
+    <div class="form-group">
+      <label class="form-lbl" for="cx-consent-how">How did this customer agree to receive texts from your business?</label>
       <select id="cx-consent-how" class="input">
-        <option value="">Select one</option>
-        <option>Verbally, in person or by phone</option>
-        <option>They texted or called me first</option>
-        <option>Signed paper form or estimate</option>
-        <option>Website or online form</option>
-        <option>Email confirmation</option>
-        <option>Existing customer, ongoing work relationship</option>
+        <option value="">Select one &mdash; required</option>
+        <option value="verbal">Verbally &mdash; in person or by phone</option>
+        <option value="inbound">They texted or called me first</option>
+        <option value="written">In writing &mdash; signed form, email, or online</option>
+        <option value="other">Other</option>
+        <option value="none">Not yet &mdash; do not text this customer</option>
       </select>
+      <span style="font-size:12px;color:#6b7280;line-height:1.5;display:block;margin-top:6px;">
+        Relay will not text this customer unless one of the first four is selected.
+        Pick the one that is actually true &mdash; you are the sender of record, and
+        this is the record that protects you. Relay stores your answer and the date.
+        Customers can reply STOP at any time. You can change this later from the
+        customer's page.
+      </span>
     </div>
 
     <p class="sh">Notes</p>
@@ -1262,14 +1259,15 @@ document.addEventListener('click', async e => {
     const name  = $('cx-name')?.value?.trim();
     const phone = $('cx-phone')?.value?.trim();
     const addr  = $('cx-addr')?.value?.trim();
-    const smsConsent   = !!$('cx-smsconsent')?.checked;
     const smsConsentHow = $('cx-consent-how')?.value || '';
+    // 'none' is a deliberate, honest answer; empty is an unanswered required field.
+    const smsConsent    = !!smsConsentHow && smsConsentHow !== 'none';
     if (!name || !phone || !addr) {
       showErr('cx-err', 'Please fill in all required fields (*).');
       return;
     }
-    if (smsConsent && !smsConsentHow) {
-      showErr('cx-err', 'Please select how this customer agreed to receive texts.');
+    if (!smsConsentHow) {
+      showErr('cx-err', 'Please select how this customer agreed to receive text messages.');
       return;
     }
     showErr('cx-err', '');

@@ -217,11 +217,13 @@ If a field is unknown, use empty string or 0.`,
   if (fwdConsent.allowed) {
     replyLines.push('Doc sent to customer via SMS.');
   } else if (canAutoForward(plan) && profile.autoForwardToCustomer && parsed.customer_phone) {
-    replyLines.push(
-      fwdConsent.reason === 'opted_out'
-        ? 'Not texted — customer opted out.'
-        : 'Not texted — add this customer at portal-relay.com and confirm they agreed to receive texts.'
-    );
+    const blockMsg = {
+      opted_out:            'Not texted — this customer opted out (replied STOP).',
+      no_customer_record:   'Not texted — this customer is not in your portal yet. Add them at portal-relay.com and set their text message permission.',
+      no_consent_on_record: 'Not texted — text message permission is not set for this customer. Open their page at portal-relay.com and update Text Message Consent.',
+    }[fwdConsent.reason] ||
+      'Not texted — check this customer\'s text message permission at portal-relay.com.';
+    replyLines.push(blockMsg);
   }
 
   if (invoiceData.type !== 'quote') {
