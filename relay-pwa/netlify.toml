@@ -33,6 +33,12 @@
 [functions."oauth-refresh-sweep"]
   schedule = "0 8 * * *"
 
+# Daily Firestore snapshot to Netlify Blobs. 07:00 UTC = 03:00 ET, deliberately
+# an hour before the token sweep so the snapshot predates the day's writes.
+# firestore-backup.mjs also declares this via `export const config`.
+[functions."firestore-backup"]
+  schedule = "0 7 * * *"
+
 # ── Redirects ────────────────────────────────────────────────────────────────
 
 # Block static serving of server-side source. The functions directory lives

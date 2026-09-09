@@ -2,6 +2,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.27.0",
     "@netlify/aws-lambda-compat": "^1.0.0",
+    "@netlify/blobs": "^8.1.0",
     "firebase-admin": "^12.0.0",
     "stripe": "^14.0.0"
   },

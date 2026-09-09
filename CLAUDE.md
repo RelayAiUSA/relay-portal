@@ -272,6 +272,40 @@ delivery monitoring built in L10 was dead on arrival and Twilio saw the endpoint
 as broken. Return `200` with a short body instead. Health-check every function
 after adding one: a POST that should give 403 giving 502 is the tell.
 
+**A backup is a hypothesis until it has been restored.** `firestore-backup.mjs`
+is only half the feature; `scripts/firestore-restore.mjs` is the half that gets
+skipped and the half that matters on the worst day. Two design rules there are
+load-bearing and should not be "simplified" away: the backup refuses to store a
+snapshot with zero documents (an empty export means the credentials are pointed
+at the wrong project - writing that over a good backup converts a config
+mistake into data loss), and it reads the blob back and compares byte length
+before pruning anything. A write that reports success and stores nothing is
+precisely the failure the whole function exists to prevent, and nothing else in
+the system would ever notice it.
+
+**Firestore's managed backups are Blaze-only.** Scheduled backups,
+point-in-time recovery and managed export/import all require the paid plan;
+`relay-portal-68417` is on Spark. Nothing in the console will let you enable
+them, so do not spend time hunting for the setting - it is a billing decision.
+
+**The backup walk must never be hardcoded to a collection list.** It uses
+`db.listCollections()` and, per document, `ref.listCollections()`. Firestore has
+no global index of subcollection names, and almost all of the customer data in
+this product lives in subcollections (`users/{uid}/customers`). A backup that
+misses a collection looks completely healthy right up to the day it is needed.
+
+**A snapshot pulled to disk is every customer's data in plaintext.** `.gitignore`
+covers `backup-latest.json`, `*.backup.json` and bare `YYYY-MM-DD.json`. Do not
+commit one, do not attach one, and delete local pulls when finished with them.
+
+**Bare `import 'firebase-admin/...'` from `scripts/` resolves to a DIFFERENT
+copy** than the functions use - the repo root has its own older firebase-admin
+(v11) while `relay-pwa/functions/node_modules` has v12. Every `instanceof
+Timestamp` is then false for reasons that have nothing to do with the code under
+test. The repo-root package.json is largely vestigial; the functions' one is
+what deploys. Test scripts import firebase-admin by explicit path into
+`relay-pwa/functions/node_modules`, and the npm scripts `cd` there first.
+
 ## Verify before claiming
 
 Four wrong diagnoses in one session all came from inferring configuration from a
@@ -293,15 +327,24 @@ claim costs more than saying you haven't checked yet.
 ```
 relay-pwa/netlify.toml      the only build config
 relay-pwa/functions/*.mjs   Netlify Functions v2, ESM (export default async (req) => ...)
-relay-pwa/functions/lib/    token-helpers.mjs, alert.mjs, accounting-sync.mjs
+relay-pwa/functions/lib/    token-helpers.mjs, alert.mjs, accounting-sync.mjs,
+                            consent.mjs, suppression.mjs, review-invite.mjs,
+                            parse-guard.mjs, sentry.mjs, twilio-signature.mjs,
+                            firestore-backup.mjs
 relay-pwa/js/app.js         frontend; STRIPE_BILLING + buy links live here
 firestore.rules             billing fields are client-immutable
+scripts/                    firestore-restore.mjs (list / pull / restore),
+                            test-firestore-backup.mjs
 ```
+
+Repo-root npm scripts: `backup:list`, `backup:pull`, `backup:restore`,
+`test:backup`. Each `cd`s into `relay-pwa/functions` first so dependencies
+resolve from the copy that actually deploys.
 
 Firebase project `relay-portal-68417` is under **c.pryor006@gmail.com** — use
 `https://console.firebase.google.com/u/1/...`.
 
-## Status — last updated 2026-09-08
+## Status — last updated 2026-09-09
 
 Update this section when something moves. It is the answer to "what's done?"
 
@@ -316,9 +359,10 @@ if the behaviour it describes has changed.
 team plan `nf_team_pro`. Base directory `relay-pwa`. Auto-deploys from GitHub
 `RelayAiUSA/relay-portal` on push to `main`. **An empty commit does NOT trigger
 a build** — Netlify cancels it; push a real file change or use Trigger deploy.
-Six functions: twilio-sms, oauth-token, oauth-refresh-sweep, review-request,
-stripe-webhook, sms-status. Scheduled: `review-request` hourly,
-`oauth-refresh-sweep` daily 08:00 UTC.
+Seven functions: twilio-sms, oauth-token, oauth-refresh-sweep, review-request,
+stripe-webhook, sms-status, firestore-backup. Scheduled: `review-request`
+hourly, `firestore-backup` daily 07:00 UTC, `oauth-refresh-sweep` daily
+08:00 UTC. Netlify Blobs store `firestore-backups` holds the snapshots.
 
 **Netlify env vars** — scope matters. `ZOHO_CLIENT_ID`, `ZOHO_CLIENT_SECRET`,
 `FIREBASE_PROJECT_ID`, `INTUIT_CLIENT_ID`, `QUICKBOOKS_CLIENT_ID`, `QB_CLIENT_ID`
@@ -329,6 +373,9 @@ Note: `ZOHO_CLIENT_SECRET` and `STRIPE_WEBHOOK_SECRET` are NOT flagged
 `is_secret`, so their values are readable in the Netlify UI — worth toggling on.
 
 **Firebase** — project `relay-portal-68417` (console under c.pryor006@gmail.com).
+**Spark (free) plan**, verified 2026-09-09 on the Firestore Disaster Recovery
+tab — so managed scheduled backups and point-in-time recovery are unavailable
+until someone upgrades to Blaze. Database location `nam5`.
 Every page that reads Firestore must carry this same config: app.js,
 oauth-callback.html and doc.html. Collections: users, invoices, customers,
 dispatch, docCounts, oauth_tokens, publicDocs. `publicDocs` is world-readable by
@@ -470,8 +517,58 @@ note on how it was verified, not just that it was done.
       the notification email. SENTRY_DSN is set in Netlify. Missing DSN is a
       silent no-op, so nothing breaks without it.
 
-- [ ] **L4. Enable Firestore backups.**
-      Holding other businesses' customer lists with no recovery path.
+- [x] **L4. Firestore backups - daily snapshots live 2026-09-09.**
+      Relay held other businesses' customer lists with no recovery path at all.
+
+      Firebase's own answer - scheduled backups and point-in-time recovery - is
+      **Blaze-plan only**, and `relay-portal-68417` is on Spark. The Disaster
+      Recovery tab says so outright: "Upgrade your plan to edit point-in-time
+      recovery and scheduled backups." Managed export/import is Blaze too. So
+      the checklist item as written could not be completed by clicking
+      anything; it needed either a billing decision or code.
+
+      Shipped the code, because a gap this size should not wait on a decision:
+      `functions/firestore-backup.mjs`, scheduled daily 07:00 UTC (03:00 ET,
+      deliberately an hour before oauth-refresh-sweep so the snapshot predates
+      the day's writes). It walks every collection AND subcollection via
+      `listCollections()` - nothing is hardcoded, so a new collection is backed
+      up without a code change - and stores a type-preserving JSON snapshot in
+      Netlify Blobs (store `firestore-backups`, key `YYYY-MM-DD.json`).
+      Retention: every day for 30 days, plus first-of-month for 12 months,
+      because a bug that has been quietly corrupting one field for six weeks is
+      not recoverable from a window of dailies that are all already wrong.
+
+      Two refusals worth knowing about: it will not store a snapshot containing
+      zero documents (that means the credentials are pointed somewhere
+      unexpected, and overwriting a good backup with an empty one turns a
+      config mistake into data loss), and it reads the blob back after writing
+      and fails if the byte count differs. Pruning only happens after that
+      read-back succeeds. A failure alerts by SMS as well as Sentry - a backup
+      failing silently is the same as having no backup.
+
+      The restore half exists too, which is the half that usually does not:
+      `scripts/firestore-restore.mjs`, wired to `npm run backup:list`,
+      `backup:pull` and `backup:restore`. A restore is a DRY RUN unless
+      `--confirm`, merges rather than replaces by default, and only deletes
+      with both `--confirm` and `--purge`.
+
+      Verified: 40 assertions (`npm run test:backup`) covering Timestamp,
+      GeoPoint, Buffer, nested and in-array type round-trips; that a plain
+      `{latitude, longitude}` map does NOT become a GeoPoint; that user data
+      containing a literal `__type` key survives; subcollection discovery at
+      two levels; the doc ceiling aborting rather than storing a partial
+      snapshot; and every retention boundary. Also confirmed `@netlify/blobs`
+      bundles and imports cleanly under esbuild, given the Twilio SDK history.
+
+      STILL WORTH DOING, and it is Clyde's call because it needs a card on the
+      Firebase project: upgrading to Blaze buys Google-operated, transactionally
+      consistent backups plus point-in-time recovery to any minute in the last
+      7 days. This snapshot is not point-in-time consistent - it walks document
+      by document, so a write landing mid-walk can be caught on one side of a
+      relationship and not the other. At this database's size the walk is
+      seconds, and it is enormously better than nothing, but do not describe it
+      as equivalent. It stays useful after a Blaze upgrade as an offsite second
+      copy in a different vendor's storage.
 
 - [x] **L5. Plan document limits enforced on both paths - 2026-09-08.**
       `docLimit()` lived only in app.js, so the limit existed exactly where it
@@ -657,9 +754,18 @@ note on how it was verified, not just that it was done.
       "What happens to my customer list if I leave?" comes up in the first sales
       conversation. Having an answer converts.
 
-- [ ] **L13. Resolve the email domain mismatch.**
-      Contact address is @support-relayai.com while the site is portal-relay.com.
-      A small credibility tax on every touchpoint, and Twilio flags it.
+- [x] **L13. Email domain mismatch resolved - 2026-09-09.**
+      Every address the product ships is now `support@portal-relay.com`, matching
+      the site domain. The package.json author fields moved off
+      @support-relayai.com earlier the same day; a full scan then found one
+      survivor in LICENSE, now aligned. Verified: zero occurrences of
+      support-relayai anywhere outside this checklist entry.
+      What remains is EXTERNAL, not code: if @support-relayai.com is still the
+      business email on the Twilio submission, the Stripe account or the LLC
+      paperwork, those should be moved too - a contact domain that does not match
+      the site is a flag on a toll-free review. Nothing in the repo depends on it.
+      NOTE: `support@portal-relay.com` is published in Terms and Privacy and
+      still routes nowhere. That is L11, and it is now the only email gap left.
 
 - [ ] **L14. Archive the unused $59 Essential+ price in Stripe.**
       No payment link and no subscriptions reference it. Cosmetic.

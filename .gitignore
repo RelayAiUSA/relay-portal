@@ -17,3 +17,9 @@ deploy-*.zip
 # Auto-deploy plumbing (local only — never belongs in the repo)
 .deploy-trigger
 deploy-log.txt
+
+# Firestore snapshots pulled with `npm run backup:pull`. These are a full copy
+# of every customer's data in plaintext — they must never enter the repo.
+backup-latest.json
+*.backup.json
+[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].json

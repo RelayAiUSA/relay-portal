@@ -2,7 +2,7 @@
   "name": "relay-portal",
   "version": "1.0.0",
   "private": true,
-  "description": "Relay AI USA \u2013 dispatch portal backend functions",
+  "description": "Relay - dispatch portal (Pryor Digital Ventures LLC)",
   "engines": {
     "node": "18"
   },
@@ -14,7 +14,11 @@
     "twilio": "^5.3.0"
   },
   "scripts": {
-    "build": "true"
+    "build": "true",
+    "backup:list": "cd relay-pwa/functions && node ../../scripts/firestore-restore.mjs --list",
+    "backup:pull": "cd relay-pwa/functions && node ../../scripts/firestore-restore.mjs --pull --out ../../backup-latest.json",
+    "backup:restore": "cd relay-pwa/functions && node ../../scripts/firestore-restore.mjs --restore",
+    "test:backup": "cd relay-pwa/functions && node ../../scripts/test-firestore-backup.mjs"
   },
   "devDependencies": {
     "@netlify/zip-it-and-ship-it": "^15.5.0"
