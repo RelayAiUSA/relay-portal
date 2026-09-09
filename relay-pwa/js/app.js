@@ -990,6 +990,27 @@ function sEditCustomer() {
         </div>` : ''}
         ${recorded}
       </div>
+      <!-- Review follow-up is a RelayPRO feature and is opt-in PER CUSTOMER.
+           Asking someone for a review is the contractor's call about their own
+           relationship, so nobody is invited by default. -->
+      ${canReviewRequest((S.profile?.plan || '').toLowerCase()) ? `
+      <div style="border-top:1px solid #e5e7eb;margin-top:14px;padding-top:14px">
+        <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer">
+          <input type="checkbox" id="ecx-followup" ${cx.reviewFollowUp ? 'checked' : ''}
+                 style="margin-top:3px;flex-shrink:0;width:16px;height:16px;accent-color:#6366f1">
+          <span style="font-size:13px;color:#374151;line-height:1.55">
+            <strong>Send a review follow-up to this customer</strong><br>
+            <span style="font-size:12px;color:#6b7280">
+              Their invoice will end with &ldquo;Reply YES and we'll text you a link to review our work.&rdquo;
+              Relay only sends the review text if they reply YES themselves.
+            </span>
+          </span>
+        </label>
+      </div>` : `
+      <div style="border-top:1px solid #e5e7eb;margin-top:14px;padding-top:14px;font-size:12px;color:#9ca3af;line-height:1.55">
+        Automated review follow-up is a RelayPRO feature.
+        <span data-nav="profile" style="color:#6366f1;cursor:pointer;text-decoration:underline">Upgrade to turn it on.</span>
+      </div>`}
       <div id="ecx-err" class="auth-error" style="display:none;margin:10px 0 0"></div>
       <button id="ecx-save-btn" class="btn btn-primary" style="margin-top:12px" data-action="saveCustomerConsent">Save Permission</button>
     </div>
@@ -1935,6 +1956,9 @@ document.addEventListener('click', async e => {
         smsConsentScope:  consent ? 'all' : '',
         smsConsentAt:     firebase.firestore.FieldValue.serverTimestamp(),
         smsConsentBy:     S.user?.email || '',
+        // Off unless the contractor is on Pro AND ticked the box. Withdrawing
+        // texting permission withdraws the follow-up with it.
+        reviewFollowUp:   consent && !!$('ecx-followup')?.checked,
       });
       await loadUserData(uid);
       nav('customers');
@@ -1993,6 +2017,10 @@ document.addEventListener('click', async e => {
         smsConsentScope:  smsConsent ? 'all' : '',
         smsConsentAt:     smsConsent ? firebase.firestore.FieldValue.serverTimestamp() : null,
         smsConsentBy:     S.user?.email || '',
+        // Explicit false rather than absent: review follow-up is opt-in, and a
+        // missing field reads as undefined at three different call sites.
+        // Turned on per customer from their profile, RelayPRO only.
+        reviewFollowUp:   false,
         customerType:    $('cx-type')?.value || '',
         secondaryName:   $('cx-sec-name')?.value?.trim() || '',
         secondaryPhone:  $('cx-sec-phone')?.value?.trim() || '',

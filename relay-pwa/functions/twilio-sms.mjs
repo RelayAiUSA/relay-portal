@@ -15,6 +15,7 @@ import { syncInvoiceToAccounting } from './lib/accounting-sync.mjs';
 import { alertError } from './lib/alert.mjs';
 import { canTextCustomer, normalizePhone } from './lib/consent.mjs';
 import { isStopKeyword, isStartKeyword, suppressNumber, unsuppressNumber } from './lib/suppression.mjs';
+import { REVIEW_INVITE_LINE, isInviteYes, isInviteNo, recordInvite, getInvite, applyInviteAnswer } from './lib/review-invite.mjs';
 import { validateTwilioSignature } from './lib/twilio-signature.mjs';
 import { guardParsedJob, extractJson } from './lib/parse-guard.mjs';
 
@@ -249,6 +250,25 @@ async function handleInboundSms(req, context) {
       '<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
       { status: 200, headers: { 'Content-Type': 'text/xml' } }
     );
+  }
+
+  // ── A CUSTOMER answering the review invitation ────────────────────────────
+  // Runs before the contractor lookup for the same reason STOP does: this reply
+  // comes from a consumer's number, which belongs to no Relay account, so a
+  // lookup-first order would answer "Phone number not registered" and throw
+  // away the single most valuable consent artifact in the product.
+  if (isInviteYes(body) || isInviteNo(body)) {
+    const invite = await getInvite(db, fromPhone);
+    if (invite) {
+      const agreed = isInviteYes(body);
+      await applyInviteAnswer(db, invite, fromPhone, agreed);
+      console.log(`[twilio-sms] review consent ${agreed ? 'granted' : 'declined'} by customer for uid=${invite.uid}`);
+      return twimlResponse(agreed
+        ? "Thank you! We'll text you a review link shortly. Reply STOP at any time to opt out."
+        : "No problem — we won't send you a review request. You'll still receive your documents.");
+    }
+    // No live invite: fall through. A contractor's own "yes" to the
+    // review-permission question is handled further down.
   }
 
   // ── Identify the contractor by the number they texted from ────────────────
@@ -556,9 +576,45 @@ If a field is unknown, use empty string or 0.`,
       `Amount: $${job.amount || 'TBD'}`,
       '',
       'Questions? Reply to this message.',
-    ].join('\n');
-    await sendSms(job.customer_phone, fwdMsg)
-      .catch(e => console.error('[twilio-sms] Auto-forward failed:', e.message));
+    ];
+
+    // ── Review invitation: Pro plan AND this customer opted in ──────────────
+    // Two gates, both required. Review follow-up is a RelayPRO feature, and
+    // within Pro it is per customer: the contractor ticks "Send review
+    // follow-up" on that customer's profile. Nobody is invited by default -
+    // asking a customer for a review is the contractor's call to make about
+    // their own relationship, not something the platform does on their behalf.
+    let inviteSent = false;
+    if (canReviewRequest(plan) && fwdConsent.customerId) {
+      try {
+        const cxDoc = await db.collection('users').doc(uid)
+          .collection('customers').doc(fwdConsent.customerId).get();
+        if (cxDoc.exists && cxDoc.data().reviewFollowUp === true) {
+          // Rides on a message the customer already consented to receive, so
+          // asking costs nothing extra and the answer comes from the consumer.
+          fwdMsg.push('', REVIEW_INVITE_LINE);
+          inviteSent = true;
+        }
+      } catch (err) {
+        console.error('[twilio-sms] review follow-up lookup failed:', err.message);
+      }
+    }
+
+    try {
+      await sendSms(job.customer_phone, fwdMsg.join('\n'));
+      // Only record the invite once the message actually went out - an invite
+      // for a text that was never delivered would attribute a stray "yes" to a
+      // question this person never saw.
+      if (inviteSent) {
+        await recordInvite(db, job.customer_phone, {
+          uid,
+          customerName: job.customer_name || '',
+          invoiceId:    invRef.id,
+        });
+      }
+    } catch (e) {
+      console.error('[twilio-sms] Auto-forward failed:', e.message);
+    }
   }
 
   // ── Reply to technician ───────────────────────────────────────────────────

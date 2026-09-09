@@ -81,6 +81,26 @@ export async function canTextCustomer(db, uid, phone, requiredScope = 'transacti
     if (d.smsOptOut === true) {
       return { allowed: false, reason: 'opted_out', customerId: doc.id };
     }
+    // The consumer answered the invitation themselves. This is the strongest
+    // record available for a promotional message - their own act, timestamped,
+    // against wording we stored - so it satisfies the promotional gate outright
+    // and an explicit NO blocks it outright, regardless of what the contractor
+    // attested.
+    if (requiredScope === 'promotional') {
+      // The contractor's own per-customer switch. Review follow-up is opt-in
+      // per customer, so an untouched customer is never solicited even on a Pro
+      // plan and even with full consent on file.
+      if (d.reviewFollowUp !== true) {
+        return { allowed: false, reason: 'review_followup_off', customerId: doc.id };
+      }
+      if (d.reviewConsentByCustomer === true) {
+        return { allowed: true, reason: 'consented_by_customer', customerId: doc.id };
+      }
+      if (d.reviewConsentByCustomer === false) {
+        return { allowed: false, reason: 'review_declined_by_customer', customerId: doc.id };
+      }
+    }
+
     if (d.smsConsent === true) {
       const scope = d.smsConsentScope || 'all';
       if (requiredScope === 'promotional' && scope !== 'all') {

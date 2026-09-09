@@ -227,6 +227,19 @@ first, so holding to it never sends late anywhere else in the country. A quiet
 -hours block is a "not yet", not a "never": review-request runs hourly and picks
 the message up in the morning.
 
+**Review follow-up has THREE gates, all required.** (1) RelayPRO plan.
+(2) The contractor ticked "Send a review follow-up to this customer" on that
+customer's profile - `reviewFollowUp`, opt-in per customer, defaulted to an
+explicit `false` so it is never undefined. (3) The consumer replied YES to the
+invitation appended to their invoice. Nobody is solicited by default, on any
+plan. The consumer's own answer is stored as `reviewConsentByCustomer` with the
+exact prompt wording, and it outranks the contractor's attestation in both
+directions - a YES satisfies the promotional scope outright, a NO blocks it
+outright. The reply arrives from a CONSUMER's number, which belongs to no Relay
+account, so it is handled BEFORE the contractor lookup in twilio-sms - exactly
+like STOP - or it would hit "Phone number not registered" and the most valuable
+consent artifact in the product would be discarded. See lib/review-invite.mjs.
+
 ## Verify before claiming
 
 Four wrong diagnoses in one session all came from inferring configuration from a
