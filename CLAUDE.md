@@ -564,10 +564,36 @@ note on how it was verified, not just that it was done.
       the indemnity survives an actual plaintiff. TCPA statutory damages run
       $500-$1,500 per message. The consent system is the real defence; the
       paperwork should match it.
+      Assume Relay is the SENDER, not a conduit: messages leave our number,
+      under our branding, at our system's initiative. The Terms saying the
+      contractor is "sender of record" is our contract with them, not the law's
+      view, and a contractor with $12k in the bank cannot indemnify a $500k
+      claim - indemnification transfers cost, never exposure.
+      The engineering half is DONE (L20 below); this is the paperwork half.
 
 - [ ] **L9. E&O and general liability insurance.**
       Sending texts on other businesses' behalf and holding their customers'
       data is the risk category that ends a solo company.
+      **Ask explicitly for a TCPA/privacy endorsement** - many E&O policies
+      exclude TCPA claims by default, which would make the policy worthless for
+      the single largest exposure this business has.
+
+- [x] **L20. TCPA engineering controls - 2026-09-09.**
+      Four gaps closed. (1) STOP lived only inside Twilio, so Relay's own data
+      still believed an opted-out consumer was textable and a contractor could
+      re-add the customer record and text them again. `lib/suppression.mjs`
+      keeps a top-level `smsSuppressions` collection, Admin-SDK only, captured
+      from an inbound STOP (handled BEFORE the contractor lookup, because the
+      person opting out is usually not one of our accounts) and from Twilio
+      error 21610. Fails closed. (2) Quiet hours: no customer message before
+      8am or after 9pm in the RECIPIENT'S local time, inferred from area code,
+      falling back to Eastern because Eastern hits 9pm first. A block is a "not
+      yet" - review-request runs hourly and sends in the morning. (3) Both are
+      enforced inside `canTextCustomer()`, the single gate every customer-facing
+      message already passes, not at each call site. (4) Review follow-up now
+      carries consumer-granted consent - see the Landmines entry.
+      Verified with 76 assertions across the three libraries.
+      Still open on the paperwork side: L8 and L9.
 
 - [x] **L10. Deliverability monitoring - delivery-status webhook live.**
       `sms-status.mjs` receives Twilio's status callbacks, validates
