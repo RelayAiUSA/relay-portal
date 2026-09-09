@@ -60,7 +60,7 @@ export default async (req) => {
       console.error('[sms-status] alert failed:', alertErr?.message);
     }
     // Twilio retries 5xx. A failure to log a status is not worth a retry storm.
-    return new Response('', { status: 204 });
+    return new Response('ok', { status: 200 });
   }
 };
 
@@ -72,11 +72,19 @@ async function handleStatus(req) {
   const raw    = await req.text();
   const params = Object.fromEntries(new URLSearchParams(raw));
 
+  // validateTwilioSignature returns an OBJECT ({valid, reason}), never a
+  // boolean. This was written as `!validateTwilioSignature(...)`, and an object
+  // is always truthy - so the negation was always false and the guard NEVER
+  // fired. Every forged POST was accepted, which mattered enormously here:
+  // ErrorCode=21610 writes a permanent suppression, so anyone could have
+  // silently blocked message delivery to any phone number they chose.
+  // twilio-sms reads `.valid` correctly; this file did not.
   const authToken     = process.env.TWILIO_AUTH_TOKEN;
   const validationOff = process.env.TWILIO_SIGNATURE_VALIDATION === 'off';
   if (!validationOff) {
-    if (!authToken || !validateTwilioSignature(req, params, authToken)) {
-      console.warn('[sms-status] rejected a request with an invalid signature');
+    const sig = validateTwilioSignature(req, params, authToken);
+    if (!sig.valid) {
+      console.warn('[sms-status] rejected an unsigned/invalid request:', sig.reason);
       return new Response('Forbidden', { status: 403 });
     }
   }
@@ -104,5 +112,8 @@ async function handleStatus(req) {
     console.log(`[sms-status] ${status} sid=${sid} to=${to}`);
   }
 
-  return new Response('', { status: 204 });
+  // A 204 carrying a body produced 'error decoding lambda response' and a 502
+  // on every callback, so Twilio saw the endpoint as broken. 200 with a tiny
+  // body is unambiguous for both the runtime and Twilio.
+  return new Response('ok', { status: 200 });
 }

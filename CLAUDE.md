@@ -257,6 +257,21 @@ check, and both must pass - the recipient check is the accurate one, the
 national floor is what holds when the area code is wrong about where someone
 actually lives (people keep numbers when they move).
 
+**`validateTwilioSignature` returns an OBJECT, not a boolean.** sms-status was
+written as `if (!validateTwilioSignature(...))`. An object is always truthy, so
+the negation was always false and the guard NEVER fired - every forged POST was
+accepted. That was not cosmetic: `ErrorCode=21610` writes a permanent
+suppression, so anyone could have silently blocked message delivery to any phone
+number they named. twilio-sms reads `.valid` correctly; sms-status did not.
+Read the helper's return type before negating it.
+
+**A 204 response carrying a body breaks Netlify's lambda encoder.**
+`new Response('', { status: 204 })` produced `error decoding lambda response:
+unexpected end of JSON input` and a 502 on every Twilio status callback - so the
+delivery monitoring built in L10 was dead on arrival and Twilio saw the endpoint
+as broken. Return `200` with a short body instead. Health-check every function
+after adding one: a POST that should give 403 giving 502 is the tell.
+
 ## Verify before claiming
 
 Four wrong diagnoses in one session all came from inferring configuration from a
