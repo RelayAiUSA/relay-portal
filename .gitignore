@@ -13,3 +13,7 @@ deploy-*.zip
 
 # Never read: Netlify base dir is relay-pwa, so only relay-pwa/.netlifyignore applies
 /.netlifyignore
+
+# Auto-deploy plumbing (local only — never belongs in the repo)
+.deploy-trigger
+deploy-log.txt
