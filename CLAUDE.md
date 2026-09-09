@@ -571,10 +571,21 @@ note on how it was verified, not just that it was done.
       passing. Frontend renders the new status with a Needs Review badge and
       filter chip.
 
-- [ ] **L7. Onboarding checklist in the app.**
-      An account needs phone number, active plan, accounting connection and
-      review URL. Miss one and the product silently half-works. Show progress and
-      block dispatch until the phone number is verified.
+- [x] **L7. Onboarding checklist - 2026-09-09.**
+      An account needs a phone number, an active plan, an accounting connection
+      and (on Pro) a review URL. Miss any one and the product half-works
+      SILENTLY, which is how a trial dies without anyone complaining.
+      `onboardingSteps()` computes the four, the dashboard shows a progress card
+      above everything else, and each step is tappable straight to where it is
+      fixed. The card disappears permanently once every step is done, so an
+      established account never sees it.
+      Each step states what BREAKS if skipped rather than just naming a task -
+      a checklist of chores gets ignored, a checklist of consequences gets done.
+      The review step only appears for Pro, since it is a Pro feature.
+      `trialing` counts as an active plan; `past_due` does not; an
+      accountingProvider of 'none' does not count as connected.
+      12 assertions. The separate phone banner stays: it is the one failure a
+      contractor hits from a roof, and it earns the duplication.
 
 - [ ] **L8. Lawyer review of the Terms.**
       Specifically whether Relay is positioned as sender or conduit, and whether

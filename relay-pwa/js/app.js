@@ -274,6 +274,60 @@ function subLabel(status) {
   return SUB_LABELS[t] || (t ? t.charAt(0).toUpperCase() + t.slice(1).replace(/_/g, ' ') : 'Inactive');
 }
 
+// ── Onboarding readiness ─────────────────────────────────────────────────────
+//
+// An account needs four things before Relay works end to end. Miss any one and
+// the product half-works SILENTLY - which is exactly how a trial dies without
+// anyone complaining: no phone number and texting replies "not registered"; no
+// accounting connection and invoices never leave Relay; no review link and Pro's
+// headline feature does nothing at all.
+//
+// Each step says what breaks if it is skipped, not just what to do. A checklist
+// that only lists tasks gets ignored; one that names the consequence gets done.
+function onboardingSteps() {
+  const p    = S.profile || {};
+  const plan = (p.plan || '').toLowerCase();
+  const sub  = p.subscriptionStatus || 'unpaid';
+
+  const steps = [
+    {
+      key:  'phone',
+      done: !!p.phoneNumber,
+      label: 'Add your business phone number',
+      why:  'Relay identifies your jobs by the number you text from. Without it, texting replies "not registered".',
+      nav:  'profile',
+    },
+    {
+      key:  'plan',
+      done: ['active', 'trialing'].includes(sub),
+      label: 'Activate your plan',
+      why:  'Dispatch stays locked until a plan is active.',
+      nav:  'profile',
+    },
+    {
+      key:  'accounting',
+      done: !!(p.accountingProvider && p.accountingProvider !== 'none'),
+      label: 'Connect QuickBooks or Zoho Books',
+      why:  'Without it, invoices stay inside Relay and never reach your books.',
+      nav:  'profile',
+    },
+  ];
+
+  // Review follow-up is a RelayPRO feature, so the review link is only a
+  // required step for accounts that actually have it.
+  if (canReviewRequest(plan)) {
+    steps.push({
+      key:  'review',
+      done: !!p.reviewUrl,
+      label: 'Add your review link',
+      why:  'Review follow-up has nowhere to send customers until this is set.',
+      nav:  'profile',
+    });
+  }
+
+  return steps;
+}
+
 function badge(status) {
   // 'needs_review' is set by the SMS parse guard when the model's output looked
   // implausible. It reuses the overdue styling because it needs the same
@@ -671,10 +725,45 @@ function sDashboard() {
       <span data-nav="profile" class="past-due-banner-btn" style="cursor:pointer">Add it \u2192</span>
     </div>` : '';
 
+  // Setup checklist. Disappears for good once every step is done, so an
+  // established account never sees it. The phone banner above stays as well -
+  // it is the one failure a contractor hits from a roof, and it earns the
+  // duplication.
+  const steps    = isAdmin ? [] : onboardingSteps();
+  const doneCt   = steps.filter(x => x.done).length;
+  const setupCard = (steps.length && doneCt < steps.length) ? `
+    <div class="card" style="padding:16px;margin-bottom:12px;border-left:3px solid #6366f1">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:4px">
+        <div style="font-weight:700;font-size:15px">Finish setting up Relay</div>
+        <div style="font-size:12px;color:#6b7280;font-variant-numeric:tabular-nums">${doneCt} of ${steps.length}</div>
+      </div>
+      <div style="font-size:12px;color:#6b7280;line-height:1.5;margin-bottom:12px">
+        Relay works end to end once these are done. Until then, parts of it stay quiet.
+      </div>
+      <div style="height:5px;background:#e5e7eb;border-radius:99px;overflow:hidden;margin-bottom:14px">
+        <div style="height:100%;width:${Math.round((doneCt / steps.length) * 100)}%;background:#6366f1;border-radius:99px;transition:width .3s"></div>
+      </div>
+      ${steps.map(st => `
+        <div ${st.done ? '' : `data-nav="${st.nav}" style="cursor:pointer"`}
+             style="display:flex;gap:11px;align-items:flex-start;padding:9px 0;border-top:1px solid #f3f4f6${st.done ? '' : ';cursor:pointer'}">
+          <div style="width:20px;height:20px;border-radius:50%;flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;
+                      background:${st.done ? '#059669' : '#e5e7eb'};color:${st.done ? '#fff' : '#9ca3af'}">
+            ${st.done ? '&#x2713;' : ''}
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13.5px;font-weight:600;color:${st.done ? '#9ca3af' : '#111827'};${st.done ? 'text-decoration:line-through' : ''}">
+              ${st.label}
+            </div>
+            ${st.done ? '' : `<div style="font-size:12px;color:#6b7280;line-height:1.5;margin-top:2px">${st.why}</div>`}
+          </div>
+          ${st.done ? '' : '<span style="color:#6366f1;font-size:18px;line-height:1;flex-shrink:0">&rsaquo;</span>'}
+        </div>`).join('')}
+    </div>` : '';
+
   return topbar({title: name, sub: `${planLabel(plan)} Plan · ${subLabel(subStatus)}`, right:
     isAdmin ? `<button class="topbar-btn" data-action="goAdmin" title="Admin" aria-label="Admin">${I.shield}</button>` : ''
   }) +
-  `<div class="scroll">${noPhoneBanner}${trialBanner}${pastDueBanner}
+  `<div class="scroll">${noPhoneBanner}${trialBanner}${pastDueBanner}${setupCard}
 
     <div style="margin-bottom:4px">
       <svg viewBox="0 0 390 298" xmlns="http://www.w3.org/2000/svg" style="width:100%;border-radius:18px;display:block">
