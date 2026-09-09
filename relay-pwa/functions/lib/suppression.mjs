@@ -120,6 +120,28 @@ export async function isSuppressed(db, phone) {
 const QUIET_START_HOUR = 8;   // inclusive - first hour it is OK to send
 const QUIET_END_HOUR   = 21;  // exclusive - 21:00 is the cutoff
 
+// A NATIONAL floor, applied on top of the per-recipient check below.
+//
+// Area codes are a good proxy and a bad guarantee: people keep their numbers
+// when they move, so a 616 number can sit in California and be texted at 5am.
+// This window closes that hole by being safe in EVERY continental zone at once:
+//
+//   start 11:00 Eastern = 08:00 Pacific  (the latest 8am in the country)
+//   end   21:00 Eastern = 18:00 Pacific  (the earliest 9pm in the country)
+//
+// Note that "just use Eastern hours" does the opposite of what it sounds like.
+// 8am Eastern is 5am in California - holding everyone to an Eastern START time
+// creates the violation it was meant to prevent. Only the LATEST start and the
+// EARLIEST end are safe everywhere.
+const NATIONAL_START_ET = 11;
+const NATIONAL_END_ET   = 21;
+
+function easternHour(now) {
+  return parseInt(new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York', hour: 'numeric', hour12: false,
+  }).format(now), 10) % 24;
+}
+
 const AREA_CODE_ZONES = {
   central:  ['205','251','256','334','479','501','870','217','224','309','312','331','618','630','708','773','779','815','847','872','219','260','574','812','316','620','785','913','270','502','606','859','225','318','337','504','985','218','320','507','612','651','763','952','314','417','573','636','660','816','308','402','531','601','662','769','580','405','539','918','210','214','254','281','325','361','409','430','432','469','512','682','713','737','806','817','830','832','903','915','936','940','956','972','979','262','414','534','608','715','920'],
   mountain: ['303','719','720','970','208','986','406','505','575','385','435','801','307','480','520','602','623','928'],
@@ -161,5 +183,18 @@ export function localHourForPhone(phone, now = new Date()) {
 export function withinQuietHours(phone, now = new Date()) {
   const zone = timeZoneForPhone(phone);
   const hour = localHourForPhone(phone, now);
-  return { ok: hour >= QUIET_START_HOUR && hour < QUIET_END_HOUR, hour, zone };
+  const etHour = easternHour(now);
+
+  // Both must pass. The recipient check is the accurate one; the national floor
+  // is what holds when the area code is wrong about where they actually live.
+  const localOk    = hour >= QUIET_START_HOUR && hour < QUIET_END_HOUR;
+  const nationalOk = etHour >= NATIONAL_START_ET && etHour < NATIONAL_END_ET;
+
+  return {
+    ok: localOk && nationalOk,
+    hour,
+    zone,
+    etHour,
+    reason: localOk ? (nationalOk ? 'ok' : 'outside_national_window') : 'recipient_local_quiet_hours',
+  };
 }

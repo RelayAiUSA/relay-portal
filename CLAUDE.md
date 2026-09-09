@@ -240,6 +240,23 @@ account, so it is handled BEFORE the contractor lookup in twilio-sms - exactly
 like STOP - or it would hit "Phone number not registered" and the most valuable
 consent artifact in the product would be discarded. See lib/review-invite.mjs.
 
+**There is no bulk consent button, and there must not be one again.** It let a
+contractor attest consent for an entire imported list in a single click -
+people who never agreed to anything - and it was the only feature in this
+product capable of generating hundreds of TCPA violations from one action.
+Removed 2026-09-09. Permission is answered per customer, on that customer's own
+page. If a future request asks for "approve all" or a bulk import shortcut, this
+is the reason to push back.
+
+**"Just use Eastern hours" does the opposite of what it sounds like.** 8am
+Eastern is 5am in California, so holding every recipient to an Eastern START
+creates the violation it was meant to prevent. Only the LATEST start and the
+EARLIEST end are safe nationwide: **11:00-21:00 Eastern = 08:00-18:00 Pacific**.
+That national window is a floor applied ON TOP of the per-recipient area-code
+check, and both must pass - the recipient check is the accurate one, the
+national floor is what holds when the area code is wrong about where someone
+actually lives (people keep numbers when they move).
+
 ## Verify before claiming
 
 Four wrong diagnoses in one session all came from inferring configuration from a
