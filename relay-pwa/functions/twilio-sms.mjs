@@ -426,6 +426,7 @@ Extract job details and return ONLY valid JSON (no markdown, no explanation):
   "customer_email": "",
   "address": "",
   "amount": 0,
+  "title": "3-6 word service title summarizing the work, e.g. Toilet Removal, Water Heater Install, Faucet Leak Repair. Capitalize each word. No punctuation.",
   "professional_description": "2-3 sentence professional description for the invoice. Use clean, trade-appropriate language and a professional tone throughout. Expand the technician's shorthand into readable prose — but every detail must come directly from the original dispatch message. Do not infer, assume, or add anything that was not stated. If the technician said 'removed toilet', write about removing the toilet — not about why it was removed, what was found, or what comes next. Keep it factual, past-tense, and concise. Example: 'removed toilet' → 'Removed and disconnected existing toilet from the supply line and floor flange. Unit was cleared from the work area upon completion.'",
   "confidence": 0.0
 }
@@ -481,6 +482,7 @@ If a field is unknown, use empty string or 0.`,
     amount:                   job.amount,
     professional_description: job.professional_description,
     job_type:                 job.job_type,
+    title:                    job.title || '',
     rawSms:                   body,
     type:                     job.job_type === 'quote' ? 'quote' : 'invoice',
     // 'needs_review' means the parse was implausible or low-confidence. The
@@ -535,6 +537,7 @@ If a field is unknown, use empty string or 0.`,
       email:     job.customer_email,
       phone:     job.customer_phone,
       address:   job.address,
+      title:     job.title || '',
       work:      job.professional_description,
       amount:    job.amount,
       type:      invoiceData.type,

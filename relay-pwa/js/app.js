@@ -832,8 +832,8 @@ function sDashboard() {
                 ${getInitials(inv.customer||'?')}
               </div>
               <div style="flex:1;min-width:0">
-                <div class="act-title">${inv.customer || 'Unknown'}</div>
-                <div class="act-sub">${fmtDate(inv.createdAt)} · ${fmt(inv.amount||0)} · ${(inv.type||'invoice').charAt(0).toUpperCase()+(inv.type||'invoice').slice(1)}</div>
+                <div class="act-title">${inv.title || inv.customer || 'Untitled Job'}</div>
+                <div class="act-sub">${inv.customer ? inv.customer + ' · ' : ''}${fmtDate(inv.createdAt)} · ${fmt(inv.amount||0)} · ${(inv.type||'invoice').charAt(0).toUpperCase()+(inv.type||'invoice').slice(1)}</div>
               </div>
               <div style="flex-shrink:0">${badge(inv.status)}</div>
             </div>`;
