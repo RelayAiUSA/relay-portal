@@ -1176,7 +1176,7 @@ function sInvoice() {
     <p class="sh">Details</p>
     <div class="card" style="padding:13px 14px;margin-bottom:12px">
       ${row('Type', isQuote ? 'Quote' : 'Invoice')}
-      ${row('Job type', inv.job_type)}
+      ${row('Service', inv.title || inv.job_type || '')}
       ${row('Source', inv.source === 'sms' ? 'Texted in' : 'Created in portal')}
       ${row('PO / Job ref', inv.poRef)}
       ${row('Warranty', inv.warranty)}

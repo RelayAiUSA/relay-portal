@@ -242,7 +242,8 @@ function renderDoc(d) {
         <div class="section-label">Amount</div>
         <table class="amount-table">
           ${hasCallFee ? `<tr><td>Minimum service call fee</td><td>${fmt(d.minCallFee)}</td></tr>` : ''}
-          <tr><td>${docLabel} subtotal</td><td>${fmt(subtotal)}</td></tr>
+          ${d.title ? `<tr><td>${escHtml(d.title)}</td><td>${fmt(d.amount||0)}</td></tr>` : `<tr><td>${docLabel} subtotal</td><td>${fmt(subtotal)}</td></tr>`}
+          ${d.title ? `<tr><td>${docLabel} subtotal</td><td>${fmt(subtotal)}</td></tr>` : ''}
           ${hasTax ? `<tr><td>Tax (${parseFloat(d.taxRate).toFixed(2)}%)</td><td>${fmt(taxAmt)}</td></tr>` : ''}
           <tr class="total-row"><td>Total</td><td>${fmt(total)}</td></tr>
         </table>
