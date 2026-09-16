@@ -115,9 +115,10 @@ async function createZohoInvoice(db, uid, invoiceData) {
   // that paragraph in `name` failed every real invoice while passing on short
   // test data. The paragraph belongs in `description`, which is the long field.
   //
-  // The label prefers the job type ("Plumbing", "Drywall") and otherwise takes
-  // the opening clause of the description, cut on a word boundary so it never
-  // ends mid-word.
+  // The label prefers the AI-generated title (e.g. "Toilet Removal and Disconnect"),
+  // then falls back to the opening clause of the description, cut on a word
+  // boundary so it never ends mid-word. job_type ('repair') is no longer used
+  // as the item name — it was too generic and showed up as the Zoho line item.
   const ZOHO_ITEM_NAME_MAX = 100;   // well inside Zoho's limit
   const ZOHO_ITEM_DESC_MAX = 2000;
 
@@ -129,7 +130,7 @@ async function createZohoInvoice(db, uid, invoiceData) {
     return (lastSpace > 40 ? cut.slice(0, lastSpace) : cut).trim() + '…';
   }
 
-  const itemName = shortLabel(invoiceData.job_type || description || 'Service');
+  const itemName = shortLabel(invoiceData.title || description || 'Service');
   const itemDesc = `${description}${invoiceData.address ? ' at ' + invoiceData.address : ''}`
     .slice(0, ZOHO_ITEM_DESC_MAX);
 
