@@ -889,7 +889,7 @@ function sSubmit() {
     <div class="form-group"><label class="form-lbl" for="f-email">Customer email</label><input id="f-email" type="email" class="input" placeholder="Optional for document delivery"></div>
     <p class="sh">Job Details</p>
     <div class="form-group"><label class="form-lbl" for="f-addr">Job address <span class="req">*</span></label><input id="f-addr" type="text" class="input" placeholder="412 Oak St, Grand Rapids MI" autocomplete="off"></div>
-    <div class="form-group"><label class="form-lbl" for="f-work">Work description <span class="req">Describe what was done in two to four sentences. Provide any critical detail needed.</span></label><textarea id="f-work" class="input" placeholder="Describe what was done in 2–3 sentences.&#10;e.g. Removed and replaced water heater, installed new supply valve."></textarea></div>
+    <div class="form-group"><label class="form-lbl" for="f-work">Work description <span class="req">Describe what was done in two to four sentences. Provide any critical detail needed.</span></label><textarea id="f-work" class="input" placeholder="Describe what was done in 2–3 sentences.&#10;e.g. Removed and replaced existing unit. Area was cleaned and left ready for use."></textarea></div>
     <div class="form-group"><label class="form-lbl" for="f-poref">PO / Job Ref Number</label><input id="f-poref" type="text" class="input" placeholder="Optional — for property managers or commercial accounts"></div>
     <p class="sh">Pricing</p>
     <div class="toggle-g">
