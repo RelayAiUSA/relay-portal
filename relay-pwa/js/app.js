@@ -585,12 +585,14 @@ function sSignup() {
     <label id="sg-consent-box" style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;cursor:pointer;border:1.5px solid #e5e7eb;border-radius:10px;padding:12px 14px;background:#f9fafb;transition:border-color 0.15s,background 0.15s;">
       <input id="sg-sms" type="checkbox" style="margin-top:2px;flex-shrink:0;width:18px;height:18px;accent-color:#6366f1;cursor:pointer;">
       <span style="font-size:12px;color:#374151;line-height:1.7;">
-        <strong style="color:#111827;font-size:13px;">📱 Opt in to SMS notifications</strong><br>
+        <strong style="color:#111827;font-size:13px;">📱 Opt in to SMS notifications — highly recommended</strong><br>
+        Relay is built around SMS dispatch: you text a job, Relay handles the invoice. Without SMS consent,
+        the core features of the platform will not work for you.
         I agree to receive SMS from Relay (Pryor Digital Ventures LLC): job confirmations,
         invoice and quote notifications, and account alerts. Message frequency varies by jobs submitted —
         typically 5&ndash;20 per month. Msg &amp; data rates may apply.
         Reply STOP to unsubscribe or HELP for help.<br>
-        <em style="color:#6b7280;">This is optional — you can use Relay without it.</em>
+        <em style="color:#6b7280;">Consent is your choice and is not required to create an account.</em>
       </span>
     </label>
     <p style="font-size:11px;color:#9ca3af;line-height:1.6;margin:0 0 16px 26px;">
