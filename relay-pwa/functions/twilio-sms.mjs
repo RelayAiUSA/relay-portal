@@ -421,7 +421,7 @@ async function handleInboundSms(req, context) {
 Extract job details and return ONLY valid JSON (no markdown, no explanation):
 {
   "job_type": "repair|install|inspection|quote|other",
-  "customer_name": "",
+  "customer_name": "Full name of the customer. Look for names mentioned in any context — 'new customer Bill', 'for Sarah', 'Bill Johnson's house', 'customer: Mike' — extract just the name. Leave empty only if no name appears anywhere in the message.",
   "customer_phone": "",
   "customer_email": "",
   "address": "",
