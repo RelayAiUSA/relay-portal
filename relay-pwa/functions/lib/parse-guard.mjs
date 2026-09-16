@@ -111,6 +111,7 @@ export function guardParsedJob(parsed, rawBody) {
       amount,
       professional_description: description,
       job_type: jobType,
+      title: str(parsed.title, 120),
       confidence,
     },
     flags,
