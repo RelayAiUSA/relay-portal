@@ -570,7 +570,7 @@ function sSignup() {
       </select>
     </div>
     <div class="form-group">
-      <label class="form-lbl" for="sg-phone">Mobile phone <span class="req">*</span></label>
+      <label class="form-lbl" for="sg-phone">Mobile phone <span style="color:#9ca3af;font-weight:400;font-size:11px">(optional)</span></label>
       <input id="sg-phone" type="tel" class="input" placeholder="(555) 867-5309" autocomplete="tel">
     </div>
     <!-- Carrier-facing SMS consent.
@@ -585,11 +585,10 @@ function sSignup() {
     <label id="sg-consent-box" style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;cursor:pointer;">
       <input id="sg-sms" type="checkbox" style="margin-top:3px;flex-shrink:0;width:16px;height:16px;accent-color:#6366f1;">
       <span style="font-size:12px;color:#4b5563;line-height:1.6;">
-        <strong>Yes, text me at the number above.</strong> I agree to receive SMS from
-        Relay (Pryor Digital Ventures LLC) about my account: job confirmations,
-        invoice and quote notifications, and account alerts. Message frequency varies by how many jobs you submit —
-        typically 5&ndash;20 messages per month. Msg &amp; data rates may apply.
-        Reply STOP to unsubscribe or HELP for help.
+        <strong>Yes, text me job and invoice updates via SMS.</strong> I agree to receive SMS from
+        Relay (Pryor Digital Ventures LLC): job confirmations, invoice and quote notifications, and account alerts.
+        Message frequency varies by jobs submitted — typically 5&ndash;20 per month. Msg &amp; data rates may apply.
+        Reply STOP to unsubscribe or HELP for help. SMS is optional — you may use Relay without it.
       </span>
     </label>
     <p style="font-size:11px;color:#9ca3af;line-height:1.6;margin:0 0 16px 26px;">
@@ -597,8 +596,7 @@ function sSignup() {
       <a href="/terms.html" target="_blank" rel="noopener" style="color:#6366f1;text-decoration:underline">Terms of Service</a>
       and
       <a href="/privacy.html" target="_blank" rel="noopener" style="color:#6366f1;text-decoration:underline">Privacy Policy</a>.
-      We never sell your information, and consent to receive text messages is
-      not a condition of any purchase.
+      We never sell your information. Consent to receive text messages is not required to create an account or use Relay.
     </p>
     <button id="sg-btn" class="btn btn-primary" data-action="signup" style="margin-bottom:8px">Yes, Create My Relay Account</button>
     <div class="divider"><span class="divider-line"></span><span class="divider-text">or</span><span class="divider-line"></span></div>
@@ -1702,19 +1700,10 @@ document.addEventListener('click', async e => {
     if (!email)       { showErr('sg-err', 'Please enter your email.'); return; }
     if (pw !== pw2)   { showErr('sg-err', 'Passwords do not match.'); return; }
 
-    // The phone number is the identity every inbound job text is matched on,
-    // and the consent box is the record that authorises texting it. Both were
-    // read and stored but neither was ever checked, so accounts existed that
-    // could not text in and accounts existed that we texted without consent.
-    const sgPhoneRaw = ($('sg-phone')?.value || '').trim();
-    if (!toE164(sgPhoneRaw)) {
-      showErr('sg-err', 'Please enter a valid 10-digit mobile number — this is the number you text jobs from.');
-      return;
-    }
-    if (!$('sg-sms')?.checked) {
-      showErr('sg-err', 'Please check the box agreeing to receive text messages — Relay works over SMS, so we cannot set up your account without it.');
-      return;
-    }
+    // Phone number and SMS consent are optional — a contractor can create an
+    // account and use the web portal without providing a phone number or
+    // agreeing to receive SMS. If a phone is provided and the consent box is
+    // checked, Relay will send SMS notifications to that number.
     setBtn('sg-btn', true, 'Create My Relay Account');
     try {
       const cred = await auth.createUserWithEmailAndPassword(email, pw);
@@ -1730,10 +1719,13 @@ document.addEventListener('click', async e => {
         // account was unable to text in from the moment it was created.
         // Both are written: phoneNumber/phoneDigits are canonical, `phone`
         // stays for older code paths that still read it.
-        phone:              phone,
-        phoneNumber:        toE164(phone),
-        phoneDigits:        phoneDigits(phone),
-        smsConsent:         smsConsent,
+        // Only save phone fields if the contractor provided a number
+        ...(toE164(phone) ? {
+          phone:       phone,
+          phoneNumber: toE164(phone),
+          phoneDigits: phoneDigits(phone),
+          smsConsent:  smsConsent,
+        } : {}),
         createdAt:          firebase.firestore.FieldValue.serverTimestamp(),
       });
       // send-welcome-sms function not yet deployed — skip for now
