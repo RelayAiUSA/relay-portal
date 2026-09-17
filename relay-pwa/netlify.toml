@@ -36,6 +36,9 @@
 # Daily Firestore snapshot to Netlify Blobs. 07:00 UTC = 03:00 ET, deliberately
 # an hour before the token sweep so the snapshot predates the day's writes.
 # firestore-backup.mjs also declares this via `export const config`.
+[functions."accounting-sync-worker"]
+  schedule = "* * * * *"
+
 [functions."firestore-backup"]
   schedule = "0 7 * * *"
 

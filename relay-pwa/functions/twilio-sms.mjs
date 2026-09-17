@@ -11,7 +11,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
-import { syncInvoiceToAccounting } from './lib/accounting-sync.mjs';
 import { alertError } from './lib/alert.mjs';
 import { canTextCustomer, normalizePhone } from './lib/consent.mjs';
 import { isStopKeyword, isStartKeyword, suppressNumber, unsuppressNumber } from './lib/suppression.mjs';
@@ -552,10 +551,27 @@ If a field is unknown, use empty string or 0.`,
     await alertError('twilio-sms:publicdoc', err, `invoice=${invRef.id}`);
   }
 
-  // ── Accounting sync (Essential + Pro, invoices only) ─────────────────────
-  let syncResult = { synced: false, reason: 'not_connected' };
-  if (invoiceData.type !== 'quote') {
-    syncResult = await syncInvoiceToAccounting(db, uid, invRef.id, invoiceData, profile);
+  // ── Queue accounting sync (runs async via accounting-sync-worker) ───────────
+  // The sync used to run here — inside the webhook — risking a Twilio timeout
+  // (15 s) if Zoho/QuickBooks was slow, which caused Twilio to retry the SMS
+  // and create duplicate invoices. Now the webhook just queues a sync job and
+  // returns; accounting-sync-worker.mjs picks it up within the next minute.
+  const _acctPlatform = profile.platform || profile.accountingProvider;
+  const _needsSync = invoiceData.type !== 'quote' && !!_acctPlatform && _acctPlatform !== 'none';
+  let syncResult = { synced: false, queued: _needsSync, reason: _needsSync ? 'queued' : 'not_connected', provider: _acctPlatform || null };
+  if (_needsSync) {
+    try {
+      await db.collection('_syncQueue').doc(invRef.id).set({
+        uid,
+        invoiceId: invRef.id,
+        platform:  _acctPlatform,
+        attempts:  0,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+    } catch (err) {
+      console.error('[twilio-sms] syncQueue write failed:', err.message);
+      syncResult = { synced: false, queued: false, reason: 'queue_error', provider: _acctPlatform };
+    }
   }
 
   // ── Pro: auto-forward doc to customer via SMS ─────────────────────────────
@@ -642,13 +658,13 @@ If a field is unknown, use empty string or 0.`,
   }
 
   if (invoiceData.type !== 'quote') {
-    if (syncResult.synced) {
+    if (syncResult.queued) {
       const label = syncResult.provider === 'quickbooks' ? 'QuickBooks' : 'Zoho Books';
-      replyLines.push(`Synced to ${label} (#${syncResult.externalNumber || syncResult.externalId}).`);
+      replyLines.push(`Syncing to ${label} in the background.`);
     } else if (syncResult.reason === 'not_connected' || syncResult.reason === 'no_provider') {
       replyLines.push('Connect your accounting software at portal-relay.com to auto-sync invoices.');
-    } else {
-      replyLines.push('Saved, but accounting sync failed — check portal-relay.com.');
+    } else if (syncResult.reason === 'queue_error') {
+      replyLines.push('Saved, but accounting sync could not be queued — check portal-relay.com.');
     }
   }
 
