@@ -87,7 +87,7 @@ async function findOrCreateZohoContact(accessToken, orgId, invoiceData) {
   return createData.contact.contact_id;
 }
 
-async function createZohoInvoice(db, uid, invoiceData) {
+async function createZohoInvoice(db, uid, invoiceData, profile) {
   const tokens = await ensureFreshToken(db, uid, 'zoho');
   if (!tokens) throw new Error('Zoho not connected or token revoked');
   const { accessToken, accountEmail } = tokens;
@@ -143,6 +143,11 @@ async function createZohoInvoice(db, uid, invoiceData) {
       rate:        amount,
     }],
     notes: `Invoice sent via Relay | Customer: ${invoiceData.customer_name || ''} | ${invoiceData.customer_phone || ''}`,
+    ...(profile?.zohoOnlinePayments ? {
+      payment_options: {
+        payment_gateways: [{ configured: true, gateway_name: 'stripe' }],
+      },
+    } : {}),
   };
 
   const data = await zohoApi(
@@ -296,7 +301,7 @@ export async function syncInvoiceToAccounting(db, uid, invoiceId, invoiceData, p
   try {
     let result;
     if (provider === 'zoho') {
-      result = await createZohoInvoice(db, uid, invoiceData);
+      result = await createZohoInvoice(db, uid, invoiceData, profile);
     } else if (provider === 'quickbooks') {
       result = await createQuickBooksInvoice(db, uid, invoiceData);
     } else {

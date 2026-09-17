@@ -1574,6 +1574,15 @@ function sProfile() {
         ${acctSoftwareHtml}
       </div>
 
+      <!-- ── Zoho Online Payments ── -->
+      <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;margin-bottom:16px;padding:12px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px">
+        <input id="pf-zoho-stripe" type="checkbox" ${p.zohoOnlinePayments ? 'checked' : ''} style="width:18px;height:18px;accent-color:#e07b39;margin-top:1px;flex-shrink:0">
+        <div>
+          <div style="font-size:14px;font-weight:600;color:#111827">Auto-enable Stripe on Zoho invoices</div>
+          <div style="font-size:12px;color:#6b7280;margin-top:2px">When Zoho Books is connected, Relay will add a Stripe “Pay Now” link to every invoice it creates — no manual toggling required.</div>
+        </div>
+      </label>
+
       <div id="pf-err" class="auth-error" style="display:none;margin-bottom:10px"></div>
       <button id="pf-save" class="btn btn-primary" data-action="saveProfile" style="margin-bottom:12px">Save Changes</button>
       ${billingRow}
@@ -2066,6 +2075,7 @@ document.addEventListener('click', async e => {
     });
     const reviewUrl   = document.getElementById('pf-review-url')?.value?.trim() || '';
     const autoForwardToCustomer = document.getElementById('pf-autofwd')?.checked || false;
+    const zohoOnlinePayments = document.getElementById('pf-zoho-stripe')?.checked || false;
     const saveBtn = document.getElementById('pf-save');
     if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
     try {
@@ -2089,6 +2099,7 @@ document.addEventListener('click', async e => {
         paymentTerms: terms, estimateValidity: validity, invoicePrefix: invPrefix,
         invoiceFooter: footer, paymentMethods: payMethods, paymentMethodOther: payMethodOther,
         paymentUsernames,
+        zohoOnlinePayments,
       };
       const plan = (S.profile?.plan || '').toLowerCase();
       // Gate each field on its own feature. Both helpers are Pro-only today, but
