@@ -996,6 +996,7 @@ function sInvoices() {
               <div class="inv-right">
                 <div class="inv-amt">${fmt(inv.amount || 0)}</div>
                 <div style="margin-top:4px">${badge(inv.status || 'pending')}</div>
+                ${inv.accountingSync?.retriesExhausted ? `<div style="margin-top:3px;font-size:10px;color:#dc2626;font-weight:500">&#9888; Sync failed</div>` : ''}
                 ${inv.docId && !S.selectMode ? `<button onclick="event.stopPropagation();(function(){navigator.clipboard.writeText('https://portal-relay.com/doc/${inv.docId}');this.textContent='✓ Copied';setTimeout(()=>this.textContent='Share',1800)}).call(this)" style="margin-top:5px;font-size:11px;padding:3px 8px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer;color:#374151">Share</button>` : ''}
               </div>
             </div>`;
@@ -1141,6 +1142,15 @@ function sInvoice() {
       </div>
     </div>` : '';
 
+  const syncErrorNote = (inv.accountingSync?.retriesExhausted) ? `
+    <div class="card" style="padding:13px;margin-bottom:12px;border-left:3px solid #dc2626">
+      <div style="font-weight:600;font-size:13px;margin-bottom:4px;color:#dc2626">&#9888; Accounting sync failed</div>
+      <div style="font-size:12px;color:#6b7280;line-height:1.55">
+        Relay tried syncing this ${inv.type || 'invoice'} to ${inv.accountingSync?.provider || 'your accounting software'} 3 times and was unable to complete it.
+        Check your accounting connection in Settings, then re-send the job, or contact support at clientusa@relayai-support.com.
+      </div>
+    </div>` : '';
+
   const rawNote = inv.rawSms ? `
     <p class="sh">Original text</p>
     <div class="card" style="padding:13px;margin-bottom:12px">
@@ -1150,6 +1160,7 @@ function sInvoice() {
   return topbar({title: cust, back: 'invoices'}) +
   `<div class="scroll">
     ${reviewNote}
+    ${syncErrorNote}
     <div class="card" style="padding:16px;margin-bottom:12px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
         <div>
