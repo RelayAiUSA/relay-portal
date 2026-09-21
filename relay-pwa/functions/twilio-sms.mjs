@@ -575,17 +575,34 @@ If a field is unknown, use empty string or 0.`,
   }
 
   // ── Pro: auto-forward doc to customer via SMS ─────────────────────────────
-  // Consent gate: never auto-forward to a customer without a consent record.
+  // Per-customer opt-in: nobody receives an automatic text unless the
+  // contractor has specifically enabled it for that one customer
+  // (autoForwardToCustomer on the customer doc) — same pattern as
+  // reviewFollowUp. There is no account-wide toggle any more.
   let fwdConsent = { allowed: false, reason: 'not_attempted' };
+  let cxData = null;
   // A flagged document is never auto-sent: the contractor sees it first.
-  if (canAutoForward(plan) && profile.autoForwardToCustomer && job.customer_phone
-      && !guard.needsReview) {
+  if (canAutoForward(plan) && job.customer_phone && !guard.needsReview) {
     fwdConsent = await canTextCustomer(db, uid, job.customer_phone, 'transactional');
     if (!fwdConsent.allowed) {
-      console.log(`[twilio-sms] auto-forward blocked uid=${uid} reason=${fwdConsent.reason}`);
+      console.log(`[twilio-sms] auto-forward consent blocked uid=${uid} reason=${fwdConsent.reason}`);
+    }
+    // Load the customer doc once for both autoForwardToCustomer and
+    // reviewFollowUp checks below — avoids a second Firestore read.
+    if (fwdConsent.allowed && fwdConsent.customerId) {
+      try {
+        const cxDoc = await db.collection('users').doc(uid)
+          .collection('customers').doc(fwdConsent.customerId).get();
+        if (cxDoc.exists) cxData = cxDoc.data();
+      } catch (err) {
+        console.error('[twilio-sms] customer doc lookup failed:', err.message);
+      }
     }
   }
-  if (fwdConsent.allowed) {
+  // Consent is necessary but not sufficient. The contractor must also have
+  // turned on auto-forward for this specific customer.
+  const shouldFwd = fwdConsent.allowed && cxData?.autoForwardToCustomer === true;
+  if (shouldFwd) {
     const docType = invoiceData.type === 'quote' ? 'Quote' : 'Invoice';
     const fwdMsg  = [
       `Hi ${job.customer_name || 'there'}, your ${docType} from ${profile.companyName || 'your contractor'} is ready:`,
@@ -597,26 +614,16 @@ If a field is unknown, use empty string or 0.`,
       'Questions? Reply to this message.',
     ];
 
-    // ── Review invitation: Pro plan AND this customer opted in ──────────────
+    // ── Review invitation: merged into the customer-doc read above ──────────
     // Two gates, both required. Review follow-up is a RelayPRO feature, and
     // within Pro it is per customer: the contractor ticks "Send review
-    // follow-up" on that customer's profile. Nobody is invited by default -
-    // asking a customer for a review is the contractor's call to make about
-    // their own relationship, not something the platform does on their behalf.
+    // follow-up" on that customer's profile. Nobody is invited by default.
     let inviteSent = false;
-    if (canReviewRequest(plan) && fwdConsent.customerId) {
-      try {
-        const cxDoc = await db.collection('users').doc(uid)
-          .collection('customers').doc(fwdConsent.customerId).get();
-        if (cxDoc.exists && cxDoc.data().reviewFollowUp === true) {
-          // Rides on a message the customer already consented to receive, so
-          // asking costs nothing extra and the answer comes from the consumer.
-          fwdMsg.push('', REVIEW_INVITE_LINE);
-          inviteSent = true;
-        }
-      } catch (err) {
-        console.error('[twilio-sms] review follow-up lookup failed:', err.message);
-      }
+    if (canReviewRequest(plan) && cxData?.reviewFollowUp === true) {
+      // Rides on a message the customer already consented to receive, so
+      // asking costs nothing extra and the answer comes from the consumer.
+      fwdMsg.push('', REVIEW_INVITE_LINE);
+      inviteSent = true;
     }
 
     try {
@@ -645,9 +652,13 @@ If a field is unknown, use empty string or 0.`,
     `"${preview}"`,
   ];
 
-  if (fwdConsent.allowed) {
+  if (shouldFwd) {
     replyLines.push('Doc sent to customer via SMS.');
-  } else if (canAutoForward(plan) && profile.autoForwardToCustomer && job.customer_phone) {
+  } else if (canAutoForward(plan) && job.customer_phone
+             && fwdConsent.reason !== 'not_attempted' && !fwdConsent.allowed) {
+    // Consent check ran but was blocked — tell the contractor why so they can
+    // fix the customer record. If consent passed but per-customer opt-in is
+    // off, say nothing: that is expected behavior, not an error.
     const blockMsg = {
       opted_out:            'Not texted — this customer opted out (replied STOP).',
       no_customer_record:   'Not texted — this customer is not in your portal yet. Add them at portal-relay.com and set their text message permission.',

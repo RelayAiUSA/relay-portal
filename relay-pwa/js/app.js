@@ -417,7 +417,6 @@ async function loadUserData(uid) {
         ...S.profile,
         plan: 'pro',
         subscriptionStatus: 'active',
-        autoForwardToCustomer: S.profile?.autoForwardToCustomer ?? false,
         reviewUrl: S.profile?.reviewUrl || '',
       };
     }
@@ -1098,6 +1097,17 @@ function sEditCustomer() {
             </span>
           </span>
         </label>
+      <div style="border-top:1px solid #e5e7eb;margin-top:14px;padding-top:14px">
+        <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer">
+          <input type="checkbox" id="ecx-autofwd" ${cx.autoForwardToCustomer ? 'checked' : ''}
+                 style="margin-top:3px;flex-shrink:0;width:16px;height:16px;accent-color:#1d4ed8">
+          <span style="font-size:13px;color:#374151;line-height:1.55">
+            <strong>Auto-forward invoices &amp; quotes to this customer</strong><br>
+            <span style="font-size:12px;color:#6b7280">
+              Relay will automatically text every dispatch invoice or quote to this customer. Turn off to review before sending.
+            </span>
+          </span>
+        </label>
       </div>` : `
       <div style="border-top:1px solid #e5e7eb;margin-top:14px;padding-top:14px;font-size:12px;color:#9ca3af;line-height:1.55">
         Automated review follow-up is a RelayPRO feature.
@@ -1565,13 +1575,7 @@ function sProfile() {
         <input id="pf-review-url" type="url" class="input" value="${p.reviewUrl||''}" placeholder="https://g.page/your-business/review">
         <div style="font-size:12px;color:#6b7280;margin-top:4px">Sent to customer via SMS after job completion.</div>
       </div>
-      <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;margin-bottom:16px;padding:12px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px">
-        <input id="pf-autofwd" type="checkbox" ${p.autoForwardToCustomer?'checked':''} style="width:18px;height:18px;accent-color:#1d4ed8;margin-top:1px;flex-shrink:0">
-        <div>
-          <div style="font-size:14px;font-weight:600;color:#111827">Auto-forward invoice to customer</div>
-          <div style="font-size:12px;color:#6b7280;margin-top:2px">AI-generated invoice sent to customer via SMS after every dispatch.</div>
-        </div>
-      </label>` : (canSMS ? `
+` : (canSMS ? `
       <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:12px 14px;margin-bottom:14px">
         <div style="font-size:13px;font-weight:600;color:#92400e;margin-bottom:4px">Pro features locked</div>
         <div style="font-size:12px;color:#92400e">Upgrade to Pro to unlock auto-forward and review SMS.</div>
@@ -1978,8 +1982,10 @@ document.addEventListener('click', async e => {
         smsConsentAt:     firebase.firestore.FieldValue.serverTimestamp(),
         smsConsentBy:     S.user?.email || '',
         // Off unless the contractor is on Pro AND ticked the box. Withdrawing
-        // texting permission withdraws the follow-up with it.
-        reviewFollowUp:   consent && !!$('ecx-followup')?.checked,
+        // texting permission withdraws both with it.
+        reviewFollowUp:        consent && !!$('ecx-followup')?.checked,
+        // Auto-forward is opt-in per customer (RelayPRO only), same gate.
+        autoForwardToCustomer: consent && !!$('ecx-autofwd')?.checked,
       });
       await loadUserData(uid);
       nav('customers');
@@ -2038,10 +2044,10 @@ document.addEventListener('click', async e => {
         smsConsentScope:  smsConsent ? 'all' : '',
         smsConsentAt:     smsConsent ? firebase.firestore.FieldValue.serverTimestamp() : null,
         smsConsentBy:     S.user?.email || '',
-        // Explicit false rather than absent: review follow-up is opt-in, and a
-        // missing field reads as undefined at three different call sites.
-        // Turned on per customer from their profile, RelayPRO only.
-        reviewFollowUp:   false,
+        // Both are opt-in per customer (RelayPRO only). Explicit false rather
+        // than absent so every call site reads a boolean, never undefined.
+        reviewFollowUp:        false,
+        autoForwardToCustomer: false,
         customerType:    $('cx-type')?.value || '',
         secondaryName:   $('cx-sec-name')?.value?.trim() || '',
         secondaryPhone:  $('cx-sec-phone')?.value?.trim() || '',
@@ -2085,7 +2091,6 @@ document.addEventListener('click', async e => {
       if (v) paymentUsernames[m] = v;
     });
     const reviewUrl   = document.getElementById('pf-review-url')?.value?.trim() || '';
-    const autoForwardToCustomer = document.getElementById('pf-autofwd')?.checked || false;
     const zohoOnlinePayments = document.getElementById('pf-zoho-stripe')?.checked || false;
     const saveBtn = document.getElementById('pf-save');
     if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
@@ -2119,9 +2124,6 @@ document.addEventListener('click', async e => {
       // review-request.mjs reads users/{uid}.reviewUrl - keep that field name.
       if (canReviewRequest(plan)) {
         updates.reviewUrl = reviewUrl;
-      }
-      if (canAutoForward(plan)) {
-        updates.autoForwardToCustomer = autoForwardToCustomer;
       }
       await db.collection('users').doc(uid).update(updates);
       S.profile = { ...S.profile, ...updates };
