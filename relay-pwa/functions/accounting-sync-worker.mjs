@@ -19,7 +19,7 @@
 
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore, FieldValue }      from 'firebase-admin/firestore';
-import { syncInvoiceToAccounting }       from './lib/accounting-sync.mjs';
+import { syncInvoiceToAccounting, syncExpenseToAccounting } from './lib/accounting-sync.mjs';
 import { alertError }                    from './lib/alert.mjs';
 
 export const config = { schedule: '* * * * *' };
@@ -63,7 +63,40 @@ export default async () => {
   console.log(`[sync-worker] processing ${snap.size} job(s)`);
 
   for (const qDoc of snap.docs) {
-    const { uid, invoiceId, attempts = 0 } = qDoc.data();
+    const { uid, invoiceId, expenseId, type, attempts = 0 } = qDoc.data();
+
+    // ── Expense sync ──────────────────────────────────────────────────────────────────────
+    if (type === 'expense') {
+      try {
+        const expSnap = await db.collection('users').doc(uid).collection('expenses').doc(expenseId).get();
+        if (!expSnap.exists) { await qDoc.ref.delete(); continue; }
+
+        const profileSnap = await db.collection('users').doc(uid).get();
+        const result = await syncExpenseToAccounting(
+          db, uid, expenseId, expSnap.data(), profileSnap.data()
+        );
+
+        if (result.synced) {
+          await qDoc.ref.delete();
+          console.log(`[sync-worker] expense ${expenseId} synced to ${result.provider}`);
+        } else {
+          const nextAttempts = attempts + 1;
+          if (nextAttempts >= MAX_ATTEMPTS) {
+            console.error(`[sync-worker] expense ${expenseId} retired after ${MAX_ATTEMPTS} attempts`);
+            await qDoc.ref.delete();
+          } else {
+            await qDoc.ref.update({ attempts: nextAttempts });
+          }
+        }
+      } catch (err) {
+        console.error('[sync-worker] expense sync error:', err.message);
+        try { await alertError('accounting-sync-worker:expense', err, `uid=${uid} expenseId=${expenseId}`); } catch (_) {}
+        const nextAttempts = attempts + 1;
+        if (nextAttempts >= MAX_ATTEMPTS) { await qDoc.ref.delete(); }
+        else { await qDoc.ref.update({ attempts: nextAttempts }); }
+      }
+      continue;
+    }
 
     try {
       // Load the invoice and user profile.

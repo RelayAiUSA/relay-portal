@@ -175,6 +175,136 @@ function twimlResponse(msg) {
 // This wrapper is the last line of defence. It never swallows the error
 // silently: it logs, alerts, and returns a response appropriate to this
 // endpoint's protocol.
+
+// ── Receipt image reading via Claude vision ────────────────────────────────────────
+// Downloads the MMS attachment Twilio provides, sends it to Claude vision,
+// and returns structured expense data. Callers must handle thrown errors.
+async function readReceiptImage(mediaUrl, mediaType) {
+  const sid   = process.env.TWILIO_ACCOUNT_SID;
+  const token = process.env.TWILIO_AUTH_TOKEN;
+
+  const imgRes = await fetch(mediaUrl, {
+    headers: { Authorization: 'Basic ' + Buffer.from(`${sid}:${token}`).toString('base64') },
+  });
+  if (!imgRes.ok) throw new Error(`Could not fetch receipt image: HTTP ${imgRes.status}`);
+
+  const imgBuffer = await imgRes.arrayBuffer();
+  const imgBase64 = Buffer.from(imgBuffer).toString('base64');
+  const mimeType  = (mediaType || 'image/jpeg').split(';')[0].startsWith('image/')
+    ? (mediaType || 'image/jpeg').split(';')[0]
+    : 'image/jpeg';
+
+  const visionRes = await anthropic.messages.create({
+    model:      'claude-haiku-4-5-20251001',
+    max_tokens: 256,
+    messages: [{
+      role:    'user',
+      content: [
+        { type: 'image', source: { type: 'base64', media_type: mimeType, data: imgBase64 } },
+        {
+          type: 'text',
+          text: `Extract the expense details from this receipt image. Return ONLY valid JSON with no markdown:
+{
+  "vendor": "store or vendor name",
+  "amount": 0.00,
+  "date": "YYYY-MM-DD or empty string",
+  "category": "materials|fuel|tools|meals|office|subcontractor|other",
+  "description": "brief description of items purchased"
+}
+If a field cannot be determined, use empty string or 0.`,
+        },
+      ],
+    }],
+  });
+
+  try { return extractJson(visionRes.content[0].text); }
+  catch { return { vendor: '', amount: 0, date: '', category: 'other', description: '' }; }
+}
+
+// ── Save an expense to Firestore and queue accounting sync ────────────────────────────────
+// Returns { expRef, receiptData, finalAmount, acctPlatform }. Throws on
+// Firestore failure; callers catch and surface the error.
+async function saveExpense(db, uid, profile, plan, body, mediaUrl, mediaType, invoiceId) {
+  const amountMatch  = body.match(/\blog\s+expense\s+\$?([\d,]+(?:\.\d+)?)/i);
+  const statedAmount = amountMatch ? parseFloat(amountMatch[1].replace(/,/g, '')) : null;
+
+  let receiptData = { vendor: '', amount: 0, date: '', category: 'other', description: '' };
+  try {
+    receiptData = await readReceiptImage(mediaUrl, mediaType);
+  } catch (err) {
+    console.error('[twilio-sms] receipt read failed:', err.message);
+    await alertError('twilio-sms:receipt-read', err, `uid=${uid}`);
+  }
+
+  const finalAmount  = statedAmount ?? receiptData.amount ?? 0;
+  const today        = new Date().toISOString().split('T')[0];
+
+  const expenseData  = {
+    vendor:      receiptData.vendor      || '',
+    amount:      finalAmount,
+    date:        receiptData.date        || today,
+    category:    receiptData.category    || 'other',
+    description: receiptData.description || '',
+    receiptUrl:  mediaUrl,   // Twilio media URL — may expire; store for portal display
+    invoiceId:   invoiceId || null,
+    source:      'sms',
+    rawSms:      body,
+    plan,
+    createdAt:   FieldValue.serverTimestamp(),
+  };
+
+  const expRef       = await db.collection('users').doc(uid).collection('expenses').add(expenseData);
+  const acctPlatform = profile.platform || profile.accountingProvider;
+
+  if (acctPlatform && acctPlatform !== 'none') {
+    try {
+      await db.collection('_syncQueue').doc(expRef.id).set({
+        uid,
+        expenseId: expRef.id,
+        type:      'expense',
+        platform:  acctPlatform,
+        attempts:  0,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+    } catch (err) {
+      console.error('[twilio-sms] expense sync queue failed:', err.message);
+    }
+  }
+
+  return { expRef, receiptData, finalAmount, acctPlatform };
+}
+
+// ── Handle a standalone "Log Expense" message (no job dispatch in same SMS) ──────
+async function handleExpenseLog(db, uid, profile, plan, fromPhone, body, mediaUrl, mediaType) {
+  let result;
+  try {
+    result = await saveExpense(db, uid, profile, plan, body, mediaUrl, mediaType, null);
+  } catch (err) {
+    console.error('[twilio-sms] expense save failed:', err.message);
+    await alertError('twilio-sms:expense-save', err, `uid=${uid}`);
+    return replyToContractor(fromPhone,
+      'Receipt received but Relay could not save the expense. Please try again.');
+  }
+
+  const { receiptData, finalAmount, acctPlatform } = result;
+  const vendorPart = receiptData.vendor ? ` — ${receiptData.vendor}` : '';
+  const catLabel   = {
+    materials: 'Materials', fuel: 'Fuel', tools: 'Tools',
+    meals: 'Meals', office: 'Office Supplies', subcontractor: 'Subcontractor', other: 'General',
+  }[receiptData.category] || 'General';
+
+  const lines = [
+    `\u2705 Expense logged: $${finalAmount.toFixed(2)}${vendorPart} — ${catLabel}`,
+    'Filed as a general business expense.',
+  ];
+  if (acctPlatform && acctPlatform !== 'none') {
+    const label = acctPlatform === 'quickbooks' ? 'QuickBooks' : 'Zoho Books';
+    lines.push(`Syncing to ${label} in the background.`);
+  }
+
+  return replyToContractor(fromPhone, lines.join('\n'));
+}
+
 export default async (req, context) => {
   try {
     return await handleInboundSms(req, context);
@@ -221,6 +351,19 @@ async function handleInboundSms(req, context) {
 
   const fromPhone  = params.get('From') || '';
   const body       = (params.get('Body') || '').trim();
+
+  // ── MMS / expense-receipt detection ────────────────────────────────────────────
+  const numMedia  = parseInt(params.get('NumMedia') || '0', 10);
+  const mediaUrl  = params.get('MediaUrl0') || '';
+  const mediaType = params.get('MediaContentType0') || 'image/jpeg';
+  // "Log Expense $X" keyword + at least one photo attached = expense receipt log.
+  const isExpenseLog = /\blog\s+expense\b/i.test(body) && numMedia > 0 && !!mediaUrl;
+  // Strip "Log Expense …" from body to see if there is also a job description.
+  const bodyWithoutExpense = isExpenseLog
+    ? body.replace(/\blog\s+expense\s+\$?[\d,]+(?:\.\d+)?[^\n]*/gi, '').replace(/\s+/g, ' ').trim()
+    : body;
+  // Pure expense = the message contains ONLY the expense clause (no job).
+  const isPureExpense = isExpenseLog && bodyWithoutExpense.length < 10;
 
   if (!fromPhone || !body) return twimlResponse('Missing phone or message body.');
 
@@ -316,7 +459,14 @@ async function handleInboundSms(req, context) {
   }
 
   // ── Monthly document allowance ────────────────────────────────────────────
-  // Checked here, before the Anthropic call, so a contractor who is already at
+  // ── Standalone expense receipt: skip doc-slot reservation and AI parse ──────
+  // "Log Expense $X" + photo sent on their own (no job description in the message).
+  // Expenses do not consume a monthly document slot.
+  if (isPureExpense) {
+    return await handleExpenseLog(db, uid, profile, plan, fromPhone, body, mediaUrl, mediaType);
+  }
+
+    // Checked here, before the Anthropic call, so a contractor who is already at
   // their ceiling does not cost an AI request per text. The authoritative
   // reservation happens transactionally at creation time below; this is only
   // the cheap early exit.
@@ -505,7 +655,32 @@ If a field is unknown, use empty string or 0.`,
     );
   }
 
+  // Carries an expense confirmation when a receipt was attached to this dispatch.
+  let expenseSummary = null;
+
   const invRef = await db.collection('users').doc(uid).collection('invoices').add(invoiceData);
+
+  // ── Expense receipt linked to this same dispatch ──────────────────────────────────────
+  // When the contractor includes "Log Expense $X" + a receipt photo in the SAME
+  // SMS as the job description, the expense is saved and linked to the new invoice.
+  if (isExpenseLog && !isPureExpense) {
+    try {
+      const expResult  = await saveExpense(db, uid, profile, plan, body, mediaUrl, mediaType, invRef.id);
+      const { receiptData, finalAmount, acctPlatform } = expResult;
+      const vendorPart = receiptData.vendor ? ` from ${receiptData.vendor}` : '';
+      const catLabel   = {
+        materials: 'Materials', fuel: 'Fuel', tools: 'Tools',
+        meals: 'Meals', office: 'Office Supplies', subcontractor: 'Subcontractor', other: 'General',
+      }[receiptData.category] || 'General';
+      const syncNote = (acctPlatform && acctPlatform !== 'none')
+        ? ` (syncing to ${acctPlatform === 'quickbooks' ? 'QuickBooks' : 'Zoho Books'})`
+        : '';
+      expenseSummary = `\u2705 Expense $${finalAmount.toFixed(2)}${vendorPart} — ${catLabel} logged & linked to this job${syncNote}.`;
+    } catch (err) {
+      console.error('[twilio-sms] linked expense save failed:', err.message);
+      expenseSummary = 'Could not save the receipt — resend "Log Expense $X" with the photo separately.';
+    }
+  }
 
   // ── Public, printable copy of the document ────────────────────────────────
   // doc.html renders /doc/<id> from the publicDocs collection: the customer-
@@ -681,6 +856,10 @@ If a field is unknown, use empty string or 0.`,
 
   if (guard.needsReview) {
     replyLines.push('Held for your review before sending — open it at portal-relay.com.');
+  }
+
+  if (expenseSummary) {
+    replyLines.push(expenseSummary);
   }
 
   // ── RelayPRO: ask about review consent for a customer we cannot text yet ──

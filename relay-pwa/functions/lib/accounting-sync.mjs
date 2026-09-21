@@ -166,6 +166,93 @@ async function createZohoInvoice(db, uid, invoiceData, profile) {
   };
 }
 
+
+// ── Zoho Books: create an expense ──────────────────────────────────────────────────────────────────
+
+const EXPENSE_CATEGORY_MAP = {
+  materials:     ['cost of goods', 'materials', 'purchases'],
+  fuel:          ['fuel', 'gas', 'vehicle', 'automobile', 'motor'],
+  tools:         ['tools', 'equipment', 'office supplies', 'office'],
+  meals:         ['meals', 'entertainment', 'food', 'dining'],
+  office:        ['office supplies', 'office', 'stationery'],
+  subcontractor: ['subcontractor', 'labor', 'professional'],
+  other:         ['general', 'administrative', 'miscellaneous'],
+};
+
+// Finds the best-matching Zoho expense account for a given category.
+// Falls back to the first available expense account.
+function pickZohoAccount(accounts, category) {
+  const keywords = EXPENSE_CATEGORY_MAP[category] || EXPENSE_CATEGORY_MAP.other;
+  for (const kw of keywords) {
+    const hit = accounts.find(a =>
+      a.account_name.toLowerCase().includes(kw)
+    );
+    if (hit) return hit;
+  }
+  return accounts[0] || null;
+}
+
+async function createZohoExpense(db, uid, expenseId, expenseData) {
+  const tokens = await ensureFreshToken(db, uid, 'zoho');
+  if (!tokens) throw new Error('Zoho not connected or token revoked');
+  const { accessToken, accountEmail } = tokens;
+
+  let orgId = tokens.organizationId;
+  if (!orgId) {
+    try {
+      orgId = await getZohoOrgId(accessToken);
+    } catch (err) {
+      const who = accountEmail ? ` The connection is authorized as ${accountEmail}.` : '';
+      throw new Error(`${err.message}${who}`);
+    }
+  }
+
+  // Pull expense accounts from Zoho chart of accounts.
+  let accounts = [];
+  try {
+    const data = await zohoApi(
+      `/chartofaccounts?organization_id=${orgId}&filter_by=AccountType.Expense`,
+      accessToken
+    );
+    accounts = data.chartofaccounts || [];
+  } catch (err) {
+    throw new Error(`Could not load Zoho chart of accounts: ${err.message}`);
+  }
+
+  const account = pickZohoAccount(accounts, expenseData.category);
+  if (!account) throw new Error('No expense accounts found in Zoho Books. Add at least one expense account.');
+
+  const amount      = parseFloat(expenseData.amount) || 0;
+  const description = [expenseData.vendor, expenseData.description].filter(Boolean).join(' — ')
+    || 'Business expense';
+  const date        = expenseData.date || new Date().toISOString().split('T')[0];
+
+  const body = {
+    account_id:        account.account_id,
+    date,
+    amount,
+    description:       description.slice(0, 500),
+    reference_number:  expenseId.slice(0, 100),
+    notes:             `Logged via Relay SMS | Category: ${expenseData.category || 'other'}`,
+  };
+
+  const data = await zohoApi(
+    `/expenses?organization_id=${orgId}`,
+    accessToken,
+    { method: 'POST', body: JSON.stringify(body) }
+  );
+
+  if (!data.expense) {
+    throw new Error('Zoho accepted expense request but returned no expense: '
+      + JSON.stringify(data).slice(0, 300));
+  }
+
+  return {
+    externalId:  data.expense.expense_id,
+    externalUrl: `https://books.zoho.com/app#/expenses/${data.expense.expense_id}`,
+  };
+}
+
 // ── QuickBooks Online ─────────────────────────────────────────────────────────
 
 async function findOrCreateQBCustomer(accessToken, realmId, invoiceData) {
@@ -259,6 +346,78 @@ async function createQuickBooksInvoice(db, uid, invoiceData) {
   };
 }
 
+
+// ── QuickBooks Online: create an expense (Purchase) ─────────────────────────────────
+
+const QB_ACCOUNT_REFS = {
+  materials:     { value: '1',  name: 'Cost of Goods Sold' },  // common default accounts
+  fuel:          { value: '64', name: 'Auto' },
+  tools:         { value: '64', name: 'Equipment Rental' },
+  meals:         { value: '13', name: 'Meals and Entertainment' },
+  office:        { value: '61', name: 'Office Supplies' },
+  subcontractor: { value: '55', name: 'Subcontractors' },
+  other:         { value: '7',  name: 'Other Business Expenses' },
+};
+
+async function createQuickBooksExpense(db, uid, expenseId, expenseData) {
+  const tokens = await ensureFreshToken(db, uid, 'quickbooks');
+  if (!tokens) throw new Error('QuickBooks not connected or token revoked');
+  const { accessToken, realmId } = tokens;
+  if (!realmId) throw new Error('QuickBooks realmId missing');
+
+  const baseUrl = `https://quickbooks.api.intuit.com/v3/company/${realmId}`;
+  const headers = {
+    Authorization:  `Bearer ${accessToken}`,
+    Accept:         'application/json',
+    'Content-Type': 'application/json',
+  };
+
+  // Try to find the named account by type so we use the contractor's real account IDs.
+  const acctRef = QB_ACCOUNT_REFS[expenseData.category] || QB_ACCOUNT_REFS.other;
+  let accountRef = acctRef;
+  try {
+    const acctName = acctRef.name.replace(/'/g, "''");
+    const q    = `SELECT * FROM Account WHERE Name = '${acctName}' MAXRESULTS 1`;
+    const resp = await fetch(`${baseUrl}/query?query=${encodeURIComponent(q)}&minorversion=65`, { headers });
+    const data = await resp.json();
+    const hit  = data.QueryResponse?.Account?.[0];
+    if (hit) accountRef = { value: hit.Id, name: hit.Name };
+  } catch (_) { /* use default ref */ }
+
+  const amount      = parseFloat(expenseData.amount) || 0;
+  const description = [expenseData.vendor, expenseData.description].filter(Boolean).join(' — ')
+    || 'Business expense';
+  const txnDate     = expenseData.date || new Date().toISOString().split('T')[0];
+
+  const purchaseBody = {
+    PaymentType: 'Cash',
+    AccountRef:  { value: '1', name: 'Checking' }, // default cash account
+    TxnDate:     txnDate,
+    PrivateNote: `Via Relay SMS | Ref: ${expenseId.slice(0, 30)}`,
+    Line: [{
+      DetailType:            'AccountBasedExpenseLineDetail',
+      Amount:                amount,
+      Description:           description.slice(0, 4000),
+      AccountBasedExpenseLineDetail: {
+        AccountRef: accountRef,
+      },
+    }],
+  };
+
+  const resp = await fetch(`${baseUrl}/purchase?minorversion=65`, {
+    method: 'POST', headers, body: JSON.stringify(purchaseBody),
+  });
+  const data = await resp.json();
+  if (!data.Purchase) {
+    throw new Error('QuickBooks expense (Purchase) creation failed: ' + JSON.stringify(data).slice(0, 300));
+  }
+
+  return {
+    externalId:  data.Purchase.Id,
+    externalUrl: `https://app.qbo.intuit.com/app/expense?txnId=${data.Purchase.Id}`,
+  };
+}
+
 // ── Main Entry Point ──────────────────────────────────────────────────────────
 
 /**
@@ -337,3 +496,59 @@ export async function syncInvoiceToAccounting(db, uid, invoiceId, invoiceData, p
     return { synced: false, provider, error: err.message };
   }
 }
+
+/**
+ * Sync an expense to the user's connected accounting platform.
+ * Never throws — errors are caught and written back to the expense doc.
+ */
+export async function syncExpenseToAccounting(db, uid, expenseId, expenseData, profile) {
+  let provider = profile?.accountingProvider || profile?.platform;
+
+  if (!provider) {
+    for (const candidate of ['zoho', 'quickbooks']) {
+      const snap = await db.collection('users').doc(uid)
+        .collection('oauth_tokens').doc(candidate).get();
+      if (snap.exists) { provider = candidate; break; }
+    }
+  }
+
+  if (!provider || provider === 'none') {
+    return { synced: false, reason: 'no_provider' };
+  }
+
+  const expenseRef = db.collection('users').doc(uid).collection('expenses').doc(expenseId);
+
+  try {
+    let result;
+    if (provider === 'zoho') {
+      result = await createZohoExpense(db, uid, expenseId, expenseData);
+    } else if (provider === 'quickbooks') {
+      result = await createQuickBooksExpense(db, uid, expenseId, expenseData);
+    } else {
+      throw new Error(`Unknown accounting provider: ${provider}`);
+    }
+
+    await expenseRef.update({
+      accountingSync: {
+        synced:      true,
+        provider,
+        externalId:  result.externalId,
+        externalUrl: result.externalUrl,
+        syncedAt:    new Date(),
+      },
+    });
+
+    console.log(`[accounting-sync] Synced expense ${expenseId} to ${provider}: ${result.externalId}`);
+    return { synced: true, provider, ...result };
+
+  } catch (err) {
+    console.error(`[accounting-sync] Expense sync failed for ${expenseId}:`, err.message);
+    try {
+      await expenseRef.update({
+        accountingSync: { synced: false, provider, error: err.message, failedAt: new Date() },
+      });
+    } catch (_) {}
+    return { synced: false, provider, error: err.message };
+  }
+}
+
